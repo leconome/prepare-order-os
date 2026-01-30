@@ -1,76 +1,147 @@
-version: '3.8'
-services:
-  medusa:
-    build:
-      context: ./apps/store
-      dockerfile: Dockerfile
-    container_name: medusa-backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    ports:
-      - "9000:9000"
-      - "5173:5173"
-    environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgres://medusa-user:medusa-password@postgres:5432/medusa-db
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=supersecret
-      - COOKIE_SECRET=supersecret
-      - MEDUSA_ADMIN_ONBOARDING_TYPE=default
-    env_file:
-      - ./apps/store/.env
-    volumes:
-      - ./apps/store:/server
-      - medusa_node_modules:/server/node_modules
-    networks:
-      - medusa_network
+version: "3.8"
 
-  postgres:
+services:
+  # ===================
+  # Reverse Proxy
+  # ===================
+  traefik:
+    image: traefik:v3.0
+    container_name: econome-traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=platform_network"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+
+  # ===================
+  # Platform Database
+  # ===================
+  platform-db:
     image: postgres:15-alpine
-    container_name: medusa-postgres
+    container_name: econome-platform-db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: medusa-db
-      POSTGRES_USER: medusa-user
-      POSTGRES_PASSWORD: medusa-password
+      POSTGRES_DB: platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: platform
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - platform_db_data:/var/lib/postgresql/data
+    networks:
+      - platform_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medusa-user -d medusa-db"]
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # ===================
+  # Provisioning API
+  # ===================
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: econome-api
+    restart: on-failure:3
+    depends_on:
+      platform-db:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgres://platform:platform@platform-db:5432/platform
+    volumes:
+      - ./apps/api/src:/app/src:ro
+      - ./apps/api/package.json:/app/package.json:ro
+      - ./apps/api/tsconfig.json:/app/tsconfig.json:ro
+      - ./apps/api/drizzle.config.ts:/app/drizzle.config.ts:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=3001"
+
+  # ===================
+  # Super Admin Dashboard
+  # ===================
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+    container_name: econome-admin
+    restart: on-failure:3
+    depends_on:
+      - api
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://api.localhost
+    volumes:
+      - ./apps/admin/src:/app/src:ro
+      - ./apps/admin/public:/app/public:ro
+      - ./apps/admin/package.json:/app/package.json:ro
+      - ./apps/admin/tsconfig.json:/app/tsconfig.json:ro
+      - ./apps/admin/next.config.js:/app/next.config.js:ro
+      - ./apps/admin/tailwind.config.ts:/app/tailwind.config.ts:ro
+      - ./apps/admin/postcss.config.js:/app/postcss.config.js:ro
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.localhost`)"
+      - "traefik.http.routers.admin.entrypoints=web"
+      - "traefik.http.services.admin.loadbalancer.server.port=3000"
+
+  # ===================
+  # Database UI (Development)
+  # ===================
   db-ui:
     image: sosedoff/pgweb
-    container_name: medusa-pgweb
-    restart: always
-    ports: 
-      - "8081:8081" 
-    links: 
-      - postgres:postgres
-    environment:
-      - DATABASE_URL=postgres://medusa-user:medusa-password@postgres:5432/medusa-db?sslmode=disable
-    depends_on:
-      - postgres
-  redis:
-    image: redis:latest
-    container_name: medusa-redis
-    ports:
-      - "6379:6379"
+    container_name: econome-pgweb
     restart: unless-stopped
-    
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgres://platform:platform@platform-db:5432/platform?sslmode=disable
+    depends_on:
+      - platform-db
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgweb.rule=Host(`db.localhost`)"
+      - "traefik.http.routers.pgweb.entrypoints=web"
+      - "traefik.http.services.pgweb.loadbalancer.server.port=8081"
 
 volumes:
-  postgres-data:
-  medusa_node_modules:
+  platform_db_data:
 
 networks:
-  medusa_network:
+  platform_network:
+    name: platform_network
     driver: bridge

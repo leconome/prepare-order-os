@@ -1,0 +1,402 @@
+import Docker from "dockerode";
+import type { Tenant, TenantConfig } from "../db/schema.js";
+
+const docker = new Docker({ socketPath: "/var/run/docker.sock" });
+
+// Use the official Medusa image as fallback, or custom built image
+const MEDUSA_IMAGE = process.env.MEDUSA_IMAGE || "econome/medusa:latest";
+const POSTGRES_IMAGE = "postgres:15-alpine";
+const REDIS_IMAGE = "redis:7-alpine";
+
+export interface ContainerInfo {
+  containerId: string;
+  containerName: string;
+  status: string;
+  port?: number;
+}
+
+export interface TenantContainers {
+  network: { networkId: string; networkName: string };
+  postgres: ContainerInfo;
+  redis: ContainerInfo;
+  medusa: ContainerInfo;
+}
+
+function getNetworkName(tenant: Tenant): string {
+  return `tenant_${tenant.slug}_network`;
+}
+
+function getContainerName(tenant: Tenant, service: string): string {
+  return `tenant_${tenant.slug}_${service}`;
+}
+
+export async function createTenantNetwork(tenant: Tenant): Promise<string> {
+  const networkName = getNetworkName(tenant);
+
+  // Check if network already exists
+  const networks = await docker.listNetworks({
+    filters: { name: [networkName] },
+  });
+
+  if (networks.length > 0) {
+    return networks[0].Id;
+  }
+
+  const network = await docker.createNetwork({
+    Name: networkName,
+    Driver: "bridge",
+    Labels: {
+      "econome.tenant.id": tenant.id,
+      "econome.tenant.slug": tenant.slug,
+    },
+  });
+
+  return network.id;
+}
+
+export async function createPostgresContainer(
+  tenant: Tenant,
+  networkName: string,
+  port: number
+): Promise<ContainerInfo> {
+  const containerName = getContainerName(tenant, "postgres");
+  const dbName = `medusa_${tenant.slug}`;
+  const dbUser = `medusa_${tenant.slug}`;
+  const dbPassword = generatePassword();
+
+  const container = await docker.createContainer({
+    Image: POSTGRES_IMAGE,
+    name: containerName,
+    Env: [
+      `POSTGRES_DB=${dbName}`,
+      `POSTGRES_USER=${dbUser}`,
+      `POSTGRES_PASSWORD=${dbPassword}`,
+    ],
+    Labels: {
+      "econome.tenant.id": tenant.id,
+      "econome.tenant.slug": tenant.slug,
+      "econome.service": "postgres",
+      "econome.db.name": dbName,
+      "econome.db.user": dbUser,
+      "econome.db.password": dbPassword,
+    },
+    HostConfig: {
+      NetworkMode: networkName,
+      PortBindings: {
+        "5432/tcp": [{ HostPort: port.toString() }],
+      },
+      RestartPolicy: { Name: "unless-stopped" },
+    },
+    Healthcheck: {
+      Test: ["CMD-SHELL", `pg_isready -U ${dbUser} -d ${dbName}`],
+      Interval: 5000000000, // 5s
+      Timeout: 5000000000,
+      Retries: 5,
+    },
+    ExposedPorts: { "5432/tcp": {} },
+  });
+
+  await container.start();
+
+  return {
+    containerId: container.id,
+    containerName,
+    status: "running",
+    port,
+  };
+}
+
+export async function createRedisContainer(
+  tenant: Tenant,
+  networkName: string,
+  port: number
+): Promise<ContainerInfo> {
+  const containerName = getContainerName(tenant, "redis");
+
+  const container = await docker.createContainer({
+    Image: REDIS_IMAGE,
+    name: containerName,
+    Labels: {
+      "econome.tenant.id": tenant.id,
+      "econome.tenant.slug": tenant.slug,
+      "econome.service": "redis",
+    },
+    HostConfig: {
+      NetworkMode: networkName,
+      PortBindings: {
+        "6379/tcp": [{ HostPort: port.toString() }],
+      },
+      RestartPolicy: { Name: "unless-stopped" },
+    },
+    Healthcheck: {
+      Test: ["CMD", "redis-cli", "ping"],
+      Interval: 5000000000,
+      Timeout: 5000000000,
+      Retries: 5,
+    },
+    ExposedPorts: { "6379/tcp": {} },
+  });
+
+  await container.start();
+
+  return {
+    containerId: container.id,
+    containerName,
+    status: "running",
+    port,
+  };
+}
+
+export async function createMedusaContainer(
+  tenant: Tenant,
+  networkName: string,
+  postgresContainer: ContainerInfo,
+  redisContainer: ContainerInfo,
+  apiPort: number,
+  adminPort: number
+): Promise<ContainerInfo> {
+  const containerName = getContainerName(tenant, "medusa");
+  const postgresName = getContainerName(tenant, "postgres");
+  const redisName = getContainerName(tenant, "redis");
+
+  // Get postgres credentials from container labels
+  const postgresContainerInfo = docker.getContainer(
+    postgresContainer.containerId
+  );
+  const postgresInspect = await postgresContainerInfo.inspect();
+  const labels = postgresInspect.Config.Labels || {};
+
+  const dbName = labels["econome.db.name"];
+  const dbUser = labels["econome.db.user"];
+  const dbPassword = labels["econome.db.password"];
+
+  const databaseUrl = `postgres://${dbUser}:${dbPassword}@${postgresName}:5432/${dbName}?sslmode=disable`;
+  const redisUrl = `redis://${redisName}:6379`;
+
+  const config = tenant.config as TenantConfig;
+
+  const container = await docker.createContainer({
+    Image: MEDUSA_IMAGE,
+    name: containerName,
+    Env: [
+      `DATABASE_URL=${databaseUrl}`,
+      `REDIS_URL=${redisUrl}`,
+      `CACHE_REDIS_URL=${redisUrl}`,
+      `JWT_SECRET=${generateSecret()}`,
+      `COOKIE_SECRET=${generateSecret()}`,
+      `STORE_CORS=${config.storeCors || "http://localhost:8000"}`,
+      `ADMIN_CORS=${config.adminCors || "http://localhost:5173,http://localhost:9000"}`,
+      `AUTH_CORS=${config.adminCors || "http://localhost:5173,http://localhost:9000,http://localhost:8000"}`,
+      `MEDUSA_ADMIN_ONBOARDING_TYPE=default`,
+      `ADMIN_EMAIL=${tenant.adminEmail || "admin@example.com"}`,
+      `ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,
+    ],
+    Labels: {
+      "econome.tenant.id": tenant.id,
+      "econome.tenant.slug": tenant.slug,
+      "econome.service": "medusa",
+      // Traefik labels for dynamic routing
+      "traefik.enable": "true",
+      "traefik.docker.network": "platform_network",
+      [`traefik.http.routers.${tenant.slug}-api.rule`]:
+        `Host(\`${tenant.subdomain}.localhost\`)`,
+      [`traefik.http.routers.${tenant.slug}-api.entrypoints`]: "web",
+      [`traefik.http.routers.${tenant.slug}-api.service`]: `${tenant.slug}-api`,
+      [`traefik.http.services.${tenant.slug}-api.loadbalancer.server.port`]:
+        "9000",
+    },
+    HostConfig: {
+      NetworkMode: networkName,
+      PortBindings: {
+        "9000/tcp": [{ HostPort: apiPort.toString() }],
+        "5173/tcp": [{ HostPort: adminPort.toString() }],
+      },
+      RestartPolicy: { Name: "unless-stopped" },
+    },
+    Healthcheck: {
+      Test: ["CMD", "curl", "-f", "http://localhost:9000/health"],
+      Interval: 10000000000, // 10s
+      Timeout: 10000000000,
+      Retries: 10,
+      StartPeriod: 60000000000, // 60s - give Medusa time to start
+    },
+    ExposedPorts: {
+      "9000/tcp": {},
+      "5173/tcp": {},
+    },
+  });
+
+  await container.start();
+
+  // Connect to platform_network for Traefik routing
+  try {
+    const platformNetwork = docker.getNetwork("platform_network");
+    await platformNetwork.connect({ Container: container.id });
+  } catch (err) {
+    console.warn("Could not connect to platform_network:", err);
+  }
+
+  return {
+    containerId: container.id,
+    containerName,
+    status: "running",
+    port: apiPort,
+  };
+}
+
+export async function waitForHealthy(
+  containerId: string,
+  timeoutMs: number = 120000
+): Promise<boolean> {
+  const container = docker.getContainer(containerId);
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < timeoutMs) {
+    const info = await container.inspect();
+    const health = info.State.Health;
+
+    if (health?.Status === "healthy") {
+      return true;
+    }
+
+    if (info.State.Status === "exited" || info.State.Status === "dead") {
+      throw new Error(`Container ${containerId} exited unexpectedly`);
+    }
+
+    await sleep(2000);
+  }
+
+  return false;
+}
+
+export async function startContainer(containerId: string): Promise<void> {
+  const container = docker.getContainer(containerId);
+  await container.start();
+}
+
+export async function stopContainer(containerId: string): Promise<void> {
+  const container = docker.getContainer(containerId);
+  await container.stop();
+}
+
+export async function restartContainer(containerId: string): Promise<void> {
+  const container = docker.getContainer(containerId);
+  await container.restart();
+}
+
+export async function removeContainer(containerId: string): Promise<void> {
+  const container = docker.getContainer(containerId);
+  try {
+    await container.stop();
+  } catch {
+    // Container might already be stopped
+  }
+  await container.remove({ force: true });
+}
+
+export async function removeNetwork(networkId: string): Promise<void> {
+  const network = docker.getNetwork(networkId);
+  await network.remove();
+}
+
+export async function getContainerLogs(
+  containerId: string,
+  tail: number = 100
+): Promise<string> {
+  const container = docker.getContainer(containerId);
+  const logs = await container.logs({
+    stdout: true,
+    stderr: true,
+    tail,
+    timestamps: true,
+  });
+
+  return logs.toString("utf-8");
+}
+
+export async function getContainerStats(
+  containerId: string
+): Promise<{ cpu: number; memory: number; memoryLimit: number }> {
+  const container = docker.getContainer(containerId);
+  const stats = await container.stats({ stream: false });
+
+  // Calculate CPU percentage
+  const cpuDelta =
+    stats.cpu_stats.cpu_usage.total_usage -
+    stats.precpu_stats.cpu_usage.total_usage;
+  const systemDelta =
+    stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+  const cpuPercent =
+    systemDelta > 0 ? (cpuDelta / systemDelta) * 100 : 0;
+
+  return {
+    cpu: Math.round(cpuPercent * 100) / 100,
+    memory: stats.memory_stats.usage || 0,
+    memoryLimit: stats.memory_stats.limit || 0,
+  };
+}
+
+export async function getContainerStatus(
+  containerId: string
+): Promise<string> {
+  try {
+    const container = docker.getContainer(containerId);
+    const info = await container.inspect();
+    return info.State.Status;
+  } catch {
+    return "not_found";
+  }
+}
+
+export async function listTenantContainers(
+  tenantId: string
+): Promise<Docker.ContainerInfo[]> {
+  return docker.listContainers({
+    all: true,
+    filters: {
+      label: [`econome.tenant.id=${tenantId}`],
+    },
+  });
+}
+
+// Utility functions
+function generatePassword(length: number = 24): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function generateSecret(length: number = 32): string {
+  return generatePassword(length);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Port allocation
+let nextPostgresPort = 5500;
+let nextRedisPort = 6400;
+let nextMedusaApiPort = 9100;
+let nextMedusaAdminPort = 5200;
+
+export function allocatePorts(): {
+  postgres: number;
+  redis: number;
+  medusaApi: number;
+  medusaAdmin: number;
+} {
+  const ports = {
+    postgres: nextPostgresPort++,
+    redis: nextRedisPort++,
+    medusaApi: nextMedusaApiPort++,
+    medusaAdmin: nextMedusaAdminPort++,
+  };
+  return ports;
+}
+
+export { docker };

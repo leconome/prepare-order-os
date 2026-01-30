@@ -1,0 +1,12 @@
+node_modules
+.medusa
+.git
+.gitignore
+*.log
+README.md
+CHANGELOG.md
+.env*
+!.env.template
+.DS_Store
+coverage
+.turbo

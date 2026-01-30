@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Copy package files first
+COPY package.json pnpm-lock.yaml* ./
+
+# Install dependencies
+RUN pnpm install
+
+# Copy source (will be overridden by volume in dev)
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Install deps and start (handles volume mount case)
+CMD sh -c "if [ ! -d node_modules ] || [ ! -f node_modules/next/dist/bin/next ]; then pnpm install; fi && pnpm dev"

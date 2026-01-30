@@ -1,0 +1,48 @@
+# Dynamic Traefik configuration for platform services
+# Tenant routes are configured via Docker labels when containers are created
+
+http:
+  routers:
+    # Catch-all for tenant subdomains (handled by Docker labels on tenant containers)
+    tenant-catchall:
+      rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.localhost`)"
+      entrypoints:
+        - web
+      service: noop@internal
+      priority: 1
+
+  middlewares:
+    # Rate limiting for API
+    api-ratelimit:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    # Security headers
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+
+    # CORS for API
+    api-cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Content-Type
+          - Authorization
+        accessControlAllowOriginList:
+          - "http://admin.localhost"
+          - "http://localhost:3000"
+        accessControlMaxAge: 100
+        addVaryHeader: true

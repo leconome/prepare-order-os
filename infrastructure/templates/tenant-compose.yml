@@ -1,0 +1,96 @@
+# Template for tenant Docker Compose
+# Variables: {{TENANT_SLUG}}, {{TENANT_SUBDOMAIN}}, {{DB_PASSWORD}}, {{JWT_SECRET}}, {{COOKIE_SECRET}}
+# Ports: {{POSTGRES_PORT}}, {{REDIS_PORT}}, {{MEDUSA_API_PORT}}, {{MEDUSA_ADMIN_PORT}}
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: tenant_{{TENANT_SLUG}}_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: medusa_{{TENANT_SLUG}}
+      POSTGRES_USER: medusa_{{TENANT_SLUG}}
+      POSTGRES_PASSWORD: "{{DB_PASSWORD}}"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - tenant_{{TENANT_SLUG}}_postgres_data:/var/lib/postgresql/data
+    networks:
+      - tenant_{{TENANT_SLUG}}_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medusa_{{TENANT_SLUG}} -d medusa_{{TENANT_SLUG}}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "econome.tenant.slug={{TENANT_SLUG}}"
+      - "econome.service=postgres"
+
+  redis:
+    image: redis:7-alpine
+    container_name: tenant_{{TENANT_SLUG}}_redis
+    restart: unless-stopped
+    networks:
+      - tenant_{{TENANT_SLUG}}_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "econome.tenant.slug={{TENANT_SLUG}}"
+      - "econome.service=redis"
+
+  medusa:
+    image: econome/medusa:latest
+    container_name: tenant_{{TENANT_SLUG}}_medusa
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://medusa_{{TENANT_SLUG}}:{{DB_PASSWORD}}@postgres:5432/medusa_{{TENANT_SLUG}}
+      - REDIS_URL=redis://redis:6379
+      - CACHE_REDIS_URL=redis://redis:6379
+      - JWT_SECRET={{JWT_SECRET}}
+      - COOKIE_SECRET={{COOKIE_SECRET}}
+      - STORE_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
+      - ADMIN_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
+      - AUTH_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
+    networks:
+      - tenant_{{TENANT_SLUG}}_network
+      - platform_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "econome.tenant.slug={{TENANT_SLUG}}"
+      - "econome.service=medusa"
+      - "traefik.enable=true"
+      - "traefik.docker.network=platform_network"
+      # API router
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.rule=Host(`{{TENANT_SUBDOMAIN}}.localhost`)"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.entrypoints=web"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.service={{TENANT_SLUG}}-api"
+      - "traefik.http.services.{{TENANT_SLUG}}-api.loadbalancer.server.port=9000"
+      # Admin router
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.rule=Host(`{{TENANT_SUBDOMAIN}}.localhost`) && PathPrefix(`/app`)"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.entrypoints=web"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.service={{TENANT_SLUG}}-admin"
+      - "traefik.http.services.{{TENANT_SLUG}}-admin.loadbalancer.server.port=5173"
+
+volumes:
+  tenant_{{TENANT_SLUG}}_postgres_data:
+
+networks:
+  tenant_{{TENANT_SLUG}}_network:
+    driver: bridge
+  platform_network:
+    external: true
