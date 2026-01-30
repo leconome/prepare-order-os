@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 
 import tenantsRoutes from "./routes/tenants.js";
 import healthRoutes from "./routes/health.js";
+import imagesRoutes from "./routes/images.js";
 
 const app = new Hono();
 
@@ -25,6 +26,7 @@ app.use(
 // Routes
 app.route("/tenants", tenantsRoutes);
 app.route("/health", healthRoutes);
+app.route("/images", imagesRoutes);
 
 // Root endpoint
 app.get("/", (c) => {
@@ -33,6 +35,7 @@ app.get("/", (c) => {
     version: "1.0.0",
     endpoints: {
       tenants: "/tenants",
+      images: "/images",
       health: "/health",
     },
   });

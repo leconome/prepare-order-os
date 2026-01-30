@@ -27,6 +27,15 @@ const createTenantSchema = z.object({
       environment: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  version: z.string().min(1).max(50).optional(),
+});
+
+const provisionTenantSchema = z.object({
+  version: z.string().min(1).max(50).optional(),
+});
+
+const upgradeTenantSchema = z.object({
+  version: z.string().min(1).max(50),
 });
 
 const updateTenantSchema = z.object({
@@ -92,10 +101,11 @@ tenants.post("/", zValidator("json", createTenantSchema), async (c) => {
 });
 
 // POST /tenants/:id/provision - Provision tenant containers
-tenants.post("/:id/provision", async (c) => {
+tenants.post("/:id/provision", zValidator("json", provisionTenantSchema.optional()), async (c) => {
   try {
     const id = c.req.param("id");
-    const tenant = await tenantService.provisionTenant(id);
+    const body = c.req.valid("json");
+    const tenant = await tenantService.provisionTenant(id, body?.version);
     return c.json({ tenant });
   } catch (error) {
     console.error("Error provisioning tenant:", error);
@@ -163,6 +173,22 @@ tenants.post("/:id/restart", async (c) => {
     console.error("Error restarting tenant:", error);
     return c.json(
       { error: error instanceof Error ? error.message : "Failed to restart tenant" },
+      500
+    );
+  }
+});
+
+// POST /tenants/:id/upgrade - Upgrade tenant to a new version
+tenants.post("/:id/upgrade", zValidator("json", upgradeTenantSchema), async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { version } = c.req.valid("json");
+    const tenant = await tenantService.upgradeTenant(id, version);
+    return c.json({ tenant });
+  } catch (error) {
+    console.error("Error upgrading tenant:", error);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Failed to upgrade tenant" },
       500
     );
   }

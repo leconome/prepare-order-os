@@ -1,0 +1,151 @@
+# ===========================================
+# Platform Deployment Workflow
+# ===========================================
+# Deploys the Econome platform to production VPS
+#
+# Triggers:
+#   - Push to main branch
+#   - Manual dispatch from GitHub Actions UI
+#
+# Required Secrets:
+#   - VPS_HOST: IP address or hostname of the VPS
+#   - VPS_USER: SSH username (e.g., 'deploy')
+#   - VPS_SSH_KEY: Private SSH key for authentication
+#   - VPS_SSH_KNOWN_HOSTS: Known hosts entry for the VPS (optional but recommended)
+
+name: Deploy Platform
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/api/**'
+      - 'apps/admin/**'
+      - 'docker-compose.prod.yml'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-platform.yml'
+  workflow_dispatch:
+    inputs:
+      build:
+        description: 'Force rebuild Docker images'
+        required: false
+        default: false
+        type: boolean
+      migrate:
+        description: 'Run database migrations'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  APP_DIR: /opt/econome
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          if [ -n "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" ]; then
+            echo "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          fi
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          BUILD_FLAG: ${{ github.event.inputs.build == 'true' && '--build' || '' }}
+          MIGRATE_FLAG: ${{ github.event.inputs.migrate == 'true' && '--migrate' || '' }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << 'ENDSSH'
+          set -e
+
+          echo "=== Navigating to application directory ==="
+          cd ${{ env.APP_DIR }}
+
+          echo "=== Pulling latest code ==="
+          git fetch origin
+          git reset --hard origin/main
+
+          echo "=== Running deployment script ==="
+          bash scripts/deploy.sh $BUILD_FLAG $MIGRATE_FLAG
+
+          echo "=== Deployment complete ==="
+          ENDSSH
+
+      - name: Health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          # Wait for services to stabilize
+          sleep 15
+
+          # Check health endpoint via SSH
+          ssh $VPS_USER@$VPS_HOST << 'ENDSSH'
+          echo "Checking API health..."
+          curl -sf http://localhost:3001/health && echo "API is healthy" || echo "API health check failed"
+
+          echo "Checking container status..."
+          cd /opt/econome
+          docker compose -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment failed! Check the logs above for details."
+          # Add Slack/Discord notification here if needed
+
+  # ===========================================
+  # Rollback Job (Manual Trigger Only)
+  # ===========================================
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event_name == 'workflow_dispatch' && false  # Disabled by default
+
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rollback
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << 'ENDSSH'
+          set -e
+          cd ${{ env.APP_DIR }}
+
+          echo "=== Rolling back to previous commit ==="
+          git checkout HEAD~1
+
+          echo "=== Rebuilding and restarting services ==="
+          docker compose -f docker-compose.prod.yml up -d --build
+
+          echo "=== Rollback complete ==="
+          ENDSSH

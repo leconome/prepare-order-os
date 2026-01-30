@@ -8,6 +8,7 @@ import {
   integer,
   decimal,
   pgEnum,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -45,6 +46,8 @@ export const eventTypeEnum = pgEnum("event_type", [
   "failed",
   "terminating",
   "terminated",
+  "upgrade_started",
+  "upgrade_completed",
 ]);
 
 export const metricTypeEnum = pgEnum("metric_type", [
@@ -67,6 +70,9 @@ export const tenants = pgTable("tenants", {
   config: jsonb("config").$type<TenantConfig>().default({}),
   adminEmail: varchar("admin_email", { length: 255 }),
   adminPassword: varchar("admin_password", { length: 255 }),
+  medusaVersion: varchar("medusa_version", { length: 50 }),
+  imageTag: varchar("image_tag", { length: 255 }),
+  lastUpgradedAt: timestamp("last_upgraded_at", { mode: "date" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
@@ -115,6 +121,17 @@ export const platformConfig = pgTable("platform_config", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const platformImages = pgTable("platform_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  version: varchar("version", { length: 50 }).notNull().unique(),
+  imageTag: varchar("image_tag", { length: 255 }).notNull(),
+  commitSha: varchar("commit_sha", { length: 40 }),
+  releaseNotes: text("release_notes"),
+  isLatest: boolean("is_latest").default(false),
+  isDeprecated: boolean("is_deprecated").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
 // Types
 export type TenantConfig = {
   medusaPort?: number;
@@ -134,3 +151,5 @@ export type TenantEvent = typeof tenantEvents.$inferSelect;
 export type NewTenantEvent = typeof tenantEvents.$inferInsert;
 export type TenantMetric = typeof tenantMetrics.$inferSelect;
 export type NewTenantMetric = typeof tenantMetrics.$inferInsert;
+export type PlatformImage = typeof platformImages.$inferSelect;
+export type NewPlatformImage = typeof platformImages.$inferInsert;

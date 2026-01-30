@@ -1,24 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, type CreateTenantInput } from "@/lib/api";
+import { api, type CreateTenantInput, type PlatformImage } from "@/lib/api";
 
 export function CreateTenantForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<PlatformImage[]>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
   const [formData, setFormData] = useState<CreateTenantInput>({
     name: "",
     slug: "",
     subdomain: "",
     adminEmail: "",
     adminPassword: "",
+    version: "",
   });
+
+  useEffect(() => {
+    async function loadImages() {
+      try {
+        const { images: availableImages } = await api.listImages();
+        setImages(availableImages.filter((img) => !img.isDeprecated));
+        // Set default to latest version
+        const latest = availableImages.find((img) => img.isLatest);
+        if (latest) {
+          setFormData((prev) => ({ ...prev, version: latest.version }));
+        }
+      } catch (err) {
+        console.error("Failed to load images:", err);
+      } finally {
+        setLoadingImages(false);
+      }
+    }
+    loadImages();
+  }, []);
 
   const handleNameChange = (name: string) => {
     const slug = name
@@ -107,6 +129,40 @@ export function CreateTenantForm() {
                   .localhost
                 </span>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-6">
+            <h4 className="mb-4 font-medium">Medusa Version</h4>
+            <div className="space-y-2">
+              <Label htmlFor="version">Version</Label>
+              <select
+                id="version"
+                value={formData.version || ""}
+                onChange={(e) => setFormData((prev) => ({ ...prev, version: e.target.value }))}
+                disabled={loadingImages}
+                className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loadingImages ? (
+                  <option value="">Loading versions...</option>
+                ) : images.length === 0 ? (
+                  <option value="">No versions available (using default)</option>
+                ) : (
+                  <>
+                    <option value="">Select a version</option>
+                    {images.map((image) => (
+                      <option key={image.id} value={image.version}>
+                        {image.version}
+                        {image.isLatest && " (Latest)"}
+                        {image.createdAt && ` - ${new Date(image.createdAt).toLocaleDateString()}`}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              <p className="text-xs text-zinc-500">
+                Select the Medusa version for this tenant. Leave empty to use the default image.
+              </p>
             </div>
           </div>
 

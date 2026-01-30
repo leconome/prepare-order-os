@@ -15,8 +15,22 @@ export interface Tenant {
     adminCors?: string;
   };
   adminEmail?: string;
+  medusaVersion?: string | null;
+  imageTag?: string | null;
+  lastUpgradedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PlatformImage {
+  id: string;
+  version: string;
+  imageTag: string;
+  commitSha?: string | null;
+  releaseNotes?: string | null;
+  isLatest: boolean;
+  isDeprecated: boolean;
+  createdAt: string;
 }
 
 export interface TenantWithResources extends Tenant {
@@ -50,6 +64,7 @@ export interface CreateTenantInput {
     storeCors?: string;
     adminCors?: string;
   };
+  version?: string;
 }
 
 class ApiClient {
@@ -105,9 +120,10 @@ class ApiClient {
     });
   }
 
-  async provisionTenant(id: string): Promise<{ tenant: Tenant }> {
+  async provisionTenant(id: string, version?: string): Promise<{ tenant: Tenant }> {
     return this.request(`/tenants/${id}/provision`, {
       method: "POST",
+      body: version ? JSON.stringify({ version }) : undefined,
     });
   }
 
@@ -139,6 +155,22 @@ class ApiClient {
 
   async getTenantEvents(id: string, limit: number = 50): Promise<{ events: TenantEvent[] }> {
     return this.request(`/tenants/${id}/events?limit=${limit}`);
+  }
+
+  async upgradeTenant(id: string, version: string): Promise<{ tenant: Tenant }> {
+    return this.request(`/tenants/${id}/upgrade`, {
+      method: "POST",
+      body: JSON.stringify({ version }),
+    });
+  }
+
+  // Images
+  async listImages(): Promise<{ images: PlatformImage[] }> {
+    return this.request("/images");
+  }
+
+  async getLatestImage(): Promise<{ image: PlatformImage }> {
+    return this.request("/images/latest");
   }
 
   // Health

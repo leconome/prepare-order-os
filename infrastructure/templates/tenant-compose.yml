@@ -1,5 +1,6 @@
 # Template for tenant Docker Compose
-# Variables: {{TENANT_SLUG}}, {{TENANT_SUBDOMAIN}}, {{DB_PASSWORD}}, {{JWT_SECRET}}, {{COOKIE_SECRET}}
+# Variables: {{TENANT_SLUG}}, {{TENANT_SUBDOMAIN}}, {{DB_PASSWORD}}, {{JWT_SECRET}}, {{COOKIE_SECRET}}, {{IMAGE_TAG}}
+# Production Variables: {{DOMAIN}} (e.g., prepareos.fr)
 # Ports: {{POSTGRES_PORT}}, {{REDIS_PORT}}, {{MEDUSA_API_PORT}}, {{MEDUSA_ADMIN_PORT}}
 
 version: "3.8"
@@ -43,7 +44,7 @@ services:
       - "econome.service=redis"
 
   medusa:
-    image: econome/medusa:latest
+    image: "{{IMAGE_TAG}}"
     container_name: tenant_{{TENANT_SLUG}}_medusa
     restart: unless-stopped
     depends_on:
@@ -58,9 +59,9 @@ services:
       - CACHE_REDIS_URL=redis://redis:6379
       - JWT_SECRET={{JWT_SECRET}}
       - COOKIE_SECRET={{COOKIE_SECRET}}
-      - STORE_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
-      - ADMIN_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
-      - AUTH_CORS=https://{{TENANT_SUBDOMAIN}}.example.com
+      - STORE_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
+      - ADMIN_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
+      - AUTH_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
     networks:
       - tenant_{{TENANT_SLUG}}_network
       - platform_network
@@ -75,15 +76,21 @@ services:
       - "econome.service=medusa"
       - "traefik.enable=true"
       - "traefik.docker.network=platform_network"
-      # API router
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.rule=Host(`{{TENANT_SUBDOMAIN}}.localhost`)"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.entrypoints=web"
+      # API router (HTTPS)
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.rule=Host(`{{TENANT_SUBDOMAIN}}.{{DOMAIN}}`)"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.entrypoints=websecure"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.tls=true"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.{{TENANT_SLUG}}-api.service={{TENANT_SLUG}}-api"
+      - "traefik.http.routers.{{TENANT_SLUG}}-api.middlewares=tenant-cors@file,security-headers@file"
       - "traefik.http.services.{{TENANT_SLUG}}-api.loadbalancer.server.port=9000"
-      # Admin router
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.rule=Host(`{{TENANT_SUBDOMAIN}}.localhost`) && PathPrefix(`/app`)"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.entrypoints=web"
+      # Admin router (HTTPS with path prefix)
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.rule=Host(`{{TENANT_SUBDOMAIN}}.{{DOMAIN}}`) && PathPrefix(`/app`)"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.entrypoints=websecure"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.tls=true"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.tls.certresolver=letsencrypt"
       - "traefik.http.routers.{{TENANT_SLUG}}-admin.service={{TENANT_SLUG}}-admin"
+      - "traefik.http.routers.{{TENANT_SLUG}}-admin.middlewares=security-headers@file"
       - "traefik.http.services.{{TENANT_SLUG}}-admin.loadbalancer.server.port=5173"
 
 volumes:

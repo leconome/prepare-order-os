@@ -604,6 +604,146 @@ econome-prepare-os/
 
 ---
 
+## Image Versioning & Registry
+
+### Overview
+
+The platform supports container image versioning, allowing each tenant to run a specific Medusa version with the ability to upgrade from the Super Admin Dashboard.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  GIT REPOSITORY                                                 │
+│                                                                 │
+│  apps/store/ ──► git tag v1.0.0 ──► GitHub Actions             │
+│                                           │                     │
+│                                           ▼                     │
+│                                    docker build & push          │
+│                                           │                     │
+│                                           ▼                     │
+│                              ┌─────────────────────┐            │
+│                              │  ghcr.io/leconome   │            │
+│                              ├─────────────────────┤            │
+│                              │  medusa:1.0.0       │◄── latest  │
+│                              │  medusa:0.9.0       │            │
+│                              │  medusa:0.8.0       │            │
+│                              └─────────────────────┘            │
+│                                           │                     │
+│                              ┌────────────┴───────────┐         │
+│                              ▼                        ▼         │
+│               Provisioning API pulls      CI calls POST /images │
+│               image for tenants           to auto-register      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration
+
+| Setting | Value |
+|---------|-------|
+| **Registry** | GitHub Container Registry (ghcr.io) |
+| **Organization** | `leconome` |
+| **Image path** | `ghcr.io/leconome/medusa` |
+| **Visibility** | Public (no auth needed for pulls) |
+| **Version registration** | Auto-register from CI/CD |
+
+### API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/images` | List all available Medusa versions | None |
+| `GET` | `/images/latest` | Get the latest stable version | None |
+| `POST` | `/images` | Register a new image version (CI/CD) | API Key |
+| `PATCH` | `/images/:version` | Update image metadata | API Key |
+| `DELETE` | `/images/:version` | Remove a version | API Key |
+| `POST` | `/tenants/:id/upgrade` | Upgrade tenant to specified version | None |
+
+### Database Schema
+
+**Tenant table additions:**
+```sql
+medusa_version VARCHAR(50)     -- e.g., "1.0.0"
+image_tag VARCHAR(255)         -- e.g., "ghcr.io/leconome/medusa:1.0.0"
+last_upgraded_at TIMESTAMP
+```
+
+**Platform images table:**
+```sql
+CREATE TABLE platform_images (
+  id UUID PRIMARY KEY,
+  version VARCHAR(50) NOT NULL UNIQUE,
+  image_tag VARCHAR(255) NOT NULL,
+  commit_sha VARCHAR(40),
+  release_notes TEXT,
+  is_latest BOOLEAN DEFAULT FALSE,
+  is_deprecated BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Upgrade Flow
+
+```mermaid
+sequenceDiagram
+    participant Admin as Super Admin
+    participant API as Provisioning API
+    participant Docker as Docker Engine
+    participant Tenant as Tenant Container
+
+    Admin->>API: POST /tenants/:id/upgrade {version: "1.1.0"}
+    API->>API: Validate version exists
+    API->>Docker: Pull new image
+    Docker->>API: Image ready
+    API->>Tenant: Stop Medusa container
+    API->>Docker: Remove old container
+    API->>Docker: Create new container with new image
+    Docker->>API: Container created
+    API->>Tenant: Start new container
+    API->>API: Update tenant record
+    API->>Admin: Upgrade complete
+```
+
+### CI/CD Workflow
+
+The GitHub Actions workflow (`.github/workflows/build-medusa.yml`) handles:
+
+1. **Trigger**: Push tags matching `v*` or manual dispatch
+2. **Build**: Docker build from `apps/store/`
+3. **Push**: Upload to `ghcr.io/leconome/medusa`
+4. **Register**: Call `POST /images` to register version
+
+**Required secrets:**
+- `PLATFORM_API_URL`: Provisioning API URL
+- `PLATFORM_API_KEY`: API key for authentication
+
+### Admin Dashboard Features
+
+- **Create Tenant**: Version selector dropdown (defaults to latest)
+- **Tenant Detail**: Shows current version, "Upgrade Available" badge when newer version exists
+- **Version Management**: Select target version, click upgrade button
+
+### Environment Variables
+
+```env
+# apps/api/.env
+DEFAULT_MEDUSA_IMAGE=ghcr.io/leconome/medusa:latest
+API_KEY=your-secure-api-key-here
+```
+
+### Testing Locally
+
+```bash
+# Build and tag local image
+docker build -t ghcr.io/leconome/medusa:1.0.0 ./apps/store
+docker tag ghcr.io/leconome/medusa:1.0.0 ghcr.io/leconome/medusa:latest
+
+# Register version in database
+INSERT INTO platform_images (version, image_tag, is_latest)
+VALUES ('1.0.0', 'ghcr.io/leconome/medusa:1.0.0', true);
+```
+
+---
+
 ## Risk Mitigation
 
 | Risk | Impact | Mitigation |

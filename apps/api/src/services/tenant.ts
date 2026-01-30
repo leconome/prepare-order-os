@@ -4,6 +4,7 @@ import {
   tenants,
   tenantResources,
   tenantEvents,
+  platformImages,
   type Tenant,
   type TenantConfig,
 } from "../db/schema.js";
@@ -16,6 +17,7 @@ export interface CreateTenantInput {
   adminEmail?: string;
   adminPassword?: string;
   config?: TenantConfig;
+  version?: string;
 }
 
 export interface TenantWithResources extends Tenant {
@@ -95,12 +97,51 @@ export async function createTenant(input: CreateTenantInput): Promise<Tenant> {
 }
 
 // Provision tenant containers
-export async function provisionTenant(tenantId: string): Promise<Tenant> {
+export async function provisionTenant(
+  tenantId: string,
+  version?: string
+): Promise<Tenant> {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error("Tenant not found");
 
   if (tenant.status !== "pending" && tenant.status !== "failed") {
     throw new Error(`Cannot provision tenant in status: ${tenant.status}`);
+  }
+
+  // Resolve image tag from version
+  let imageTag: string | undefined;
+  let medusaVersion: string | undefined;
+
+  if (version) {
+    const [image] = await db
+      .select()
+      .from(platformImages)
+      .where(eq(platformImages.version, version))
+      .limit(1);
+
+    if (!image) {
+      throw new Error(`Version ${version} not found`);
+    }
+
+    if (image.isDeprecated) {
+      throw new Error(`Version ${version} is deprecated`);
+    }
+
+    imageTag = image.imageTag;
+    medusaVersion = image.version;
+  } else {
+    // Try to get the latest version
+    const [latestImage] = await db
+      .select()
+      .from(platformImages)
+      .where(eq(platformImages.isLatest, true))
+      .limit(1);
+
+    if (latestImage) {
+      imageTag = latestImage.imageTag;
+      medusaVersion = latestImage.version;
+    }
+    // If no version in DB, will use default image from docker service
   }
 
   // Update status to provisioning
@@ -109,9 +150,21 @@ export async function provisionTenant(tenantId: string): Promise<Tenant> {
     .set({ status: "provisioning", updatedAt: new Date() })
     .where(eq(tenants.id, tenantId));
 
-  await logEvent(tenantId, "provisioning_started", "Starting container provisioning");
+  await logEvent(
+    tenantId,
+    "provisioning_started",
+    `Starting container provisioning${medusaVersion ? ` with version ${medusaVersion}` : ""}`
+  );
 
   try {
+    // Pull the image if specified
+    if (imageTag) {
+      const exists = await dockerService.imageExists(imageTag);
+      if (!exists) {
+        await dockerService.pullImage(imageTag);
+      }
+    }
+
     const ports = dockerService.allocatePorts();
 
     // Create network
@@ -164,14 +217,15 @@ export async function provisionTenant(tenantId: string): Promise<Tenant> {
     // Wait for Redis to be healthy
     await dockerService.waitForHealthy(redis.containerId, 30000);
 
-    // Create Medusa
+    // Create Medusa with specific image tag
     const medusa = await dockerService.createMedusaContainer(
       tenant,
       networkName,
       postgres,
       redis,
       ports.medusaApi,
-      ports.medusaAdmin
+      ports.medusaAdmin,
+      imageTag
     );
 
     await db.insert(tenantResources).values({
@@ -181,14 +235,16 @@ export async function provisionTenant(tenantId: string): Promise<Tenant> {
       containerName: medusa.containerName,
       status: "running",
       port: medusa.port,
-      metadata: { adminPort: ports.medusaAdmin },
+      metadata: { adminPort: ports.medusaAdmin, imageTag },
     });
 
-    // Update tenant status and config with allocated ports
+    // Update tenant status, config with allocated ports, and version info
     const [updatedTenant] = await db
       .update(tenants)
       .set({
         status: "running",
+        medusaVersion: medusaVersion || null,
+        imageTag: imageTag || null,
         config: {
           ...(tenant.config as TenantConfig),
           postgresPort: ports.postgres,
@@ -309,6 +365,143 @@ export async function restartTenant(tenantId: string): Promise<Tenant> {
   await logEvent(tenantId, "restarted", "Tenant containers restarted");
 
   return updatedTenant;
+}
+
+// Upgrade tenant to a new Medusa version
+export async function upgradeTenant(
+  tenantId: string,
+  targetVersion: string
+): Promise<Tenant> {
+  const tenant = await getTenant(tenantId);
+  if (!tenant) throw new Error("Tenant not found");
+
+  if (tenant.status !== "running" && tenant.status !== "stopped") {
+    throw new Error(`Cannot upgrade tenant in status: ${tenant.status}`);
+  }
+
+  // Get target version image
+  const [targetImage] = await db
+    .select()
+    .from(platformImages)
+    .where(eq(platformImages.version, targetVersion))
+    .limit(1);
+
+  if (!targetImage) {
+    throw new Error(`Version ${targetVersion} not found`);
+  }
+
+  if (targetImage.isDeprecated) {
+    throw new Error(`Version ${targetVersion} is deprecated`);
+  }
+
+  if (tenant.medusaVersion === targetVersion) {
+    throw new Error(`Tenant is already running version ${targetVersion}`);
+  }
+
+  const previousVersion = tenant.medusaVersion;
+
+  await logEvent(
+    tenantId,
+    "upgrade_started",
+    `Upgrading from ${previousVersion || "unknown"} to ${targetVersion}`,
+    { previousVersion, targetVersion }
+  );
+
+  try {
+    // Pull the new image
+    const exists = await dockerService.imageExists(targetImage.imageTag);
+    if (!exists) {
+      await dockerService.pullImage(targetImage.imageTag);
+    }
+
+    // Find the medusa resource
+    const medusaResource = tenant.resources.find((r) => r.resourceType === "medusa");
+    if (!medusaResource?.containerId) {
+      throw new Error("Medusa container not found");
+    }
+
+    // Find postgres and redis resources for recreating medusa
+    const postgresResource = tenant.resources.find((r) => r.resourceType === "postgres");
+    const redisResource = tenant.resources.find((r) => r.resourceType === "redis");
+
+    if (!postgresResource?.containerId || !redisResource?.containerId) {
+      throw new Error("Required containers not found");
+    }
+
+    const networkName = `tenant_${tenant.slug}_network`;
+    const config = tenant.config as TenantConfig;
+
+    // Stop and remove the old medusa container
+    await dockerService.removeContainer(medusaResource.containerId);
+
+    // Create new medusa container with the new image
+    const medusa = await dockerService.createMedusaContainer(
+      tenant,
+      networkName,
+      {
+        containerId: postgresResource.containerId,
+        containerName: postgresResource.containerName || "",
+        status: "running",
+        port: postgresResource.port || undefined,
+      },
+      {
+        containerId: redisResource.containerId,
+        containerName: redisResource.containerName || "",
+        status: "running",
+        port: redisResource.port || undefined,
+      },
+      config.medusaPort || 9000,
+      config.adminPort || 5173,
+      targetImage.imageTag
+    );
+
+    // Update medusa resource record
+    await db
+      .update(tenantResources)
+      .set({
+        containerId: medusa.containerId,
+        containerName: medusa.containerName,
+        status: "running",
+        metadata: { adminPort: config.adminPort, imageTag: targetImage.imageTag },
+      })
+      .where(
+        and(
+          eq(tenantResources.tenantId, tenantId),
+          eq(tenantResources.resourceType, "medusa")
+        )
+      );
+
+    // Update tenant record with new version info
+    const [updatedTenant] = await db
+      .update(tenants)
+      .set({
+        medusaVersion: targetVersion,
+        imageTag: targetImage.imageTag,
+        lastUpgradedAt: new Date(),
+        status: "running",
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+
+    await logEvent(
+      tenantId,
+      "upgrade_completed",
+      `Successfully upgraded to version ${targetVersion}`,
+      { previousVersion, targetVersion }
+    );
+
+    return updatedTenant;
+  } catch (error) {
+    await logEvent(
+      tenantId,
+      "failed",
+      `Upgrade failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { previousVersion, targetVersion, error: String(error) }
+    );
+
+    throw error;
+  }
 }
 
 // Delete tenant (terminate and cleanup)

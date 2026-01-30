@@ -3,10 +3,15 @@ import type { Tenant, TenantConfig } from "../db/schema.js";
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-// Use the official Medusa image as fallback, or custom built image
-const MEDUSA_IMAGE = process.env.MEDUSA_IMAGE || "econome/medusa:latest";
+// Default Medusa image - can be overridden per tenant
+const DEFAULT_MEDUSA_IMAGE =
+  process.env.DEFAULT_MEDUSA_IMAGE || "ghcr.io/leconome/medusa:latest";
 const POSTGRES_IMAGE = "postgres:15-alpine";
 const REDIS_IMAGE = "redis:7-alpine";
+
+// Domain configuration - defaults to localhost for development
+const DOMAIN = process.env.DOMAIN || "localhost";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 export interface ContainerInfo {
   containerId: string;
@@ -153,8 +158,10 @@ export async function createMedusaContainer(
   postgresContainer: ContainerInfo,
   redisContainer: ContainerInfo,
   apiPort: number,
-  adminPort: number
+  adminPort: number,
+  imageTag?: string
 ): Promise<ContainerInfo> {
+  const image = imageTag || DEFAULT_MEDUSA_IMAGE;
   const containerName = getContainerName(tenant, "medusa");
   const postgresName = getContainerName(tenant, "postgres");
   const redisName = getContainerName(tenant, "redis");
@@ -175,8 +182,15 @@ export async function createMedusaContainer(
 
   const config = tenant.config as TenantConfig;
 
+  // Determine CORS URLs based on environment
+  const protocol = IS_PRODUCTION ? "https" : "http";
+  const tenantUrl = `${protocol}://${tenant.subdomain}.${DOMAIN}`;
+  const defaultStoreCors = config.storeCors || tenantUrl;
+  const defaultAdminCors = config.adminCors || tenantUrl;
+  const defaultAuthCors = tenantUrl;
+
   const container = await docker.createContainer({
-    Image: MEDUSA_IMAGE,
+    Image: image,
     name: containerName,
     Env: [
       `DATABASE_URL=${databaseUrl}`,
@@ -184,12 +198,13 @@ export async function createMedusaContainer(
       `CACHE_REDIS_URL=${redisUrl}`,
       `JWT_SECRET=${generateSecret()}`,
       `COOKIE_SECRET=${generateSecret()}`,
-      `STORE_CORS=${config.storeCors || "http://localhost:8000"}`,
-      `ADMIN_CORS=${config.adminCors || "http://localhost:5173,http://localhost:9000"}`,
-      `AUTH_CORS=${config.adminCors || "http://localhost:5173,http://localhost:9000,http://localhost:8000"}`,
+      `STORE_CORS=${defaultStoreCors}`,
+      `ADMIN_CORS=${defaultAdminCors}`,
+      `AUTH_CORS=${defaultAuthCors}`,
       `MEDUSA_ADMIN_ONBOARDING_TYPE=default`,
       `ADMIN_EMAIL=${tenant.adminEmail || "admin@example.com"}`,
       `ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,
+      `NODE_ENV=${IS_PRODUCTION ? "production" : "development"}`,
     ],
     Labels: {
       "econome.tenant.id": tenant.id,
@@ -198,12 +213,28 @@ export async function createMedusaContainer(
       // Traefik labels for dynamic routing
       "traefik.enable": "true",
       "traefik.docker.network": "platform_network",
+      // API router
       [`traefik.http.routers.${tenant.slug}-api.rule`]:
-        `Host(\`${tenant.subdomain}.localhost\`)`,
-      [`traefik.http.routers.${tenant.slug}-api.entrypoints`]: "web",
+        `Host(\`${tenant.subdomain}.${DOMAIN}\`)`,
+      [`traefik.http.routers.${tenant.slug}-api.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
+      ...(IS_PRODUCTION && {
+        [`traefik.http.routers.${tenant.slug}-api.tls`]: "true",
+        [`traefik.http.routers.${tenant.slug}-api.tls.certresolver`]: "letsencrypt",
+        [`traefik.http.routers.${tenant.slug}-api.middlewares`]: "tenant-cors@file,security-headers@file",
+      }),
       [`traefik.http.routers.${tenant.slug}-api.service`]: `${tenant.slug}-api`,
-      [`traefik.http.services.${tenant.slug}-api.loadbalancer.server.port`]:
-        "9000",
+      [`traefik.http.services.${tenant.slug}-api.loadbalancer.server.port`]: "9000",
+      // Admin router
+      [`traefik.http.routers.${tenant.slug}-admin.rule`]:
+        `Host(\`${tenant.subdomain}.${DOMAIN}\`) && PathPrefix(\`/app\`)`,
+      [`traefik.http.routers.${tenant.slug}-admin.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
+      ...(IS_PRODUCTION && {
+        [`traefik.http.routers.${tenant.slug}-admin.tls`]: "true",
+        [`traefik.http.routers.${tenant.slug}-admin.tls.certresolver`]: "letsencrypt",
+        [`traefik.http.routers.${tenant.slug}-admin.middlewares`]: "security-headers@file",
+      }),
+      [`traefik.http.routers.${tenant.slug}-admin.service`]: `${tenant.slug}-admin`,
+      [`traefik.http.services.${tenant.slug}-admin.loadbalancer.server.port`]: "5173",
     },
     HostConfig: {
       NetworkMode: networkName,
@@ -376,6 +407,58 @@ function generateSecret(length: number = 32): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Pull an image from a container registry.
+ * For public registries like ghcr.io with public images, no auth is needed.
+ */
+export async function pullImage(imageTag: string): Promise<void> {
+  console.log(`Pulling image: ${imageTag}`);
+
+  return new Promise((resolve, reject) => {
+    docker.pull(imageTag, (err: Error | null, stream: NodeJS.ReadableStream) => {
+      if (err) {
+        console.error(`Failed to pull image ${imageTag}:`, err);
+        reject(err);
+        return;
+      }
+
+      // Follow the pull progress
+      docker.modem.followProgress(
+        stream,
+        (err: Error | null, output: unknown[]) => {
+          if (err) {
+            console.error(`Error during image pull ${imageTag}:`, err);
+            reject(err);
+            return;
+          }
+          console.log(`Successfully pulled image: ${imageTag}`);
+          resolve();
+        },
+        (event: { status?: string; progress?: string }) => {
+          // Log progress events
+          if (event.status) {
+            const progress = event.progress ? ` ${event.progress}` : "";
+            console.log(`  ${event.status}${progress}`);
+          }
+        }
+      );
+    });
+  });
+}
+
+/**
+ * Check if an image exists locally.
+ */
+export async function imageExists(imageTag: string): Promise<boolean> {
+  try {
+    const image = docker.getImage(imageTag);
+    await image.inspect();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Port allocation

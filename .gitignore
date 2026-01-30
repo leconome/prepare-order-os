@@ -11,6 +11,12 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
+
+# Production secrets (never commit these!)
+*.pem
+*.key
+acme.json
 
 # Testing
 coverage

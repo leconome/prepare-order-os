@@ -1,0 +1,142 @@
+# Production Docker Compose for Econome Platform
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+version: "3.8"
+
+services:
+  # ===================
+  # Reverse Proxy (Traefik)
+  # ===================
+  traefik:
+    image: traefik:v3.0
+    container_name: econome-traefik
+    restart: unless-stopped
+    command:
+      # API and Dashboard
+      - "--api.dashboard=false"
+      - "--api.insecure=false"
+      # Docker provider
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=platform_network"
+      # File provider for dynamic configuration
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      # Let's Encrypt ACME
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # Logging
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
+      - traefik_acme:/etc/traefik/acme
+      - traefik_logs:/var/log/traefik
+    networks:
+      - platform_network
+    environment:
+      - DOMAIN=${DOMAIN}
+
+  # ===================
+  # Platform Database
+  # ===================
+  platform-db:
+    image: postgres:15-alpine
+    container_name: econome-platform-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - platform_db_data:/var/lib/postgresql/data
+    networks:
+      - platform_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Database not exposed externally - only accessible within Docker network
+
+  # ===================
+  # Provisioning API
+  # ===================
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.prod
+    container_name: econome-api
+    restart: unless-stopped
+    depends_on:
+      platform-db:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgres://platform:${POSTGRES_PASSWORD}@platform-db:5432/platform
+      - API_KEY=${API_KEY}
+      - DOMAIN=${DOMAIN}
+      - DEFAULT_MEDUSA_IMAGE=${DEFAULT_MEDUSA_IMAGE:-ghcr.io/leconome/medusa:latest}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      # HTTP router (redirects to HTTPS)
+      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.middlewares=api-ratelimit@file,security-headers@file"
+      - "traefik.http.services.api.loadbalancer.server.port=3001"
+
+  # ===================
+  # Admin Dashboard
+  # ===================
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_API_URL=https://api.${DOMAIN}
+    container_name: econome-admin
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=https://api.${DOMAIN}
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.${DOMAIN}`)"
+      - "traefik.http.routers.admin.entrypoints=websecure"
+      - "traefik.http.routers.admin.tls=true"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.admin.middlewares=security-headers@file"
+      - "traefik.http.services.admin.loadbalancer.server.port=3000"
+
+volumes:
+  platform_db_data:
+  traefik_acme:
+  traefik_logs:
+
+networks:
+  platform_network:
+    name: platform_network
+    driver: bridge

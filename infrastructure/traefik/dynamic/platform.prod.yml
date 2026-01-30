@@ -1,0 +1,108 @@
+# Production Dynamic Traefik Configuration
+# Tenant routes are configured via Docker labels when containers are created
+
+http:
+  routers:
+    # Catch-all for tenant subdomains (handled by Docker labels on tenant containers)
+    # Lower priority so specific tenant routers take precedence
+    tenant-catchall:
+      rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.prepareos.fr`)"
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: noop@internal
+      priority: 1
+
+  middlewares:
+    # Rate limiting for API
+    api-ratelimit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    # Stricter rate limiting for auth endpoints
+    auth-ratelimit:
+      rateLimit:
+        average: 10
+        burst: 5
+        period: 1m
+
+    # Security headers for all services
+    security-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customFrameOptionsValue: "SAMEORIGIN"
+
+    # CORS for API
+    api-cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+        accessControlAllowOriginList:
+          - "https://admin.prepareos.fr"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
+    # CORS for tenant APIs (more permissive for storefront integration)
+    tenant-cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - Content-Type
+          - Authorization
+          - X-Requested-With
+          - x-publishable-api-key
+        accessControlAllowOriginListRegex:
+          - "https://.*\\.prepareos\\.fr"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 86400
+        addVaryHeader: true
+
+    # Compression
+    compress:
+      compress:
+        excludedContentTypes:
+          - text/event-stream
+
+    # Request size limit
+    request-limit:
+      buffering:
+        maxRequestBodyBytes: 10485760  # 10MB
+
+tls:
+  options:
+    default:
+      minVersion: VersionTLS12
+      sniStrict: true
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
