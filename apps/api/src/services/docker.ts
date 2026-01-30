@@ -35,6 +35,15 @@ function getContainerName(tenant: Tenant, service: string): string {
   return `tenant_${tenant.slug}_${service}`;
 }
 
+// Check if a container with the given name already exists
+async function getExistingContainer(containerName: string): Promise<Docker.ContainerInfo | null> {
+  const containers = await docker.listContainers({
+    all: true,
+    filters: { name: [`^/${containerName}$`] },
+  });
+  return containers.length > 0 ? containers[0] : null;
+}
+
 export async function createTenantNetwork(tenant: Tenant): Promise<string> {
   const networkName = getNetworkName(tenant);
 
@@ -64,12 +73,30 @@ export async function createPostgresContainer(
   networkName: string,
   port: number
 ): Promise<ContainerInfo> {
+  const containerName = getContainerName(tenant, "postgres");
+
+  // Check if container already exists
+  const existing = await getExistingContainer(containerName);
+  if (existing) {
+    console.log(`Container ${containerName} already exists, reusing...`);
+    // Start if stopped
+    if (existing.State !== "running") {
+      const container = docker.getContainer(existing.Id);
+      await container.start();
+    }
+    return {
+      containerId: existing.Id,
+      containerName,
+      status: "running",
+      port,
+    };
+  }
+
   // Pull image if not exists
   if (!(await imageExists(POSTGRES_IMAGE))) {
     await pullImage(POSTGRES_IMAGE);
   }
 
-  const containerName = getContainerName(tenant, "postgres");
   const dbName = `medusa_${tenant.slug}`;
   const dbUser = `medusa_${tenant.slug}`;
   const dbPassword = generatePassword();
@@ -121,12 +148,29 @@ export async function createRedisContainer(
   networkName: string,
   port: number
 ): Promise<ContainerInfo> {
+  const containerName = getContainerName(tenant, "redis");
+
+  // Check if container already exists
+  const existing = await getExistingContainer(containerName);
+  if (existing) {
+    console.log(`Container ${containerName} already exists, reusing...`);
+    // Start if stopped
+    if (existing.State !== "running") {
+      const container = docker.getContainer(existing.Id);
+      await container.start();
+    }
+    return {
+      containerId: existing.Id,
+      containerName,
+      status: "running",
+      port,
+    };
+  }
+
   // Pull image if not exists
   if (!(await imageExists(REDIS_IMAGE))) {
     await pullImage(REDIS_IMAGE);
   }
-
-  const containerName = getContainerName(tenant, "redis");
 
   const container = await docker.createContainer({
     Image: REDIS_IMAGE,
@@ -173,6 +217,24 @@ export async function createMedusaContainer(
 ): Promise<ContainerInfo> {
   const image = imageTag || DEFAULT_MEDUSA_IMAGE;
   const containerName = getContainerName(tenant, "medusa");
+
+  // Check if container already exists
+  const existing = await getExistingContainer(containerName);
+  if (existing) {
+    console.log(`Container ${containerName} already exists, reusing...`);
+    // Start if stopped
+    if (existing.State !== "running") {
+      const container = docker.getContainer(existing.Id);
+      await container.start();
+    }
+    return {
+      containerId: existing.Id,
+      containerName,
+      status: "running",
+      port: apiPort,
+    };
+  }
+
   const postgresName = getContainerName(tenant, "postgres");
   const redisName = getContainerName(tenant, "redis");
 

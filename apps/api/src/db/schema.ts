@@ -9,6 +9,7 @@ import {
   decimal,
   pgEnum,
   boolean,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // Enums
@@ -78,20 +79,28 @@ export const tenants = pgTable("tenants", {
   deletedAt: timestamp("deleted_at"),
 });
 
-export const tenantResources = pgTable("tenant_resources", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  tenantId: uuid("tenant_id")
-    .notNull()
-    .references(() => tenants.id, { onDelete: "cascade" }),
-  resourceType: resourceTypeEnum("resource_type").notNull(),
-  containerId: varchar("container_id", { length: 100 }),
-  containerName: varchar("container_name", { length: 255 }),
-  networkId: varchar("network_id", { length: 100 }),
-  status: resourceStatusEnum("status").notNull().default("creating"),
-  port: integer("port"),
-  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const tenantResources = pgTable(
+  "tenant_resources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    resourceType: resourceTypeEnum("resource_type").notNull(),
+    containerId: varchar("container_id", { length: 100 }),
+    containerName: varchar("container_name", { length: 255 }),
+    networkId: varchar("network_id", { length: 100 }),
+    status: resourceStatusEnum("status").notNull().default("creating"),
+    port: integer("port"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    // Ensure only one resource of each type per tenant
+    uniqueIndex("tenant_resource_unique_idx").on(table.tenantId, table.resourceType),
+  ]
+);
 
 export const tenantEvents = pgTable("tenant_events", {
   id: uuid("id").primaryKey().defaultRandom(),

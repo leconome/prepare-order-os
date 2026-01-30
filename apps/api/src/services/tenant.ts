@@ -10,6 +10,47 @@ import {
 } from "../db/schema.js";
 import * as dockerService from "./docker.js";
 
+// Helper to upsert a tenant resource (insert or update if exists)
+async function upsertResource(
+  tenantId: string,
+  resourceType: string,
+  data: {
+    containerId?: string | null;
+    containerName?: string | null;
+    networkId?: string | null;
+    status: string;
+    port?: number | null;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  // Check if resource already exists
+  const existing = await db
+    .select()
+    .from(tenantResources)
+    .where(
+      and(
+        eq(tenantResources.tenantId, tenantId),
+        eq(tenantResources.resourceType, resourceType)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Update existing
+    await db
+      .update(tenantResources)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tenantResources.id, existing[0].id));
+  } else {
+    // Insert new
+    await db.insert(tenantResources).values({
+      tenantId,
+      resourceType,
+      ...data,
+    });
+  }
+}
+
 export interface CreateTenantInput {
   name: string;
   slug: string;
@@ -171,9 +212,7 @@ export async function provisionTenant(
     const networkId = await dockerService.createTenantNetwork(tenant);
     const networkName = `tenant_${tenant.slug}_network`;
 
-    await db.insert(tenantResources).values({
-      tenantId,
-      resourceType: "network",
+    await upsertResource(tenantId, "network", {
       networkId,
       containerName: networkName,
       status: "running",
@@ -186,9 +225,7 @@ export async function provisionTenant(
       ports.postgres
     );
 
-    await db.insert(tenantResources).values({
-      tenantId,
-      resourceType: "postgres",
+    await upsertResource(tenantId, "postgres", {
       containerId: postgres.containerId,
       containerName: postgres.containerName,
       status: "running",
@@ -205,9 +242,7 @@ export async function provisionTenant(
       ports.redis
     );
 
-    await db.insert(tenantResources).values({
-      tenantId,
-      resourceType: "redis",
+    await upsertResource(tenantId, "redis", {
       containerId: redis.containerId,
       containerName: redis.containerName,
       status: "running",
@@ -228,9 +263,7 @@ export async function provisionTenant(
       imageTag
     );
 
-    await db.insert(tenantResources).values({
-      tenantId,
-      resourceType: "medusa",
+    await upsertResource(tenantId, "medusa", {
       containerId: medusa.containerId,
       containerName: medusa.containerName,
       status: "running",
