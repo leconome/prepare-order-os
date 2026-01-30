@@ -39,8 +39,11 @@ if [ "$NODE_ENV" = "production" ]; then
   echo "Building Medusa for production..."
   pnpm build
 
+  echo "Installing production dependencies..."
+  cd .medusa/server && npm install --production=false
+
   echo "Starting Medusa production server..."
-  exec pnpm start
+  exec npm run start
 else
   echo "Starting Medusa development server..."
   exec pnpm dev
