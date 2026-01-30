@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: starter-postgres
+    environment:
+      POSTGRES_DB: my-database
+      POSTGRES_USER: my-user
+      POSTGRES_PASSWORD: my-password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U my-user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-ui:
+    image: sosedoff/pgweb
+    container_name: starter-pgweb
+    restart: always
+    ports: 
+      - "8081:8081" 
+    links: 
+      - postgres:postgres
+    environment:
+      - DATABASE_URL=postgres://my-user:my-password@postgres:5432/my-database?sslmode=disable
+    depends_on:
+      - postgres
+  redis:
+    image: redis:latest
+    container_name: starter-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    
+
+volumes:
+  postgres-data: 
