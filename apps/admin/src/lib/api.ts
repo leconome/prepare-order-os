@@ -123,25 +123,28 @@ class ApiClient {
   async provisionTenant(id: string, version?: string): Promise<{ tenant: Tenant }> {
     return this.request(`/tenants/${id}/provision`, {
       method: "POST",
-      body: version ? JSON.stringify({ version }) : undefined,
+      body: JSON.stringify(version ? { version } : {}),
     });
   }
 
   async startTenant(id: string): Promise<{ tenant: Tenant }> {
     return this.request(`/tenants/${id}/start`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   }
 
   async stopTenant(id: string): Promise<{ tenant: Tenant }> {
     return this.request(`/tenants/${id}/stop`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   }
 
   async restartTenant(id: string): Promise<{ tenant: Tenant }> {
     return this.request(`/tenants/${id}/restart`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   }
 
