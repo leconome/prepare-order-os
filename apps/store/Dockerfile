@@ -26,7 +26,7 @@ RUN pnpm build
 
 # Install production dependencies in the built server
 WORKDIR /app/.medusa/server
-RUN npm install --production=false
+RUN pnpm install --prod=false
 
 # Back to app directory
 WORKDIR /app

@@ -29,4 +29,4 @@ pnpm seed 2>/dev/null || echo "Seeding skipped"
 # Start the production server (build already done at image build time)
 echo "Starting Medusa production server..."
 cd .medusa/server
-exec npm run start
+exec pnpm start
