@@ -64,6 +64,11 @@ export async function createPostgresContainer(
   networkName: string,
   port: number
 ): Promise<ContainerInfo> {
+  // Pull image if not exists
+  if (!(await imageExists(POSTGRES_IMAGE))) {
+    await pullImage(POSTGRES_IMAGE);
+  }
+
   const containerName = getContainerName(tenant, "postgres");
   const dbName = `medusa_${tenant.slug}`;
   const dbUser = `medusa_${tenant.slug}`;
@@ -116,6 +121,11 @@ export async function createRedisContainer(
   networkName: string,
   port: number
 ): Promise<ContainerInfo> {
+  // Pull image if not exists
+  if (!(await imageExists(REDIS_IMAGE))) {
+    await pullImage(REDIS_IMAGE);
+  }
+
   const containerName = getContainerName(tenant, "redis");
 
   const container = await docker.createContainer({
