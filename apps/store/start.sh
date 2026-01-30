@@ -34,5 +34,14 @@ fi
 echo "Seeding database..."
 pnpm seed 2>/dev/null || echo "Seeding skipped"
 
-echo "Starting Medusa development server..."
-exec pnpm dev
+# Check if running in production mode
+if [ "$NODE_ENV" = "production" ]; then
+  echo "Building Medusa for production..."
+  pnpm build
+
+  echo "Starting Medusa production server..."
+  exec pnpm start
+else
+  echo "Starting Medusa development server..."
+  exec pnpm dev
+fi
