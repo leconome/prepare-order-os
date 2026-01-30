@@ -60,10 +60,6 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 apiuser
-
 # Copy production dependencies
 COPY --from=prod-deps /app/node_modules ./node_modules
 
@@ -75,12 +71,6 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/src/db ./src/db
 
-# Set correct ownership
-RUN chown -R apiuser:nodejs /app
-
-# Switch to non-root user
-USER apiuser
-
 # Expose port
 EXPOSE 3001
 
@@ -88,5 +78,6 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-# Start the application
+# NOTE: Running as root because this service needs Docker socket access
+# for tenant container provisioning. The socket is mounted read-write.
 CMD ["node", "dist/index.js"]
