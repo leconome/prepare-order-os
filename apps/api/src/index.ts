@@ -11,14 +11,25 @@ const app = new Hono();
 
 // Middleware
 app.use("*", logger());
+
+// CORS configuration - allow both local and production origins
+const DOMAIN = process.env.DOMAIN || "localhost";
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://admin.localhost",
+];
+
+// Add production origins if DOMAIN is set
+if (DOMAIN && DOMAIN !== "localhost") {
+  allowedOrigins.push(`https://admin.${DOMAIN}`);
+  allowedOrigins.push(`https://${DOMAIN}`);
+}
+
 app.use(
   "*",
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://admin.localhost",
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
