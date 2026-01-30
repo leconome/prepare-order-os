@@ -137,4 +137,4 @@ volumes:
 networks:
   platform_network:
     name: platform_network
-    driver: bridge
+    external: true
