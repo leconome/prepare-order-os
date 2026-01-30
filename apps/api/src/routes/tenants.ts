@@ -24,7 +24,7 @@ const createTenantSchema = z.object({
     .object({
       storeCors: z.string().optional(),
       adminCors: z.string().optional(),
-      environment: z.record(z.string()).optional(),
+      environment: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
 });
@@ -36,7 +36,7 @@ const updateTenantSchema = z.object({
     .object({
       storeCors: z.string().optional(),
       adminCors: z.string().optional(),
-      environment: z.record(z.string()).optional(),
+      environment: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
 });

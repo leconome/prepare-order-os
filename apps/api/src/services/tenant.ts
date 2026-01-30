@@ -5,7 +5,6 @@ import {
   tenantResources,
   tenantEvents,
   type Tenant,
-  type NewTenant,
   type TenantConfig,
 } from "../db/schema.js";
 import * as dockerService from "./docker.js";
@@ -24,6 +23,7 @@ export interface TenantWithResources extends Tenant {
     resourceType: string;
     containerId: string | null;
     containerName: string | null;
+    networkId: string | null;
     status: string;
     port: number | null;
   }>;
@@ -53,6 +53,7 @@ export async function getTenant(id: string): Promise<TenantWithResources | null>
       resourceType: tenantResources.resourceType,
       containerId: tenantResources.containerId,
       containerName: tenantResources.containerName,
+      networkId: tenantResources.networkId,
       status: tenantResources.status,
       port: tenantResources.port,
     })
