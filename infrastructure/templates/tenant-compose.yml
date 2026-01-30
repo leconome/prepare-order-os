@@ -76,22 +76,15 @@ services:
       - "econome.service=medusa"
       - "traefik.enable=true"
       - "traefik.docker.network=platform_network"
-      # API router (HTTPS)
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.rule=Host(`{{TENANT_SUBDOMAIN}}.{{DOMAIN}}`)"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.entrypoints=websecure"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.tls=true"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.service={{TENANT_SLUG}}-api"
-      - "traefik.http.routers.{{TENANT_SLUG}}-api.middlewares=tenant-cors@file,security-headers@file"
-      - "traefik.http.services.{{TENANT_SLUG}}-api.loadbalancer.server.port=9000"
-      # Admin router (HTTPS with path prefix)
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.rule=Host(`{{TENANT_SUBDOMAIN}}.{{DOMAIN}}`) && PathPrefix(`/app`)"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.entrypoints=websecure"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.tls=true"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.service={{TENANT_SLUG}}-admin"
-      - "traefik.http.routers.{{TENANT_SLUG}}-admin.middlewares=security-headers@file"
-      - "traefik.http.services.{{TENANT_SLUG}}-admin.loadbalancer.server.port=5173"
+      # Single router - Medusa v2 serves both API and Admin from port 9000
+      # Admin is at /app path, API is at root
+      - "traefik.http.routers.{{TENANT_SLUG}}.rule=Host(`{{TENANT_SUBDOMAIN}}.{{DOMAIN}}`)"
+      - "traefik.http.routers.{{TENANT_SLUG}}.entrypoints=websecure"
+      - "traefik.http.routers.{{TENANT_SLUG}}.tls=true"
+      - "traefik.http.routers.{{TENANT_SLUG}}.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.{{TENANT_SLUG}}.service={{TENANT_SLUG}}"
+      - "traefik.http.routers.{{TENANT_SLUG}}.middlewares=tenant-cors@file,security-headers@file"
+      - "traefik.http.services.{{TENANT_SLUG}}.loadbalancer.server.port=9000"
 
 volumes:
   tenant_{{TENANT_SLUG}}_postgres_data:

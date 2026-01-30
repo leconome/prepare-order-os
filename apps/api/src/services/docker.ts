@@ -227,7 +227,7 @@ export async function createMedusaContainer(
     const existingLabels = inspection.Config.Labels || {};
 
     const expectedHostRule = `Host(\`${tenant.subdomain}.${DOMAIN}\`)`;
-    const hasCorrectLabels = existingLabels[`traefik.http.routers.${tenant.slug}-api.rule`] === expectedHostRule;
+    const hasCorrectLabels = existingLabels[`traefik.http.routers.${tenant.slug}.rule`] === expectedHostRule;
 
     if (!hasCorrectLabels) {
       console.log(`Container ${containerName} has outdated labels, recreating...`);
@@ -313,36 +313,26 @@ export async function createMedusaContainer(
       "econome.tenant.slug": tenant.slug,
       "econome.service": "medusa",
       // Traefik labels for dynamic routing
+      // Medusa v2 serves both API and Admin from port 9000
+      // Admin is at /app path, API is at root
       "traefik.enable": "true",
       "traefik.docker.network": "platform_network",
-      // API router
-      [`traefik.http.routers.${tenant.slug}-api.rule`]:
+      // Single router for all traffic - both API and Admin served from port 9000
+      [`traefik.http.routers.${tenant.slug}.rule`]:
         `Host(\`${tenant.subdomain}.${DOMAIN}\`)`,
-      [`traefik.http.routers.${tenant.slug}-api.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
+      [`traefik.http.routers.${tenant.slug}.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
       ...(IS_PRODUCTION && {
-        [`traefik.http.routers.${tenant.slug}-api.tls`]: "true",
-        [`traefik.http.routers.${tenant.slug}-api.tls.certresolver`]: "letsencrypt",
-        [`traefik.http.routers.${tenant.slug}-api.middlewares`]: "tenant-cors@file,security-headers@file",
+        [`traefik.http.routers.${tenant.slug}.tls`]: "true",
+        [`traefik.http.routers.${tenant.slug}.tls.certresolver`]: "letsencrypt",
+        [`traefik.http.routers.${tenant.slug}.middlewares`]: "tenant-cors@file,security-headers@file",
       }),
-      [`traefik.http.routers.${tenant.slug}-api.service`]: `${tenant.slug}-api`,
-      [`traefik.http.services.${tenant.slug}-api.loadbalancer.server.port`]: "9000",
-      // Admin router
-      [`traefik.http.routers.${tenant.slug}-admin.rule`]:
-        `Host(\`${tenant.subdomain}.${DOMAIN}\`) && PathPrefix(\`/app\`)`,
-      [`traefik.http.routers.${tenant.slug}-admin.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
-      ...(IS_PRODUCTION && {
-        [`traefik.http.routers.${tenant.slug}-admin.tls`]: "true",
-        [`traefik.http.routers.${tenant.slug}-admin.tls.certresolver`]: "letsencrypt",
-        [`traefik.http.routers.${tenant.slug}-admin.middlewares`]: "security-headers@file",
-      }),
-      [`traefik.http.routers.${tenant.slug}-admin.service`]: `${tenant.slug}-admin`,
-      [`traefik.http.services.${tenant.slug}-admin.loadbalancer.server.port`]: "5173",
+      [`traefik.http.routers.${tenant.slug}.service`]: `${tenant.slug}`,
+      [`traefik.http.services.${tenant.slug}.loadbalancer.server.port`]: "9000",
     },
     HostConfig: {
       NetworkMode: networkName,
       PortBindings: {
         "9000/tcp": [{ HostPort: apiPort.toString() }],
-        "5173/tcp": [{ HostPort: adminPort.toString() }],
       },
       RestartPolicy: { Name: "unless-stopped" },
     },
@@ -355,7 +345,6 @@ export async function createMedusaContainer(
     },
     ExposedPorts: {
       "9000/tcp": {},
-      "5173/tcp": {},
     },
   });
 
