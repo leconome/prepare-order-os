@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/tenants/status-badge";
-import { api } from "@/lib/api";
+import { api, DOMAIN } from "@/lib/api";
 import { Store, Activity, Server, Plus, ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -125,7 +125,7 @@ export default function DashboardPage() {
                           <StatusBadge status={tenant.status} />
                         </div>
                         <div className="mt-1 text-sm text-zinc-500">
-                          {tenant.subdomain}.localhost
+                          {tenant.subdomain}.{DOMAIN}
                         </div>
                       </div>
                       <Link href={`/tenants/${tenant.id}`}>

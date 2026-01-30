@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
-import { api, type Tenant } from "@/lib/api";
+import { api, getTenantUrl, DOMAIN, type Tenant } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
 import { Plus, Search, ExternalLink } from "lucide-react";
 
@@ -124,12 +124,12 @@ export default function TenantsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <a
-                        href={`http://${tenant.subdomain}.localhost`}
+                        href={getTenantUrl(tenant.subdomain)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-zinc-600 hover:text-zinc-900"
                       >
-                        {tenant.subdomain}.localhost
+                        {tenant.subdomain}.{DOMAIN}
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </td>

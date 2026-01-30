@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
 import { TenantLogs } from "@/components/tenants/tenant-logs";
-import { api, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
+import { api, getTenantUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { ArrowLeft, ExternalLink, Database, Server, Cpu, HardDrive, ArrowUp, Package } from "lucide-react";
 
@@ -126,12 +126,12 @@ export default function TenantDetailPage() {
             <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
               <span>Slug: {tenant.slug}</span>
               <a
-                href={`http://${tenant.subdomain}.localhost`}
+                href={getTenantUrl(tenant.subdomain)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 hover:text-zinc-900"
               >
-                {tenant.subdomain}.localhost
+                {tenant.subdomain}.{DOMAIN}
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
@@ -278,7 +278,7 @@ export default function TenantDetailPage() {
                 <CardContent>
                   <div className="flex gap-4">
                     <a
-                      href={`http://${tenant.subdomain}.localhost`}
+                      href={getTenantUrl(tenant.subdomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -288,7 +288,7 @@ export default function TenantDetailPage() {
                       </Button>
                     </a>
                     <a
-                      href={`http://${tenant.subdomain}.localhost/app`}
+                      href={getTenantAdminUrl(tenant.subdomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

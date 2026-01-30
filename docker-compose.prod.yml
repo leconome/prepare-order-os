@@ -112,6 +112,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         - NEXT_PUBLIC_API_URL=https://api.${DOMAIN}
+        - NEXT_PUBLIC_DOMAIN=${DOMAIN}
     container_name: econome-admin
     restart: unless-stopped
     depends_on:
@@ -119,6 +120,7 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=https://api.${DOMAIN}
+      - NEXT_PUBLIC_DOMAIN=${DOMAIN}
     networks:
       - platform_network
     labels:

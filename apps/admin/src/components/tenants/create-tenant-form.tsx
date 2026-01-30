@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, type CreateTenantInput, type PlatformImage } from "@/lib/api";
+import { api, DOMAIN, type CreateTenantInput, type PlatformImage } from "@/lib/api";
 
 export function CreateTenantForm() {
   const router = useRouter();
@@ -126,7 +126,7 @@ export function CreateTenantForm() {
                   className="rounded-r-none"
                 />
                 <span className="flex h-10 items-center rounded-r-md border border-l-0 border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-500">
-                  .localhost
+                  .{DOMAIN}
                 </span>
               </div>
             </div>

@@ -1,4 +1,19 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "localhost";
+const IS_PRODUCTION = DOMAIN !== "localhost";
+
+// Helper to get tenant URL
+export function getTenantUrl(subdomain: string): string {
+  const protocol = IS_PRODUCTION ? "https" : "http";
+  return `${protocol}://${subdomain}.${DOMAIN}`;
+}
+
+// Helper to get tenant admin URL
+export function getTenantAdminUrl(subdomain: string): string {
+  return `${getTenantUrl(subdomain)}/app`;
+}
+
+export { DOMAIN };
 
 export interface Tenant {
   id: string;
