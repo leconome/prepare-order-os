@@ -1,12 +1,41 @@
 version: '3.8'
 services:
+  medusa:
+    build:
+      context: ./apps/store
+      dockerfile: Dockerfile
+    container_name: medusa-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "9000:9000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://medusa-user:medusa-password@postgres:5432/medusa-db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=supersecret
+      - COOKIE_SECRET=supersecret
+      - MEDUSA_ADMIN_ONBOARDING_TYPE=default
+    env_file:
+      - ./apps/store/.env
+    volumes:
+      - ./apps/store:/server
+      - medusa_node_modules:/server/node_modules
+    networks:
+      - medusa_network
+
   postgres:
     image: postgres:15-alpine
-    container_name: starter-postgres
+    container_name: medusa-postgres
     environment:
-      POSTGRES_DB: my-database
-      POSTGRES_USER: my-user
-      POSTGRES_PASSWORD: my-password
+      POSTGRES_DB: medusa-db
+      POSTGRES_USER: medusa-user
+      POSTGRES_PASSWORD: medusa-password
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
@@ -14,30 +43,34 @@ services:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U my-user"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U medusa-user -d medusa-db"]
+      interval: 5s
       timeout: 5s
       retries: 5
-
   db-ui:
     image: sosedoff/pgweb
-    container_name: starter-pgweb
+    container_name: medusa-pgweb
     restart: always
     ports: 
       - "8081:8081" 
     links: 
       - postgres:postgres
     environment:
-      - DATABASE_URL=postgres://my-user:my-password@postgres:5432/my-database?sslmode=disable
+      - DATABASE_URL=postgres://medusa-user:medusa-password@postgres:5432/medusa-db?sslmode=disable
     depends_on:
       - postgres
   redis:
     image: redis:latest
-    container_name: starter-redis
+    container_name: medusa-redis
     ports:
       - "6379:6379"
     restart: unless-stopped
     
 
 volumes:
-  postgres-data: 
+  postgres-data:
+  medusa_node_modules:
+
+networks:
+  medusa_network:
+    driver: bridge
