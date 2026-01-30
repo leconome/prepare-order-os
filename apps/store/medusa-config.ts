@@ -1,6 +1,13 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
+// Preserve Docker/compose env so loadEnv(.env) does not override them
+const dockerDatabaseUrl = process.env.DATABASE_URL
+const dockerRedisUrl = process.env.REDIS_URL ?? process.env.CACHE_REDIS_URL
+
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+
+if (dockerDatabaseUrl) process.env.DATABASE_URL = dockerDatabaseUrl
+if (dockerRedisUrl) process.env.REDIS_URL = dockerRedisUrl
 
 module.exports = defineConfig({
   projectConfig: {
@@ -12,5 +19,22 @@ module.exports = defineConfig({
       jwtSecret: process.env.JWT_SECRET || "supersecret",
       cookieSecret: process.env.COOKIE_SECRET || "supersecret",
     }
-  }
+  },
+  modules: [
+    {
+      resolve: '@medusajs/medusa/caching',
+      options: {
+        providers: [
+          {
+            resolve: '@medusajs/caching-redis',
+            id: 'caching-redis',
+            is_default: true,
+            options: {
+              redisUrl: process.env.REDIS_URL ?? process.env.CACHE_REDIS_URL,
+            },
+          },
+        ],
+      },
+    },
+  ],
 })
