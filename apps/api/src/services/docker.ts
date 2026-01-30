@@ -221,18 +221,48 @@ export async function createMedusaContainer(
   // Check if container already exists
   const existing = await getExistingContainer(containerName);
   if (existing) {
-    console.log(`Container ${containerName} already exists, reusing...`);
-    // Start if stopped
-    if (existing.State !== "running") {
-      const container = docker.getContainer(existing.Id);
-      await container.start();
+    // For Medusa containers, check if labels are correct - if not, recreate
+    const container = docker.getContainer(existing.Id);
+    const inspection = await container.inspect();
+    const existingLabels = inspection.Config.Labels || {};
+
+    const expectedHostRule = `Host(\`${tenant.subdomain}.${DOMAIN}\`)`;
+    const hasCorrectLabels = existingLabels[`traefik.http.routers.${tenant.slug}-api.rule`] === expectedHostRule;
+
+    if (!hasCorrectLabels) {
+      console.log(`Container ${containerName} has outdated labels, recreating...`);
+      try {
+        await container.stop();
+      } catch {
+        // Container might already be stopped
+      }
+      await container.remove({ force: true });
+    } else {
+      console.log(`Container ${containerName} already exists with correct labels, reusing...`);
+      // Ensure it's connected to platform_network
+      try {
+        const platformNetwork = docker.getNetwork("platform_network");
+        const networkInfo = await platformNetwork.inspect();
+        const isConnected = networkInfo.Containers && networkInfo.Containers[existing.Id];
+        if (!isConnected) {
+          console.log(`Connecting ${containerName} to platform_network...`);
+          await platformNetwork.connect({ Container: existing.Id });
+        }
+      } catch (err) {
+        console.warn("Error checking/connecting platform_network:", err);
+      }
+
+      // Start if stopped
+      if (existing.State !== "running") {
+        await container.start();
+      }
+      return {
+        containerId: existing.Id,
+        containerName,
+        status: "running",
+        port: apiPort,
+      };
     }
-    return {
-      containerId: existing.Id,
-      containerName,
-      status: "running",
-      port: apiPort,
-    };
   }
 
   const postgresName = getContainerName(tenant, "postgres");
