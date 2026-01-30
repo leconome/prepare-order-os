@@ -1,16 +1,8 @@
 #!/bin/sh
 
-# Ensure node_modules exist
-echo "Checking dependencies..."
-if [ ! -d node_modules ] || [ ! -f node_modules/@medusajs/cli/cli.js ]; then
-  echo "Installing dependencies..."
-  rm -rf node_modules
-  CI=1 pnpm install
-fi
-
 # Wait for PostgreSQL to be ready (simple sleep-based approach)
 echo "Waiting for database to be ready..."
-sleep 10
+sleep 5
 
 # Run migrations with retry
 echo "Running database migrations..."
@@ -34,17 +26,7 @@ fi
 echo "Seeding database..."
 pnpm seed 2>/dev/null || echo "Seeding skipped"
 
-# Check if running in production mode
-if [ "$NODE_ENV" = "production" ]; then
-  echo "Building Medusa for production..."
-  pnpm build
-
-  echo "Installing production dependencies..."
-  cd .medusa/server && npm install --production=false
-
-  echo "Starting Medusa production server..."
-  exec npm run start
-else
-  echo "Starting Medusa development server..."
-  exec pnpm dev
-fi
+# Start the production server (build already done at image build time)
+echo "Starting Medusa production server..."
+cd .medusa/server
+exec npm run start
