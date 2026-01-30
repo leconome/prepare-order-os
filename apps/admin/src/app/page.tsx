@@ -1,49 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/tenants/status-badge";
-import { api, type Tenant } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Store, Activity, Server, Plus, ArrowRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function DashboardPage() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [platformHealth, setPlatformHealth] = useState<{
-    status: string;
-    checks: Record<string, { status: string }>;
-  } | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [tenantsRes, healthRes] = await Promise.all([
-          api.listTenants(),
-          api.getHealth(),
-        ]);
-        setTenants(tenantsRes.tenants);
-        setPlatformHealth(healthRes);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const {data: tenantsData, isLoading: tenantsLoading} = useQuery({
+    queryKey: ["tenants"],
+    queryFn: () => Promise.all([
+      api.listTenants(),
+      api.getHealth(),
+    ]),
+    select: (data) => {
+      return {
+        tenants: data[0].tenants,
+        health: data[1],
+      };
+    }
+  });
 
   const stats = {
-    total: tenants.length,
-    running: tenants.filter((t) => t.status === "running").length,
-    stopped: tenants.filter((t) => t.status === "stopped").length,
-    failed: tenants.filter((t) => t.status === "failed").length,
+    total: tenantsData?.tenants?.length ?? 0,
+    running: tenantsData?.tenants?.filter((t) => t.status === "running").length ?? 0,
+    stopped: tenantsData?.tenants?.filter((t) => t.status === "stopped").length ?? 0,
+    failed: tenantsData?.tenants?.filter((t) => t.status === "failed").length ?? 0,
   };
 
-  if (loading) {
+  if (tenantsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900" />
@@ -92,13 +80,13 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium">Platform Status</CardTitle>
               <div
                 className={`h-3 w-3 rounded-full ${
-                  platformHealth?.status === "healthy" ? "bg-green-500" : "bg-yellow-500"
+                  tenantsData?.health?.status === "healthy" ? "bg-green-500" : "bg-yellow-500"
                 }`}
               />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold capitalize">
-                {platformHealth?.status || "Unknown"}
+                {tenantsData?.health?.status || "Unknown"}
               </div>
             </CardContent>
           </Card>
@@ -116,7 +104,7 @@ export default function DashboardPage() {
               </Link>
             </CardHeader>
             <CardContent>
-              {tenants.length === 0 ? (
+              {tenantsData?.tenants?.length === 0 ? (
                 <div className="py-8 text-center text-zinc-500">
                   <Store className="mx-auto mb-2 h-8 w-8" />
                   <p>No tenants yet</p>
@@ -126,7 +114,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {tenants.slice(0, 5).map((tenant) => (
+                  {tenantsData?.tenants?.slice(0, 5).map((tenant) => (
                     <div
                       key={tenant.id}
                       className="flex items-center justify-between rounded-lg border p-4"
@@ -147,7 +135,7 @@ export default function DashboardPage() {
                       </Link>
                     </div>
                   ))}
-                  {tenants.length > 5 && (
+                  {tenantsData?.tenants?.length && tenantsData?.tenants?.length > 5 && (
                     <Link href="/tenants" className="block text-center">
                       <Button variant="link">View all tenants</Button>
                     </Link>
