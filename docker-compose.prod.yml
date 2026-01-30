@@ -45,6 +45,7 @@ services:
       - platform_network
     environment:
       - DOMAIN=${DOMAIN}
+      - DOCKER_API_VERSION=1.45
 
   # ===================
   # Platform Database
