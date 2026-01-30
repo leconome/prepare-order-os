@@ -10,15 +10,19 @@ import {
 } from "../db/schema.js";
 import * as dockerService from "./docker.js";
 
+// Resource type literal type
+type ResourceType = "network" | "postgres" | "redis" | "medusa";
+type ResourceStatus = "creating" | "running" | "stopped" | "error";
+
 // Helper to upsert a tenant resource (insert or update if exists)
 async function upsertResource(
   tenantId: string,
-  resourceType: string,
+  resourceType: ResourceType,
   data: {
     containerId?: string | null;
     containerName?: string | null;
     networkId?: string | null;
-    status: string;
+    status: ResourceStatus;
     port?: number | null;
     metadata?: Record<string, unknown>;
   }
