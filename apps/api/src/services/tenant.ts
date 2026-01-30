@@ -326,11 +326,21 @@ export async function stopTenant(tenantId: string): Promise<Tenant> {
 
   for (const resource of tenant.resources) {
     if (resource.containerId) {
-      await dockerService.stopContainer(resource.containerId);
-      await db
-        .update(tenantResources)
-        .set({ status: "stopped" })
-        .where(eq(tenantResources.containerId, resource.containerId));
+      try {
+        const exists = await containerExists(resource.containerId);
+        if (exists) {
+          await dockerService.stopContainer(resource.containerId);
+        } else {
+          console.log(`Container ${resource.containerId} not found, skipping stop`);
+        }
+        await db
+          .update(tenantResources)
+          .set({ status: exists ? "stopped" : "error", updatedAt: new Date() })
+          .where(eq(tenantResources.containerId, resource.containerId));
+      } catch (error) {
+        console.error(`Failed to stop ${resource.resourceType}:`, error);
+        // Continue with other containers
+      }
     }
   }
 
@@ -350,20 +360,61 @@ export async function startTenant(tenantId: string): Promise<Tenant> {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error("Tenant not found");
 
-  if (tenant.status !== "stopped") {
+  if (tenant.status !== "stopped" && tenant.status !== "failed") {
     throw new Error(`Cannot start tenant in status: ${tenant.status}`);
   }
 
-  // Start containers in order: postgres, redis, medusa
+  // Check if any containers are missing
+  let hasMissingContainers = false;
   const order = ["postgres", "redis", "medusa"];
+
   for (const resourceType of order) {
     const resource = tenant.resources.find((r) => r.resourceType === resourceType);
     if (resource?.containerId) {
-      await dockerService.startContainer(resource.containerId);
-      await db
-        .update(tenantResources)
-        .set({ status: "running" })
-        .where(eq(tenantResources.containerId, resource.containerId));
+      const exists = await containerExists(resource.containerId);
+      if (!exists) {
+        console.log(`Container ${resource.containerId} for ${resourceType} not found`);
+        hasMissingContainers = true;
+        // Clear the container ID in DB since it no longer exists
+        await db
+          .update(tenantResources)
+          .set({ containerId: null, status: "error", updatedAt: new Date() })
+          .where(eq(tenantResources.containerId, resource.containerId));
+      }
+    } else if (resourceType !== "network") {
+      // No container ID recorded - missing
+      hasMissingContainers = true;
+    }
+  }
+
+  // If containers are missing, trigger reprovisioning instead
+  if (hasMissingContainers) {
+    await logEvent(tenantId, "failed", "Some containers not found, triggering reprovisioning");
+
+    // Reset tenant status to allow reprovisioning
+    await db
+      .update(tenants)
+      .set({ status: "failed", updatedAt: new Date() })
+      .where(eq(tenants.id, tenantId));
+
+    // Trigger reprovisioning
+    return provisionTenant(tenantId, tenant.medusaVersion || undefined);
+  }
+
+  // All containers exist, start them in order
+  for (const resourceType of order) {
+    const resource = tenant.resources.find((r) => r.resourceType === resourceType);
+    if (resource?.containerId) {
+      try {
+        await dockerService.startContainer(resource.containerId);
+        await db
+          .update(tenantResources)
+          .set({ status: "running", updatedAt: new Date() })
+          .where(eq(tenantResources.containerId, resource.containerId));
+      } catch (error) {
+        console.error(`Failed to start ${resourceType}:`, error);
+        throw new Error(`Failed to start ${resourceType}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
     }
   }
 
@@ -378,18 +429,66 @@ export async function startTenant(tenantId: string): Promise<Tenant> {
   return updatedTenant;
 }
 
+// Helper: Check if container exists and is accessible
+async function containerExists(containerId: string): Promise<boolean> {
+  const status = await dockerService.getContainerStatus(containerId);
+  return status !== "not_found";
+}
+
 // Restart tenant containers
 export async function restartTenant(tenantId: string): Promise<Tenant> {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error("Tenant not found");
 
-  if (tenant.status !== "running" && tenant.status !== "stopped") {
+  if (tenant.status !== "running" && tenant.status !== "stopped" && tenant.status !== "failed") {
     throw new Error(`Cannot restart tenant in status: ${tenant.status}`);
   }
 
+  // Check if any containers are missing
+  let hasMissingContainers = false;
   for (const resource of tenant.resources) {
     if (resource.containerId) {
-      await dockerService.restartContainer(resource.containerId);
+      const exists = await containerExists(resource.containerId);
+      if (!exists) {
+        console.log(`Container ${resource.containerId} for ${resource.resourceType} not found`);
+        hasMissingContainers = true;
+        // Clear the container ID in DB since it no longer exists
+        await db
+          .update(tenantResources)
+          .set({ containerId: null, status: "error", updatedAt: new Date() })
+          .where(eq(tenantResources.containerId, resource.containerId));
+      }
+    }
+  }
+
+  // If containers are missing, trigger reprovisioning instead
+  if (hasMissingContainers) {
+    await logEvent(tenantId, "failed", "Some containers not found, triggering reprovisioning");
+
+    // Reset tenant status to allow reprovisioning
+    await db
+      .update(tenants)
+      .set({ status: "failed", updatedAt: new Date() })
+      .where(eq(tenants.id, tenantId));
+
+    // Trigger reprovisioning
+    return provisionTenant(tenantId, tenant.medusaVersion || undefined);
+  }
+
+  // All containers exist, restart them
+  for (const resource of tenant.resources) {
+    if (resource.containerId) {
+      try {
+        await dockerService.restartContainer(resource.containerId);
+      } catch (error) {
+        console.error(`Failed to restart ${resource.resourceType}:`, error);
+        // Container might have disappeared between check and restart
+        // Mark as error and continue
+        await db
+          .update(tenantResources)
+          .set({ status: "error", updatedAt: new Date() })
+          .where(eq(tenantResources.containerId, resource.containerId));
+      }
     }
   }
 
@@ -465,11 +564,22 @@ export async function upgradeTenant(
       throw new Error("Required containers not found");
     }
 
+    // Verify containers exist
+    const postgresExists = await containerExists(postgresResource.containerId);
+    const redisExists = await containerExists(redisResource.containerId);
+
+    if (!postgresExists || !redisExists) {
+      throw new Error("Required containers (postgres/redis) are missing. Please restart the tenant first to recreate them.");
+    }
+
     const networkName = `tenant_${tenant.slug}_network`;
     const config = tenant.config as TenantConfig;
 
-    // Stop and remove the old medusa container
-    await dockerService.removeContainer(medusaResource.containerId);
+    // Stop and remove the old medusa container (if it exists)
+    const medusaExists = await containerExists(medusaResource.containerId);
+    if (medusaExists) {
+      await dockerService.removeContainer(medusaResource.containerId);
+    }
 
     // Create new medusa container with the new image
     const medusa = await dockerService.createMedusaContainer(
@@ -558,14 +668,29 @@ export async function deleteTenant(tenantId: string): Promise<void> {
   for (const resourceType of order) {
     const resource = tenant.resources.find((r) => r.resourceType === resourceType);
     if (resource?.containerId) {
-      await dockerService.removeContainer(resource.containerId);
+      try {
+        const exists = await containerExists(resource.containerId);
+        if (exists) {
+          await dockerService.removeContainer(resource.containerId);
+        } else {
+          console.log(`Container ${resource.containerId} for ${resourceType} not found, skipping removal`);
+        }
+      } catch (error) {
+        console.error(`Failed to remove ${resourceType} container:`, error);
+        // Continue with cleanup even if container removal fails
+      }
     }
   }
 
   // Remove network
   const networkResource = tenant.resources.find((r) => r.resourceType === "network");
   if (networkResource?.networkId) {
-    await dockerService.removeNetwork(networkResource.networkId);
+    try {
+      await dockerService.removeNetwork(networkResource.networkId);
+    } catch (error) {
+      console.error("Failed to remove network:", error);
+      // Continue with cleanup even if network removal fails
+    }
   }
 
   // Soft delete tenant
@@ -595,22 +720,33 @@ export async function getTenantLogs(
     throw new Error(`No ${service} container found`);
   }
 
+  const exists = await containerExists(resource.containerId);
+  if (!exists) {
+    throw new Error(`Container for ${service} no longer exists. Try restarting the tenant to recreate it.`);
+  }
+
   return dockerService.getContainerLogs(resource.containerId, tail);
 }
 
 // Get tenant health/stats
 export async function getTenantHealth(tenantId: string): Promise<{
   status: string;
-  containers: Record<string, { status: string; stats?: { cpu: number; memory: number } }>;
+  containers: Record<string, { status: string; stats?: { cpu: number; memory: number }; missing?: boolean }>;
 }> {
   const tenant = await getTenant(tenantId);
   if (!tenant) throw new Error("Tenant not found");
 
-  const containers: Record<string, { status: string; stats?: { cpu: number; memory: number } }> = {};
+  const containers: Record<string, { status: string; stats?: { cpu: number; memory: number }; missing?: boolean }> = {};
 
   for (const resource of tenant.resources) {
     if (resource.containerId) {
       const status = await dockerService.getContainerStatus(resource.containerId);
+
+      if (status === "not_found") {
+        containers[resource.resourceType] = { status: "missing", missing: true };
+        continue;
+      }
+
       let stats: { cpu: number; memory: number } | undefined;
 
       if (status === "running") {
@@ -626,6 +762,8 @@ export async function getTenantHealth(tenantId: string): Promise<{
       }
 
       containers[resource.resourceType] = { status, stats };
+    } else if (resource.resourceType !== "network") {
+      containers[resource.resourceType] = { status: "not_provisioned", missing: true };
     }
   }
 
