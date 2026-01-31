@@ -10,6 +10,12 @@ import {
 } from "../db/schema.js";
 import * as dockerService from "./docker.js";
 
+// Check if running in Swarm mode
+const SWARM_MODE = process.env.SWARM_MODE === "true";
+
+// Log mode on startup
+console.log(`Tenant service running in ${SWARM_MODE ? "SWARM" : "CONTAINER"} mode`);
+
 // Resource type literal type
 type ResourceType = "network" | "postgres" | "redis" | "medusa";
 type ResourceStatus = "creating" | "running" | "stopped" | "error";
