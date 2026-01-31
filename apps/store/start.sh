@@ -26,17 +26,8 @@ fi
 echo "Seeding database..."
 pnpm seed 2>/dev/null || echo "Seeding skipped"
 
-# Build Medusa with correct MEDUSA_BACKEND_URL for this tenant
-# This must happen at runtime because each tenant has a different URL
-echo "Building Medusa for production..."
-echo "MEDUSA_BACKEND_URL=$MEDUSA_BACKEND_URL"
-pnpm build
-
-# Install production dependencies
-echo "Installing production dependencies..."
-cd .medusa/server
-pnpm install --prod=false
-
-# Start the production server
+# Start the production server (build already done at image build time)
+# Admin uses browser origin, so it works for any tenant domain
 echo "Starting Medusa production server..."
+cd .medusa/server
 exec pnpm start
