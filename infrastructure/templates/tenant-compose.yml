@@ -32,6 +32,9 @@ services:
     image: redis:7-alpine
     container_name: tenant_{{TENANT_SLUG}}_redis
     restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - tenant_{{TENANT_SLUG}}_redis_data:/data
     networks:
       - tenant_{{TENANT_SLUG}}_network
     healthcheck:
@@ -88,6 +91,7 @@ services:
 
 volumes:
   tenant_{{TENANT_SLUG}}_postgres_data:
+  tenant_{{TENANT_SLUG}}_redis_data:
 
 networks:
   tenant_{{TENANT_SLUG}}_network:

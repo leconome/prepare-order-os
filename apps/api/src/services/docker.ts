@@ -100,6 +100,14 @@ export async function createPostgresContainer(
   const dbName = `medusa_${tenant.slug}`;
   const dbUser = `medusa_${tenant.slug}`;
   const dbPassword = generatePassword();
+  const volumeName = `tenant_${tenant.slug}_postgres_data`;
+
+  // Create volume if it doesn't exist
+  try {
+    await docker.createVolume({ Name: volumeName });
+  } catch {
+    // Volume might already exist
+  }
 
   const container = await docker.createContainer({
     Image: POSTGRES_IMAGE,
@@ -108,6 +116,7 @@ export async function createPostgresContainer(
       `POSTGRES_DB=${dbName}`,
       `POSTGRES_USER=${dbUser}`,
       `POSTGRES_PASSWORD=${dbPassword}`,
+      `PGDATA=/var/lib/postgresql/data/pgdata`,
     ],
     Labels: {
       "econome.tenant.id": tenant.id,
@@ -123,6 +132,7 @@ export async function createPostgresContainer(
         "5432/tcp": [{ HostPort: port.toString() }],
       },
       RestartPolicy: { Name: "unless-stopped" },
+      Binds: [`${volumeName}:/var/lib/postgresql/data`],
     },
     Healthcheck: {
       Test: ["CMD-SHELL", `pg_isready -U ${dbUser} -d ${dbName}`],
@@ -172,9 +182,19 @@ export async function createRedisContainer(
     await pullImage(REDIS_IMAGE);
   }
 
+  const volumeName = `tenant_${tenant.slug}_redis_data`;
+
+  // Create volume if it doesn't exist
+  try {
+    await docker.createVolume({ Name: volumeName });
+  } catch {
+    // Volume might already exist
+  }
+
   const container = await docker.createContainer({
     Image: REDIS_IMAGE,
     name: containerName,
+    Cmd: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"],
     Labels: {
       "econome.tenant.id": tenant.id,
       "econome.tenant.slug": tenant.slug,
@@ -186,6 +206,7 @@ export async function createRedisContainer(
         "6379/tcp": [{ HostPort: port.toString() }],
       },
       RestartPolicy: { Name: "unless-stopped" },
+      Binds: [`${volumeName}:/data`],
     },
     Healthcheck: {
       Test: ["CMD", "redis-cli", "ping"],
