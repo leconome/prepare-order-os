@@ -21,7 +21,13 @@ module.exports = defineConfig({
     }
   },
   admin: {
-    backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
+    // In production, use MEDUSA_BACKEND_URL if set, otherwise omit to use browser origin
+    // In development, fall back to localhost
+    ...(process.env.MEDUSA_BACKEND_URL
+      ? { backendUrl: process.env.MEDUSA_BACKEND_URL }
+      : process.env.NODE_ENV === "production"
+        ? {} // Use browser origin in production
+        : { backendUrl: "http://localhost:9000" }),
     path: "/app",
   },
   modules: [

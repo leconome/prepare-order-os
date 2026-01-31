@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Wait for PostgreSQL to be ready (simple sleep-based approach)
+# Wait for PostgreSQL to be ready
 echo "Waiting for database to be ready..."
 sleep 5
 
@@ -26,7 +26,17 @@ fi
 echo "Seeding database..."
 pnpm seed 2>/dev/null || echo "Seeding skipped"
 
-# Start the production server (build already done at image build time)
-echo "Starting Medusa production server..."
+# Build Medusa with correct MEDUSA_BACKEND_URL for this tenant
+# This must happen at runtime because each tenant has a different URL
+echo "Building Medusa for production..."
+echo "MEDUSA_BACKEND_URL=$MEDUSA_BACKEND_URL"
+pnpm build
+
+# Install production dependencies
+echo "Installing production dependencies..."
 cd .medusa/server
+pnpm install --prod=false
+
+# Start the production server
+echo "Starting Medusa production server..."
 exec pnpm start

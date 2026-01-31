@@ -324,6 +324,7 @@ export async function createMedusaContainer(
       `STORE_CORS=${defaultStoreCors}`,
       `ADMIN_CORS=${defaultAdminCors}`,
       `AUTH_CORS=${defaultAuthCors}`,
+      `MEDUSA_BACKEND_URL=${tenantUrl}`,
       `MEDUSA_ADMIN_ONBOARDING_TYPE=default`,
       `ADMIN_EMAIL=${tenant.adminEmail || "admin@example.com"}`,
       `ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,

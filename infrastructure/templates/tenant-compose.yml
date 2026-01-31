@@ -65,6 +65,7 @@ services:
       - STORE_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
       - ADMIN_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
       - AUTH_CORS=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
+      - MEDUSA_BACKEND_URL=https://{{TENANT_SUBDOMAIN}}.{{DOMAIN}}
     networks:
       - tenant_{{TENANT_SLUG}}_network
       - platform_network

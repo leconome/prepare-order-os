@@ -21,18 +21,11 @@ RUN pnpm install
 # Copy source code
 COPY . .
 
-# Build Medusa for production (pre-compile at image build time)
-RUN pnpm build
-
-# Install production dependencies in the built server
-WORKDIR /app/.medusa/server
-RUN pnpm install --prod=false
-
-# Back to app directory
-WORKDIR /app
-
 # Make start script executable
 RUN chmod +x start.sh
+
+# Note: We do NOT pre-build here because MEDUSA_BACKEND_URL is tenant-specific
+# The build happens at runtime in start.sh with the correct environment variables
 
 # Expose port (API and Admin served from same port)
 EXPOSE 9000
