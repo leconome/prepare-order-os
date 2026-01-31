@@ -10,9 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
 import { TenantLogs } from "@/components/tenants/tenant-logs";
+import { TenantBackups } from "@/components/tenants/tenant-backups";
 import { api, getTenantUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
 import { formatDate, formatBytes } from "@/lib/utils";
-import { ArrowLeft, ExternalLink, Database, Server, Cpu, HardDrive, ArrowUp, Package } from "lucide-react";
+import { ArrowLeft, ExternalLink, Database, Server, Cpu, HardDrive, ArrowUp, Package, Shield } from "lucide-react";
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -24,7 +25,7 @@ export default function TenantDetailPage() {
   const [events, setEvents] = useState<TenantEvent[]>([]);
   const [images, setImages] = useState<PlatformImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "logs" | "events">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "backups" | "logs" | "events">("overview");
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string>("");
@@ -140,7 +141,7 @@ export default function TenantDetailPage() {
         </div>
 
         <div className="mb-6 flex gap-2 border-b">
-          {(["overview", "logs", "events"] as const).map((tab) => (
+          {(["overview", "backups", "logs", "events"] as const).map((tab) => (
             <button
               key={tab}
               className={`px-4 py-2 text-sm font-medium capitalize ${
@@ -369,6 +370,17 @@ export default function TenantDetailPage() {
               </Card>
             )}
           </div>
+        )}
+
+        {activeTab === "backups" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Backups & Data Security</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TenantBackups tenantSlug={tenant.slug} tenantStatus={tenant.status} />
+            </CardContent>
+          </Card>
         )}
 
         {activeTab === "logs" && (

@@ -69,6 +69,13 @@ export interface TenantEvent {
   createdAt: string;
 }
 
+export interface Backup {
+  filename: string;
+  tenantSlug: string;
+  createdAt: string;
+  size: number;
+}
+
 export interface CreateTenantInput {
   name: string;
   slug: string;
@@ -83,7 +90,7 @@ export interface CreateTenantInput {
 }
 
 class ApiClient {
-  private baseUrl: string;
+  public readonly baseUrl: string;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
@@ -194,6 +201,35 @@ class ApiClient {
   // Health
   async getHealth(): Promise<{ status: string; checks: Record<string, { status: string; latency?: number }> }> {
     return this.request("/health");
+  }
+
+  // Backups
+  async listBackups(tenantSlug?: string): Promise<{ backups: Backup[] }> {
+    const query = tenantSlug ? `?tenant=${tenantSlug}` : "";
+    return this.request(`/backups${query}`);
+  }
+
+  async createBackup(tenantSlug: string): Promise<{ backup: Backup }> {
+    return this.request(`/backups/${tenantSlug}`, {
+      method: "POST",
+    });
+  }
+
+  async restoreBackup(tenantSlug: string, filename: string): Promise<{ success: boolean }> {
+    return this.request(`/backups/${tenantSlug}/restore`, {
+      method: "POST",
+      body: JSON.stringify({ filename }),
+    });
+  }
+
+  async deleteBackup(filename: string): Promise<{ success: boolean }> {
+    return this.request(`/backups/${filename}`, {
+      method: "DELETE",
+    });
+  }
+
+  getBackupDownloadUrl(filename: string): string {
+    return `${this.baseUrl}/backups/download/${filename}`;
   }
 }
 
