@@ -343,7 +343,35 @@ async function updateTenantStatus(id: string, status: Tenant["status"]): Promise
     .where(eq(tenants.id, id));
 }
 
-async function logEvent(tenantId: string, eventType: string, message: string): Promise<void> {
+type EventType =
+  | "created"
+  | "tenant_created"
+  | "provisioning_started"
+  | "provisioning_completed"
+  | "provisioning_failed"
+  | "network_created"
+  | "postgres_created"
+  | "postgres_healthy"
+  | "redis_created"
+  | "redis_healthy"
+  | "medusa_created"
+  | "image_pulling"
+  | "service_updating"
+  | "started"
+  | "tenant_started"
+  | "stopped"
+  | "tenant_stopped"
+  | "restarted"
+  | "failed"
+  | "terminating"
+  | "deletion_started"
+  | "terminated"
+  | "upgrade_started"
+  | "upgrade_completed"
+  | "upgrade_failed";
+type ResourceType = "network" | "postgres" | "redis" | "medusa";
+
+async function logEvent(tenantId: string, eventType: EventType, message: string): Promise<void> {
   await db.insert(tenantEvents).values({
     tenantId,
     eventType,
@@ -353,7 +381,7 @@ async function logEvent(tenantId: string, eventType: string, message: string): P
 
 async function saveResource(
   tenantId: string,
-  resourceType: string,
+  resourceType: ResourceType,
   serviceId: string,
   serviceName: string
 ): Promise<void> {

@@ -138,7 +138,7 @@ export async function createPostgresService(
   const dbPassword = generatePassword();
   const volumeName = `tenant_${tenant.slug}_postgres_data`;
 
-  const service = await docker.createService({
+  await docker.createService({
     Name: serviceName,
     Labels: {
       "econome.tenant.id": tenant.id,
@@ -164,7 +164,7 @@ export async function createPostgresService(
             Target: "/var/lib/postgresql/data",
           },
         ],
-        Healthcheck: {
+        HealthCheck: {
           Test: ["CMD-SHELL", `pg_isready -U ${dbUser} -d ${dbName}`],
           Interval: 5000000000,
           Timeout: 5000000000,
@@ -181,8 +181,12 @@ export async function createPostgresService(
     Mode: { Replicated: { Replicas: 1 } },
   });
 
+  // Get the created service to retrieve its ID
+  const createdService = await getExistingService(serviceName);
+  const serviceId = createdService ? (await createdService.inspect()).ID : serviceName;
+
   return {
-    serviceId: service.id,
+    serviceId,
     serviceName,
     status: "starting",
     replicas: { running: 0, desired: 1 },
@@ -212,7 +216,7 @@ export async function createRedisService(
 
   const volumeName = `tenant_${tenant.slug}_redis_data`;
 
-  const service = await docker.createService({
+  await docker.createService({
     Name: serviceName,
     Labels: {
       "econome.tenant.id": tenant.id,
@@ -230,7 +234,7 @@ export async function createRedisService(
             Target: "/data",
           },
         ],
-        Healthcheck: {
+        HealthCheck: {
           Test: ["CMD", "redis-cli", "ping"],
           Interval: 5000000000,
           Timeout: 5000000000,
@@ -247,8 +251,12 @@ export async function createRedisService(
     Mode: { Replicated: { Replicas: 1 } },
   });
 
+  // Get the created service to retrieve its ID
+  const createdService = await getExistingService(serviceName);
+  const serviceId = createdService ? (await createdService.inspect()).ID : serviceName;
+
   return {
-    serviceId: service.id,
+    serviceId,
     serviceName,
     status: "starting",
     replicas: { running: 0, desired: 1 },
@@ -305,7 +313,7 @@ export async function createMedusaService(
   const defaultAdminCors = config.adminCors || tenantUrl;
   const defaultAuthCors = tenantUrl;
 
-  const service = await docker.createService({
+  await docker.createService({
     Name: serviceName,
     Labels: {
       "econome.tenant.id": tenant.id,
@@ -342,7 +350,7 @@ export async function createMedusaService(
           `ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,
           `NODE_ENV=${IS_PRODUCTION ? "production" : "development"}`,
         ],
-        Healthcheck: {
+        HealthCheck: {
           Test: ["CMD", "curl", "-f", "http://localhost:9000/health"],
           Interval: 10000000000,
           Timeout: 10000000000,
@@ -374,8 +382,12 @@ export async function createMedusaService(
     },
   });
 
+  // Get the created service to retrieve its ID
+  const createdService = await getExistingService(serviceName);
+  const serviceId = createdService ? (await createdService.inspect()).ID : serviceName;
+
   return {
-    serviceId: service.id,
+    serviceId,
     serviceName,
     status: "starting",
     replicas: { running: 0, desired: 1 },
@@ -471,7 +483,23 @@ export async function getServiceLogs(
     throw new Error(`Service ${serviceName} not found`);
   }
 
-  const logs = await service.logs({
+  // Get tasks for this service and retrieve logs from the container
+  const tasks = await docker.listTasks({
+    filters: { service: [serviceName] },
+  });
+
+  if (tasks.length === 0) {
+    return "No tasks found for service";
+  }
+
+  // Get the most recent task's container
+  const runningTask = tasks.find(t => t.Status?.State === "running");
+  if (!runningTask || !runningTask.Status?.ContainerStatus?.ContainerID) {
+    return "No running container found for service";
+  }
+
+  const container = docker.getContainer(runningTask.Status.ContainerStatus.ContainerID);
+  const logs = await container.logs({
     stdout: true,
     stderr: true,
     tail,

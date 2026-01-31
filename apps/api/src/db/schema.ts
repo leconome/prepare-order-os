@@ -39,16 +39,30 @@ export const resourceStatusEnum = pgEnum("resource_status", [
 
 export const eventTypeEnum = pgEnum("event_type", [
   "created",
+  "tenant_created",
   "provisioning_started",
   "provisioning_completed",
+  "provisioning_failed",
+  "network_created",
+  "postgres_created",
+  "postgres_healthy",
+  "redis_created",
+  "redis_healthy",
+  "medusa_created",
+  "image_pulling",
+  "service_updating",
   "started",
+  "tenant_started",
   "stopped",
+  "tenant_stopped",
   "restarted",
   "failed",
   "terminating",
+  "deletion_started",
   "terminated",
   "upgrade_started",
   "upgrade_completed",
+  "upgrade_failed",
 ]);
 
 export const metricTypeEnum = pgEnum("metric_type", [
