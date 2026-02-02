@@ -6,6 +6,9 @@ import * as tenantService from "../services/tenant.js";
 const tenants = new Hono();
 
 // Validation schemas
+// Helper to transform empty strings to undefined
+const emptyToUndefined = z.literal("").transform(() => undefined);
+
 const createTenantSchema = z.object({
   name: z.string().min(1).max(255),
   slug: z
@@ -18,8 +21,8 @@ const createTenantSchema = z.object({
     .min(1)
     .max(100)
     .regex(/^[a-z0-9-]+$/, "Subdomain must be lowercase alphanumeric with hyphens"),
-  adminEmail: z.string().email().optional(),
-  adminPassword: z.string().min(8).optional(),
+  adminEmail: z.union([z.string().email(), emptyToUndefined]).optional(),
+  adminPassword: z.union([z.string().min(8), emptyToUndefined]).optional(),
   config: z
     .object({
       storeCors: z.string().optional(),
@@ -27,11 +30,11 @@ const createTenantSchema = z.object({
       environment: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
-  version: z.string().min(1).max(50).optional(),
+  version: z.union([z.string().min(1).max(50), emptyToUndefined]).optional(),
 });
 
 const provisionTenantSchema = z.object({
-  version: z.string().min(1).max(50).optional(),
+  version: z.union([z.string().min(1).max(50), emptyToUndefined]).optional(),
 });
 
 const upgradeTenantSchema = z.object({
@@ -39,8 +42,8 @@ const upgradeTenantSchema = z.object({
 });
 
 const updateTenantSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  adminEmail: z.string().email().optional(),
+  name: z.union([z.string().min(1).max(255), emptyToUndefined]).optional(),
+  adminEmail: z.union([z.string().email(), emptyToUndefined]).optional(),
   config: z
     .object({
       storeCors: z.string().optional(),
