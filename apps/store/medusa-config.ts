@@ -1,8 +1,7 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
-import type { Plugin } from 'vite'
 
 // Vite plugin to set French locale before React loads
-const setFrenchLocalePlugin = (): Plugin => ({
+const setFrenchLocalePlugin = () => ({
   name: 'set-french-locale',
   transformIndexHtml(html) {
     // Inject script that sets i18next language in localStorage before React hydrates
