@@ -5,6 +5,7 @@ import {
   tenantResources,
   tenantEvents,
   platformImages,
+  clientImages,
   type Tenant,
   type TenantConfig,
 } from "../db/schema.js";
@@ -803,6 +804,124 @@ export async function upgradeTenant(
       "failed",
       `Upgrade failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       { previousVersion, targetVersion, error: String(error) }
+    );
+
+    throw error;
+  }
+}
+
+// Upgrade tenant client to a new version
+export async function upgradeClientVersion(
+  tenantId: string,
+  targetVersion: string
+): Promise<Tenant> {
+  const tenant = await getTenant(tenantId);
+  if (!tenant) throw new Error("Tenant not found");
+
+  if (tenant.status !== "running" && tenant.status !== "stopped") {
+    throw new Error(`Cannot upgrade client in status: ${tenant.status}`);
+  }
+
+  // Get target version image
+  const [targetImage] = await db
+    .select()
+    .from(clientImages)
+    .where(eq(clientImages.version, targetVersion))
+    .limit(1);
+
+  if (!targetImage) {
+    throw new Error(`Client version ${targetVersion} not found`);
+  }
+
+  if (targetImage.isDeprecated) {
+    throw new Error(`Client version ${targetVersion} is deprecated`);
+  }
+
+  if (tenant.clientVersion === targetVersion) {
+    throw new Error(`Tenant is already running client version ${targetVersion}`);
+  }
+
+  const previousVersion = tenant.clientVersion;
+
+  await logEvent(
+    tenantId,
+    "upgrade_started",
+    `Upgrading client from ${previousVersion || "unknown"} to ${targetVersion}`,
+    { previousVersion, targetVersion, component: "client" }
+  );
+
+  try {
+    // Pull the new image
+    const exists = await dockerService.imageExists(targetImage.imageTag);
+    if (!exists) {
+      await dockerService.pullImage(targetImage.imageTag);
+    }
+
+    // Find the client resource
+    const clientResource = tenant.resources.find((r) => r.resourceType === "client");
+    if (!clientResource?.containerId) {
+      throw new Error("Client container not found. Please migrate the tenant first.");
+    }
+
+    const networkName = `tenant_${tenant.slug}_network`;
+    const config = tenant.config as TenantConfig;
+
+    // Stop and remove the old client container (if it exists)
+    const clientExists = await containerExists(clientResource.containerId);
+    if (clientExists) {
+      await dockerService.removeContainer(clientResource.containerId);
+    }
+
+    // Create new client container with the new image
+    const client = await dockerService.createClientContainer(
+      tenant,
+      networkName,
+      config.clientPort || 3002,
+      targetImage.imageTag
+    );
+
+    // Update client resource record
+    await db
+      .update(tenantResources)
+      .set({
+        containerId: client.containerId,
+        containerName: client.containerName,
+        status: "running",
+        metadata: { imageTag: targetImage.imageTag },
+      })
+      .where(
+        and(
+          eq(tenantResources.tenantId, tenantId),
+          eq(tenantResources.resourceType, "client")
+        )
+      );
+
+    // Update tenant record with new client version info
+    const [updatedTenant] = await db
+      .update(tenants)
+      .set({
+        clientVersion: targetVersion,
+        clientImageTag: targetImage.imageTag,
+        status: "running",
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+
+    await logEvent(
+      tenantId,
+      "upgrade_completed",
+      `Successfully upgraded client to version ${targetVersion}`,
+      { previousVersion, targetVersion, component: "client" }
+    );
+
+    return updatedTenant;
+  } catch (error) {
+    await logEvent(
+      tenantId,
+      "failed",
+      `Client upgrade failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { previousVersion, targetVersion, component: "client", error: String(error) }
     );
 
     throw error;

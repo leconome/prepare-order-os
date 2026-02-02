@@ -44,12 +44,25 @@ export interface Tenant {
   adminEmail?: string;
   medusaVersion?: string | null;
   imageTag?: string | null;
+  clientVersion?: string | null;
+  clientImageTag?: string | null;
   lastUpgradedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface PlatformImage {
+  id: string;
+  version: string;
+  imageTag: string;
+  commitSha?: string | null;
+  releaseNotes?: string | null;
+  isLatest: boolean;
+  isDeprecated: boolean;
+  createdAt: string;
+}
+
+export interface ClientImage {
   id: string;
   version: string;
   imageTag: string;
@@ -208,13 +221,29 @@ class ApiClient {
     });
   }
 
-  // Images
+  // Medusa Images
   async listImages(): Promise<{ images: PlatformImage[] }> {
     return this.request("/images");
   }
 
   async getLatestImage(): Promise<{ image: PlatformImage }> {
     return this.request("/images/latest");
+  }
+
+  // Client Images
+  async listClientImages(): Promise<{ images: ClientImage[] }> {
+    return this.request("/images/client");
+  }
+
+  async getLatestClientImage(): Promise<{ image: ClientImage }> {
+    return this.request("/images/client/latest");
+  }
+
+  async upgradeClientVersion(id: string, version: string): Promise<{ tenant: Tenant }> {
+    return this.request(`/tenants/${id}/upgrade-client`, {
+      method: "POST",
+      body: JSON.stringify({ version }),
+    });
   }
 
   // Health

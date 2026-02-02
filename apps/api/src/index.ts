@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import tenantsRoutes from "./routes/tenants.js";
 import healthRoutes from "./routes/health.js";
 import imagesRoutes from "./routes/images.js";
+import clientImagesRoutes from "./routes/client-images.js";
 import backupsRoutes from "./routes/backups.js";
 
 const app = new Hono();
@@ -39,6 +40,7 @@ app.use(
 app.route("/tenants", tenantsRoutes);
 app.route("/health", healthRoutes);
 app.route("/images", imagesRoutes);
+app.route("/images/client", clientImagesRoutes);
 app.route("/backups", backupsRoutes);
 
 // Root endpoint

@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
 import { TenantLogs } from "@/components/tenants/tenant-logs";
 import { TenantBackups } from "@/components/tenants/tenant-backups";
-import { api, getClientUrl, getStoreApiUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
+import { api, getClientUrl, getStoreApiUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage, type ClientImage } from "@/lib/api";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { ArrowLeft, ExternalLink, Database, Server, Cpu, HardDrive, ArrowUp, Package, Shield } from "lucide-react";
 
@@ -24,26 +24,32 @@ export default function TenantDetailPage() {
   const [health, setHealth] = useState<TenantHealth | null>(null);
   const [events, setEvents] = useState<TenantEvent[]>([]);
   const [images, setImages] = useState<PlatformImage[]>([]);
+  const [clientImages, setClientImages] = useState<ClientImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "backups" | "logs" | "events">("overview");
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string>("");
+  const [upgradingClient, setUpgradingClient] = useState(false);
+  const [upgradeClientError, setUpgradeClientError] = useState<string | null>(null);
+  const [selectedClientVersion, setSelectedClientVersion] = useState<string>("");
   const [migrating, setMigrating] = useState(false);
   const [migrateError, setMigrateError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
-      const [tenantRes, healthRes, eventsRes, imagesRes] = await Promise.all([
+      const [tenantRes, healthRes, eventsRes, imagesRes, clientImagesRes] = await Promise.all([
         api.getTenant(tenantId),
         api.getTenantHealth(tenantId).catch(() => null),
         api.getTenantEvents(tenantId).catch(() => ({ events: [] })),
         api.listImages().catch(() => ({ images: [] })),
+        api.listClientImages().catch(() => ({ images: [] })),
       ]);
       setTenant(tenantRes.tenant);
       setHealth(healthRes);
       setEvents(eventsRes.events);
       setImages(imagesRes.images.filter((img) => !img.isDeprecated));
+      setClientImages(clientImagesRes.images.filter((img) => !img.isDeprecated));
     } catch (error) {
       console.error("Failed to fetch tenant:", error);
     } finally {
@@ -84,9 +90,30 @@ export default function TenantDetailPage() {
     }
   };
 
+  const handleUpgradeClient = async () => {
+    if (!selectedClientVersion || !tenant) return;
+
+    setUpgradingClient(true);
+    setUpgradeClientError(null);
+
+    try {
+      await api.upgradeClientVersion(tenant.id, selectedClientVersion);
+      setSelectedClientVersion("");
+      await fetchData();
+    } catch (error) {
+      setUpgradeClientError(error instanceof Error ? error.message : "Failed to upgrade client");
+    } finally {
+      setUpgradingClient(false);
+    }
+  };
+
   const latestImage = images.find((img) => img.isLatest);
   const hasNewerVersion = tenant && latestImage && tenant.medusaVersion !== latestImage.version;
   const availableUpgrades = images.filter((img) => tenant && img.version !== tenant.medusaVersion);
+
+  const latestClientImage = clientImages.find((img) => img.isLatest);
+  const hasNewerClientVersion = tenant && latestClientImage && tenant.clientVersion !== latestClientImage.version;
+  const availableClientUpgrades = clientImages.filter((img) => tenant && img.version !== tenant.clientVersion);
 
   useEffect(() => {
     fetchData();
@@ -203,6 +230,19 @@ export default function TenantDetailPage() {
                       )}
                     </div>
                   </div>
+                  <div>
+                    <span className="text-zinc-500">Client Version</span>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">
+                        {tenant.clientVersion || "Default"}
+                      </p>
+                      {hasNewerClientVersion && (
+                        <Badge variant="warning" className="text-xs">
+                          Upgrade Available
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                   {tenant.lastUpgradedAt && (
                     <div>
                       <span className="text-zinc-500">Last Upgraded</span>
@@ -253,6 +293,9 @@ export default function TenantDetailPage() {
                           )}
                           {resource.resourceType === "medusa" && (
                             <Cpu className="h-4 w-4 text-purple-500" />
+                          )}
+                          {resource.resourceType === "client" && (
+                            <Server className="h-4 w-4 text-green-500" />
                           )}
                           {resource.resourceType === "network" && (
                             <HardDrive className="h-4 w-4 text-zinc-500" />
@@ -464,6 +507,75 @@ export default function TenantDetailPage() {
                     <p className="text-xs text-zinc-500">
                       Note: Upgrading will briefly stop the Medusa container while the new version is deployed.
                       Data in the database will be preserved.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Client Version Management */}
+            {(tenant.status === "running" || tenant.status === "stopped") &&
+             tenant.resources.some((r) => r.resourceType === "client") &&
+             availableClientUpgrades.length > 0 && (
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Client Version Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-zinc-500">Current Client Version:</span>
+                      <Badge variant="outline">{tenant.clientVersion || "Default"}</Badge>
+                      {hasNewerClientVersion && latestClientImage && (
+                        <span className="text-zinc-500">
+                          → Latest: <span className="font-medium text-green-600">{latestClientImage.version}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {upgradeClientError && (
+                      <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                        {upgradeClientError}
+                      </div>
+                    )}
+
+                    <div className="flex items-end gap-4">
+                      <div className="flex-1 space-y-2">
+                        <label htmlFor="client-version-select" className="text-sm font-medium">
+                          Upgrade Client to Version
+                        </label>
+                        <select
+                          id="client-version-select"
+                          value={selectedClientVersion}
+                          onChange={(e) => setSelectedClientVersion(e.target.value)}
+                          disabled={upgradingClient}
+                          className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">Select version...</option>
+                          {availableClientUpgrades.map((image) => (
+                            <option key={image.id} value={image.version}>
+                              {image.version}
+                              {image.isLatest && " (Latest)"}
+                              {image.createdAt && ` - ${new Date(image.createdAt).toLocaleDateString()}`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        onClick={handleUpgradeClient}
+                        disabled={!selectedClientVersion || upgradingClient}
+                        loading={upgradingClient}
+                      >
+                        <ArrowUp className="mr-2 h-4 w-4" />
+                        Upgrade
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-zinc-500">
+                      Note: Upgrading will briefly stop the client container while the new version is deployed.
                     </p>
                   </div>
                 </CardContent>

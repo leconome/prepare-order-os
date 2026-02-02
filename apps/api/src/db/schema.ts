@@ -89,6 +89,8 @@ export const tenants = pgTable("tenants", {
   adminPassword: varchar("admin_password", { length: 255 }),
   medusaVersion: varchar("medusa_version", { length: 50 }),
   imageTag: varchar("image_tag", { length: 255 }),
+  clientVersion: varchar("client_version", { length: 50 }),
+  clientImageTag: varchar("client_image_tag", { length: 255 }),
   lastUpgradedAt: timestamp("last_upgraded_at", { mode: "date" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -157,6 +159,17 @@ export const platformImages = pgTable("platform_images", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+export const clientImages = pgTable("client_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  version: varchar("version", { length: 50 }).notNull().unique(),
+  imageTag: varchar("image_tag", { length: 255 }).notNull(),
+  commitSha: varchar("commit_sha", { length: 40 }),
+  releaseNotes: text("release_notes"),
+  isLatest: boolean("is_latest").default(false),
+  isDeprecated: boolean("is_deprecated").default(false),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
 // Types
 export type TenantConfig = {
   medusaPort?: number;
@@ -179,3 +192,5 @@ export type TenantMetric = typeof tenantMetrics.$inferSelect;
 export type NewTenantMetric = typeof tenantMetrics.$inferInsert;
 export type PlatformImage = typeof platformImages.$inferSelect;
 export type NewPlatformImage = typeof platformImages.$inferInsert;
+export type ClientImage = typeof clientImages.$inferSelect;
+export type NewClientImage = typeof clientImages.$inferInsert;

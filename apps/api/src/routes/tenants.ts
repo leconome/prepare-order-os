@@ -41,6 +41,10 @@ const upgradeTenantSchema = z.object({
   version: z.string().min(1).max(50),
 });
 
+const upgradeClientSchema = z.object({
+  version: z.string().min(1).max(50),
+});
+
 const updateTenantSchema = z.object({
   name: z.union([z.string().min(1).max(255), emptyToUndefined]).optional(),
   adminEmail: z.union([z.string().email(), emptyToUndefined]).optional(),
@@ -196,7 +200,7 @@ tenants.post("/:id/migrate", async (c) => {
   }
 });
 
-// POST /tenants/:id/upgrade - Upgrade tenant to a new version
+// POST /tenants/:id/upgrade - Upgrade tenant Medusa to a new version
 tenants.post("/:id/upgrade", zValidator("json", upgradeTenantSchema), async (c) => {
   try {
     const id = c.req.param("id");
@@ -207,6 +211,22 @@ tenants.post("/:id/upgrade", zValidator("json", upgradeTenantSchema), async (c) 
     console.error("Error upgrading tenant:", error);
     return c.json(
       { error: error instanceof Error ? error.message : "Failed to upgrade tenant" },
+      500
+    );
+  }
+});
+
+// POST /tenants/:id/upgrade-client - Upgrade tenant client to a new version
+tenants.post("/:id/upgrade-client", zValidator("json", upgradeClientSchema), async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { version } = c.req.valid("json");
+    const tenant = await tenantService.upgradeClientVersion(id, version);
+    return c.json({ tenant });
+  } catch (error) {
+    console.error("Error upgrading client:", error);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Failed to upgrade client" },
       500
     );
   }
