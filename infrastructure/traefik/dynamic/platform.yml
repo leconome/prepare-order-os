@@ -3,6 +3,30 @@
 
 http:
   routers:
+    # Platform API
+    api:
+      rule: "Host(`api.localhost`)"
+      entrypoints:
+        - web
+      service: api
+      priority: 10
+
+    # Platform Admin
+    admin:
+      rule: "Host(`admin.localhost`)"
+      entrypoints:
+        - web
+      service: admin
+      priority: 10
+
+    # Local dev tenant - routes to host machine for hot reload
+    dev-tenant:
+      rule: "Host(`dev.localhost`)"
+      entrypoints:
+        - web
+      service: dev-local
+      priority: 10
+
     # Catch-all for tenant subdomains (handled by Docker labels on tenant containers)
     tenant-catchall:
       rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.localhost`)"
@@ -10,6 +34,25 @@ http:
         - web
       service: noop@internal
       priority: 1
+
+  services:
+    # Platform API service
+    api:
+      loadBalancer:
+        servers:
+          - url: "http://econome-api:3001"
+
+    # Platform Admin service
+    admin:
+      loadBalancer:
+        servers:
+          - url: "http://econome-admin:3000"
+
+    # Local dev service - points to host machine
+    dev-local:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:9000"
 
   middlewares:
     # Rate limiting for API

@@ -59,34 +59,41 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const salesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
   const storeModuleService = container.resolve(Modules.STORE);
 
-  const countries = ["gb", "de", "dk", "se", "fr", "es", "it"];
+  const countries = ["fr", "be", "ch", "lu", "mc"];
 
   logger.info("Setting up store configuration...");
   const [store] = await storeModuleService.listStores();
+  const regionModuleService = container.resolve(Modules.REGION);
 
-  // Check if already seeded by looking for existing sales channel
+  // Check existing data
   let defaultSalesChannel = await salesChannelModuleService.listSalesChannels({
     name: "Default Sales Channel",
   });
 
-  if (defaultSalesChannel.length) {
+  const existingRegions = await regionModuleService.listRegions({
+    name: "France",
+  });
+
+  if (defaultSalesChannel.length && existingRegions.length) {
     logger.info("Store already configured, skipping seed.");
     return;
   }
 
-  // Create default sales channel
-  const { result: salesChannelResult } = await createSalesChannelsWorkflow(
-    container
-  ).run({
-    input: {
-      salesChannelsData: [
-        {
-          name: "Default Sales Channel",
-        },
-      ],
-    },
-  });
-  defaultSalesChannel = salesChannelResult;
+  // Create default sales channel if it doesn't exist
+  if (!defaultSalesChannel.length) {
+    const { result: salesChannelResult } = await createSalesChannelsWorkflow(
+      container
+    ).run({
+      input: {
+        salesChannelsData: [
+          {
+            name: "Default Sales Channel",
+          },
+        ],
+      },
+    });
+    defaultSalesChannel = salesChannelResult;
+  }
 
   // Set up currencies
   await updateStoreCurrencies(container).run({
@@ -96,9 +103,6 @@ export default async function seedDemoData({ container }: ExecArgs) {
         {
           currency_code: "eur",
           is_default: true,
-        },
-        {
-          currency_code: "usd",
         },
       ],
     },
@@ -113,21 +117,26 @@ export default async function seedDemoData({ container }: ExecArgs) {
     },
   });
 
-  // Create region
-  logger.info("Creating default region...");
-  const { result: regionResult } = await createRegionsWorkflow(container).run({
-    input: {
-      regions: [
-        {
-          name: "Europe",
-          currency_code: "eur",
-          countries,
-          payment_providers: ["pp_system_default"],
-        },
-      ],
-    },
-  });
-  const region = regionResult[0];
+  // Create region if it doesn't exist
+  let region = existingRegions[0];
+  if (!region) {
+    logger.info("Creating default region...");
+    const { result: regionResult } = await createRegionsWorkflow(container).run({
+      input: {
+        regions: [
+          {
+            name: "France",
+            currency_code: "eur",
+            countries,
+            payment_providers: ["pp_system_default"],
+          },
+        ],
+      },
+    });
+    region = regionResult[0];
+  } else {
+    logger.info("Region 'France' already exists, skipping...");
+  }
 
   // Create tax regions
   logger.info("Creating tax regions...");
@@ -203,7 +212,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
     type: "shipping",
     service_zones: [
       {
-        name: "Europe",
+        name: "France",
         geo_zones: countries.map((country_code) => ({
           country_code,
           type: "country" as const,
@@ -232,12 +241,11 @@ export default async function seedDemoData({ container }: ExecArgs) {
         shipping_profile_id: shippingProfile.id,
         type: {
           label: "Standard",
-          description: "Standard shipping (3-5 business days)",
+          description: "Livraison standard (3-5 jours ouvrés)",
           code: "standard",
         },
         prices: [
           { currency_code: "eur", amount: 5 },
-          { currency_code: "usd", amount: 6 },
           { region_id: region.id, amount: 5 },
         ],
         rules: [

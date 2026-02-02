@@ -1,4 +1,16 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import type { Plugin } from 'vite'
+
+// Vite plugin to set French locale before React loads
+const setFrenchLocalePlugin = (): Plugin => ({
+  name: 'set-french-locale',
+  transformIndexHtml(html) {
+    // Inject script that sets i18next language in localStorage before React hydrates
+    // Medusa uses 'lng' as the localStorage key (per detection config)
+    const script = `<script>localStorage.setItem('lng', 'fr');</script>`
+    return html.replace('<head>', `<head>${script}`)
+  },
+})
 
 // Preserve Docker/compose env so loadEnv(.env) does not override them
 const dockerDatabaseUrl = process.env.DATABASE_URL
@@ -25,6 +37,9 @@ module.exports = defineConfig({
     // Browser origin works for both local dev (localhost:9000) and production
     ...(process.env.MEDUSA_BACKEND_URL && { backendUrl: process.env.MEDUSA_BACKEND_URL }),
     path: "/app",
+    vite: () => ({
+      plugins: [setFrenchLocalePlugin()],
+    }),
   },
   modules: [
     {
