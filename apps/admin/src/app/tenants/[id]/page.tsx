@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
 import { TenantLogs } from "@/components/tenants/tenant-logs";
 import { TenantBackups } from "@/components/tenants/tenant-backups";
-import { api, getTenantUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
+import { api, getClientUrl, getStoreApiUrl, getTenantAdminUrl, DOMAIN, type TenantWithResources, type TenantHealth, type TenantEvent, type PlatformImage } from "@/lib/api";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { ArrowLeft, ExternalLink, Database, Server, Cpu, HardDrive, ArrowUp, Package, Shield } from "lucide-react";
 
@@ -127,7 +127,7 @@ export default function TenantDetailPage() {
             <div className="mt-1 flex items-center gap-4 text-sm text-zinc-500">
               <span>Slug: {tenant.slug}</span>
               <a
-                href={getTenantUrl(tenant.subdomain)}
+                href={getClientUrl(tenant.subdomain)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 hover:text-zinc-900"
@@ -201,6 +201,12 @@ export default function TenantDetailPage() {
                     <div>
                       <span className="text-zinc-500">Admin Port</span>
                       <p className="font-medium">{tenant.config.adminPort}</p>
+                    </div>
+                  )}
+                  {tenant.config.clientPort && (
+                    <div>
+                      <span className="text-zinc-500">Client Port</span>
+                      <p className="font-medium">{tenant.config.clientPort}</p>
                     </div>
                   )}
                 </div>
@@ -277,9 +283,19 @@ export default function TenantDetailPage() {
                   <CardTitle>Quick Links</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     <a
-                      href={getTenantUrl(tenant.subdomain)}
+                      href={getClientUrl(tenant.subdomain)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline">
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Client Storefront
+                      </Button>
+                    </a>
+                    <a
+                      href={getStoreApiUrl(tenant.subdomain)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

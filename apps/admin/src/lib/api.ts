@@ -2,15 +2,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "localhost";
 const IS_PRODUCTION = DOMAIN !== "localhost";
 
-// Helper to get tenant URL
-export function getTenantUrl(subdomain: string): string {
+// Helper to get client storefront URL (main tenant subdomain)
+export function getClientUrl(subdomain: string): string {
   const protocol = IS_PRODUCTION ? "https" : "http";
   return `${protocol}://${subdomain}.${DOMAIN}`;
 }
 
-// Helper to get tenant admin URL
+// Helper to get store API URL (store subdomain)
+export function getStoreApiUrl(subdomain: string): string {
+  const protocol = IS_PRODUCTION ? "https" : "http";
+  return `${protocol}://store.${subdomain}.${DOMAIN}`;
+}
+
+// Helper to get tenant admin URL (store subdomain + /app)
 export function getTenantAdminUrl(subdomain: string): string {
-  return `${getTenantUrl(subdomain)}/app`;
+  return `${getStoreApiUrl(subdomain)}/app`;
+}
+
+// Legacy alias for backward compatibility
+export function getTenantUrl(subdomain: string): string {
+  return getClientUrl(subdomain);
 }
 
 export { DOMAIN };
@@ -24,6 +35,7 @@ export interface Tenant {
   config: {
     medusaPort?: number;
     adminPort?: number;
+    clientPort?: number;
     postgresPort?: number;
     redisPort?: number;
     storeCors?: string;
