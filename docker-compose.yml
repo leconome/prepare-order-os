@@ -118,6 +118,38 @@ services:
       - "traefik.http.services.admin.loadbalancer.server.port=3000"
 
   # ===================
+  # Client Storefront
+  # ===================
+  client:
+    build:
+      context: ./apps/client
+      dockerfile: Dockerfile
+    container_name: econome-client
+    restart: on-failure:3
+    depends_on:
+      - api
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_STORE_API_URL=http://store.dev.localhost
+      - NEXT_PUBLIC_DOMAIN=localhost
+    volumes:
+      - ./apps/client/app:/app/app:ro
+      - ./apps/client/public:/app/public:ro
+      - ./apps/client/package.json:/app/package.json:ro
+      - ./apps/client/tsconfig.json:/app/tsconfig.json:ro
+      - ./apps/client/next.config.ts:/app/next.config.ts:ro
+      - ./apps/client/postcss.config.mjs:/app/postcss.config.mjs:ro
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client.rule=Host(`client.localhost`)"
+      - "traefik.http.routers.client.entrypoints=web"
+      - "traefik.http.services.client.loadbalancer.server.port=3002"
+
+  # ===================
   # Database UI (Development)
   # ===================
   db-ui:
