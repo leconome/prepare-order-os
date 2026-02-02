@@ -45,7 +45,7 @@ env:
 jobs:
   deploy:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, econome]
     environment: production
 
     steps:
@@ -118,7 +118,7 @@ jobs:
   # ===========================================
   rollback:
     name: Rollback Deployment
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, econome]
     environment: production
     if: github.event_name == 'workflow_dispatch' && false  # Disabled by default
 
