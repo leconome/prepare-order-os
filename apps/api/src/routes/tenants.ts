@@ -181,6 +181,21 @@ tenants.post("/:id/restart", async (c) => {
   }
 });
 
+// POST /tenants/:id/migrate - Migrate tenant to new URL structure (client + store subdomain)
+tenants.post("/:id/migrate", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const tenant = await tenantService.migrateTenant(id);
+    return c.json({ tenant });
+  } catch (error) {
+    console.error("Error migrating tenant:", error);
+    return c.json(
+      { error: error instanceof Error ? error.message : "Failed to migrate tenant" },
+      500
+    );
+  }
+});
+
 // POST /tenants/:id/upgrade - Upgrade tenant to a new version
 tenants.post("/:id/upgrade", zValidator("json", upgradeTenantSchema), async (c) => {
   try {

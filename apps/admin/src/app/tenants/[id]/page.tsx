@@ -29,6 +29,8 @@ export default function TenantDetailPage() {
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string>("");
+  const [migrating, setMigrating] = useState(false);
+  const [migrateError, setMigrateError] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -63,6 +65,22 @@ export default function TenantDetailPage() {
       setUpgradeError(error instanceof Error ? error.message : "Failed to upgrade tenant");
     } finally {
       setUpgrading(false);
+    }
+  };
+
+  const handleMigrate = async () => {
+    if (!tenant) return;
+
+    setMigrating(true);
+    setMigrateError(null);
+
+    try {
+      await api.migrateTenant(tenant.id);
+      await fetchData();
+    } catch (error) {
+      setMigrateError(error instanceof Error ? error.message : "Failed to migrate tenant");
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -277,6 +295,44 @@ export default function TenantDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Migration Card - show if tenant doesn't have a client container */}
+            {(tenant.status === "running" || tenant.status === "stopped") &&
+             !tenant.resources.some((r) => r.resourceType === "client") && (
+              <Card className="lg:col-span-2 border-amber-200 bg-amber-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-800">
+                    <ArrowUp className="h-5 w-5" />
+                    Migration Required
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-amber-700">
+                      This tenant needs to be migrated to the new URL structure. Migration will:
+                    </p>
+                    <ul className="list-disc list-inside text-sm text-amber-700 space-y-1">
+                      <li>Create a client storefront container at <strong>{tenant.subdomain}.{DOMAIN}</strong></li>
+                      <li>Move the store API to <strong>store.{tenant.subdomain}.{DOMAIN}</strong></li>
+                    </ul>
+
+                    {migrateError && (
+                      <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                        {migrateError}
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handleMigrate}
+                      disabled={migrating}
+                      className="bg-amber-600 hover:bg-amber-700"
+                    >
+                      {migrating ? "Migrating..." : "Migrate Now"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {tenant.status === "running" && (
               <Card className="lg:col-span-2">
                 <CardHeader>
@@ -284,36 +340,64 @@ export default function TenantDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-4">
-                    <a
-                      href={getClientUrl(tenant.subdomain)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline">
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Client Storefront
-                      </Button>
-                    </a>
-                    <a
-                      href={getStoreApiUrl(tenant.subdomain)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline">
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Store API
-                      </Button>
-                    </a>
-                    <a
-                      href={getTenantAdminUrl(tenant.subdomain)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline">
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Admin Dashboard
-                      </Button>
-                    </a>
+                    {tenant.resources.some((r) => r.resourceType === "client") ? (
+                      <>
+                        <a
+                          href={getClientUrl(tenant.subdomain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Client Storefront
+                          </Button>
+                        </a>
+                        <a
+                          href={getStoreApiUrl(tenant.subdomain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Store API
+                          </Button>
+                        </a>
+                        <a
+                          href={getTenantAdminUrl(tenant.subdomain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Admin Dashboard
+                          </Button>
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        {/* Legacy links for non-migrated tenants */}
+                        <a
+                          href={getClientUrl(tenant.subdomain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Store API (Legacy)
+                          </Button>
+                        </a>
+                        <a
+                          href={`${getClientUrl(tenant.subdomain)}/app`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button variant="outline">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Admin Dashboard (Legacy)
+                          </Button>
+                        </a>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

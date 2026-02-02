@@ -530,6 +530,137 @@ export async function restartTenant(tenantId: string): Promise<Tenant> {
   return updatedTenant;
 }
 
+// Migrate tenant to new URL structure (adds client, updates medusa routing)
+export async function migrateTenant(tenantId: string): Promise<Tenant> {
+  const tenant = await getTenant(tenantId);
+  if (!tenant) throw new Error("Tenant not found");
+
+  if (tenant.status !== "running" && tenant.status !== "stopped") {
+    throw new Error(`Cannot migrate tenant in status: ${tenant.status}`);
+  }
+
+  await logEvent(tenantId, "service_updating", "Migrating tenant to new URL structure");
+
+  const config = tenant.config as TenantConfig;
+  const networkName = `tenant_${tenant.slug}_network`;
+
+  // Find existing resources
+  const medusaResource = tenant.resources.find((r) => r.resourceType === "medusa");
+  const clientResource = tenant.resources.find((r) => r.resourceType === "client");
+  const postgresResource = tenant.resources.find((r) => r.resourceType === "postgres");
+  const redisResource = tenant.resources.find((r) => r.resourceType === "redis");
+
+  if (!medusaResource?.containerId) {
+    throw new Error("Medusa container not found - cannot migrate");
+  }
+
+  try {
+    // Step 1: Recreate Medusa container with new store.{subdomain} routing
+    await logEvent(tenantId, "service_updating", "Updating Medusa routing to store subdomain");
+
+    // The createMedusaContainer function checks labels and recreates if wrong
+    const medusa = await dockerService.createMedusaContainer(
+      tenant,
+      networkName,
+      {
+        containerId: postgresResource?.containerId || "",
+        containerName: postgresResource?.containerName || "",
+        status: "running",
+        port: postgresResource?.port || undefined,
+      },
+      {
+        containerId: redisResource?.containerId || "",
+        containerName: redisResource?.containerName || "",
+        status: "running",
+        port: redisResource?.port || undefined,
+      },
+      config.medusaPort || 9000,
+      config.adminPort || 5173,
+      tenant.imageTag || undefined
+    );
+
+    // Update medusa resource if container ID changed
+    if (medusa.containerId !== medusaResource.containerId) {
+      await db
+        .update(tenantResources)
+        .set({
+          containerId: medusa.containerId,
+          containerName: medusa.containerName,
+          status: "running",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(tenantResources.tenantId, tenantId),
+            eq(tenantResources.resourceType, "medusa")
+          )
+        );
+    }
+
+    // Step 2: Create client container if it doesn't exist
+    if (!clientResource) {
+      await logEvent(tenantId, "service_updating", "Creating client container");
+
+      // Allocate a new port for client
+      const ports = dockerService.allocatePorts();
+
+      const client = await dockerService.createClientContainer(
+        tenant,
+        networkName,
+        ports.client
+      );
+
+      // Insert new client resource
+      await db.insert(tenantResources).values({
+        tenantId,
+        resourceType: "client",
+        containerId: client.containerId,
+        containerName: client.containerName,
+        status: "running",
+        port: client.port,
+      });
+
+      await logEvent(tenantId, "client_created", "Client container created");
+
+      // Update tenant config with client port
+      await db
+        .update(tenants)
+        .set({
+          config: {
+            ...config,
+            clientPort: ports.client,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(tenants.id, tenantId));
+    } else if (clientResource.containerId) {
+      // Client exists, just restart it
+      const exists = await containerExists(clientResource.containerId);
+      if (exists) {
+        await dockerService.restartContainer(clientResource.containerId);
+      }
+    }
+
+    const [updatedTenant] = await db
+      .update(tenants)
+      .set({ status: "running", updatedAt: new Date() })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+
+    await logEvent(tenantId, "provisioning_completed", "Migration to new URL structure complete");
+
+    return updatedTenant;
+  } catch (error) {
+    await logEvent(
+      tenantId,
+      "failed",
+      `Migration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      { error: String(error) }
+    );
+    throw error;
+  }
+}
+
 // Upgrade tenant to a new Medusa version
 export async function upgradeTenant(
   tenantId: string,

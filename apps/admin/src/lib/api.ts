@@ -201,6 +201,13 @@ class ApiClient {
     });
   }
 
+  async migrateTenant(id: string): Promise<{ tenant: Tenant }> {
+    return this.request(`/tenants/${id}/migrate`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
   // Images
   async listImages(): Promise<{ images: PlatformImage[] }> {
     return this.request("/images");
