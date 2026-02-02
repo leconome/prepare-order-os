@@ -17,7 +17,7 @@ const SWARM_MODE = process.env.SWARM_MODE === "true";
 console.log(`Tenant service running in ${SWARM_MODE ? "SWARM" : "CONTAINER"} mode`);
 
 // Resource type literal type
-type ResourceType = "network" | "postgres" | "redis" | "medusa";
+type ResourceType = "network" | "postgres" | "redis" | "medusa" | "client";
 type ResourceStatus = "creating" | "running" | "stopped" | "error";
 
 // Helper to upsert a tenant resource (insert or update if exists)
@@ -281,6 +281,26 @@ export async function provisionTenant(
       metadata: { adminPort: ports.medusaAdmin, imageTag },
     });
 
+    // Wait for Medusa to be healthy before starting client
+    await dockerService.waitForHealthy(medusa.containerId, 120000);
+    await logEvent(tenantId, "medusa_created", "Medusa container is healthy");
+
+    // Create Client container
+    const client = await dockerService.createClientContainer(
+      tenant,
+      networkName,
+      ports.client
+    );
+
+    await upsertResource(tenantId, "client", {
+      containerId: client.containerId,
+      containerName: client.containerName,
+      status: "running",
+      port: client.port,
+    });
+
+    await logEvent(tenantId, "client_created", "Client storefront container created");
+
     // Update tenant status, config with allocated ports, and version info
     const [updatedTenant] = await db
       .update(tenants)
@@ -294,6 +314,7 @@ export async function provisionTenant(
           redisPort: ports.redis,
           medusaPort: ports.medusaApi,
           adminPort: ports.medusaAdmin,
+          clientPort: ports.client,
         },
         updatedAt: new Date(),
       })
@@ -372,7 +393,7 @@ export async function startTenant(tenantId: string): Promise<Tenant> {
 
   // Check if any containers are missing
   let hasMissingContainers = false;
-  const order = ["postgres", "redis", "medusa"];
+  const order = ["postgres", "redis", "medusa", "client"];
 
   for (const resourceType of order) {
     const resource = tenant.resources.find((r) => r.resourceType === resourceType);
@@ -670,7 +691,7 @@ export async function deleteTenant(tenantId: string): Promise<void> {
   await logEvent(tenantId, "terminating", "Starting tenant termination");
 
   // Remove containers in reverse order
-  const order = ["medusa", "redis", "postgres"];
+  const order = ["client", "medusa", "redis", "postgres"];
   for (const resourceType of order) {
     const resource = tenant.resources.find((r) => r.resourceType === resourceType);
     if (resource?.containerId) {

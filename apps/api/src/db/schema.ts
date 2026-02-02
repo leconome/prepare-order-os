@@ -28,6 +28,7 @@ export const resourceTypeEnum = pgEnum("resource_type", [
   "postgres",
   "redis",
   "medusa",
+  "client",
 ]);
 
 export const resourceStatusEnum = pgEnum("resource_status", [
@@ -49,6 +50,7 @@ export const eventTypeEnum = pgEnum("event_type", [
   "redis_created",
   "redis_healthy",
   "medusa_created",
+  "client_created",
   "image_pulling",
   "service_updating",
   "started",
@@ -159,6 +161,7 @@ export const platformImages = pgTable("platform_images", {
 export type TenantConfig = {
   medusaPort?: number;
   adminPort?: number;
+  clientPort?: number;
   postgresPort?: number;
   redisPort?: number;
   storeCors?: string;

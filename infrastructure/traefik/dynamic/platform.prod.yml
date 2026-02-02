@@ -3,6 +3,17 @@
 
 http:
   routers:
+    # Catch-all for store subdomains (store.{tenant}.{domain})
+    # Handled by Docker labels on tenant medusa containers
+    store-catchall:
+      rule: "HostRegexp(`store.{subdomain:[a-z0-9-]+}.prepareos.fr`)"
+      entrypoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: noop@internal
+      priority: 2
+
     # Catch-all for tenant subdomains (handled by Docker labels on tenant containers)
     # Lower priority so specific tenant routers take precedence
     tenant-catchall:
