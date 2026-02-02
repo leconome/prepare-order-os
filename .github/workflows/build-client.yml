@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, econome]
     permissions:
       contents: read
       packages: write
@@ -78,7 +78,7 @@ jobs:
 
   register:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, econome]
     if: ${{ vars.PLATFORM_API_URL != '' }}
     steps:
       - name: Register image in platform
