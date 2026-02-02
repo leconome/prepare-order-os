@@ -22,6 +22,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'apps/admin/**'
+      - 'apps/client/**'
       - 'docker-compose.prod.yml'
       - 'infrastructure/**'
       - '.github/workflows/deploy-platform.yml'
