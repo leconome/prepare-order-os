@@ -150,27 +150,6 @@ services:
       - "traefik.http.services.client.loadbalancer.server.port=3002"
 
   # ===================
-  # Database UI (Development)
-  # ===================
-  db-ui:
-    image: sosedoff/pgweb
-    container_name: econome-pgweb
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      - DATABASE_URL=postgres://platform:platform@platform-db:5432/platform?sslmode=disable
-    depends_on:
-      - platform-db
-    networks:
-      - platform_network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.pgweb.rule=Host(`db.localhost`)"
-      - "traefik.http.routers.pgweb.entrypoints=web"
-      - "traefik.http.services.pgweb.loadbalancer.server.port=8081"
-
-  # ===================
   # Store Database (Local Dev)
   # ===================
   store-db:
