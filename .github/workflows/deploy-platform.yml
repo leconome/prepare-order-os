@@ -7,7 +7,10 @@
 #   - Push to main branch (api, admin, infrastructure changes)
 #   - Manual dispatch from GitHub Actions UI
 #
-# Runs on self-hosted runner on the VPS itself
+# Required Secrets:
+#   - VPS_HOST: IP or hostname of the VPS
+#   - VPS_USER: SSH username
+#   - VPS_SSH_KEY: Private SSH key
 
 name: Deploy Platform
 
@@ -24,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: 'Services to rebuild (api, admin, traefik, or all)'
+        description: 'Services to rebuild'
         required: false
         default: 'all'
         type: choice
@@ -42,21 +45,17 @@ on:
 jobs:
   deploy:
     name: Deploy to Production
-    runs-on: [self-hosted, linux, x64, econome]
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Pull latest code
-        run: |
-          echo "=== Pulling latest code ==="
-          git config --global --add safe.directory /opt/econome
-          cd /opt/econome
-          git fetch origin
-          git reset --hard origin/main
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Detect changes
         id: changes
         run: |
-          cd /opt/econome
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SERVICE="${{ github.event.inputs.services }}"
             if [ "$SERVICE" = "all" ]; then
@@ -76,47 +75,79 @@ jobs:
             echo "traefik=$([[ $CHANGED == *infrastructure/* ]] || [[ $CHANGED == *docker-compose* ]] && echo true || echo false)" >> $GITHUB_OUTPUT
           fi
 
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pull latest code on VPS
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          set -e
+          cd /opt/econome
+          echo "=== Pulling latest code ==="
+          git fetch origin
+          git reset --hard origin/main
+          ENDSSH
+
       - name: Rebuild API
         if: steps.changes.outputs.api == 'true'
         run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          set -e
           cd /opt/econome
           echo "=== Rebuilding API ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production build api
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d api
+          ENDSSH
 
       - name: Rebuild Admin
         if: steps.changes.outputs.admin == 'true'
         run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          set -e
           cd /opt/econome
           echo "=== Rebuilding Admin ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production build admin
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d admin
+          ENDSSH
 
       - name: Restart Traefik
         if: steps.changes.outputs.traefik == 'true'
         run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          set -e
           cd /opt/econome
           echo "=== Restarting Traefik ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d traefik
+          ENDSSH
 
       - name: Run migrations
         if: github.event.inputs.migrate == 'true'
         run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+          set -e
           cd /opt/econome
           echo "=== Running migrations ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production exec -T api pnpm db:push
+          ENDSSH
 
       - name: Health check
         run: |
           sleep 10
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
           echo "=== Health Check ==="
           curl -sf http://localhost:3001/health && echo " API: OK" || echo " API: FAILED"
           echo ""
           echo "=== Container Status ==="
           docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "econome|traefik"
+          ENDSSH
 
-      - name: Cleanup old images
-        run: docker image prune -f
+      - name: Cleanup
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "docker image prune -f"
 
       - name: Summary
         run: |
