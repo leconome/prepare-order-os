@@ -492,7 +492,7 @@ export async function createClientContainer(
       RestartPolicy: { Name: "unless-stopped" },
     },
     Healthcheck: {
-      Test: ["CMD", "curl", "-f", "http://localhost:3002/"],
+      Test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3002/ || exit 1"],
       Interval: 10000000000, // 10s
       Timeout: 10000000000,
       Retries: 5,
