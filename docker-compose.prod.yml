@@ -147,6 +147,7 @@ services:
       - RUNNER_WORKDIR=/opt/econome/_work
       - LABELS=self-hosted,linux,x64,econome
       - DISABLE_AUTO_UPDATE=true
+      - DISABLE_AUTOMATIC_DEREGISTRATION=true
       - CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/home/runner/actions-runner
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
