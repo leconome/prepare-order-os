@@ -147,9 +147,11 @@ services:
       - RUNNER_WORKDIR=/opt/econome/_work
       - LABELS=self-hosted,linux,x64,econome
       - DISABLE_AUTO_UPDATE=true
+      - CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/home/runner/actions-runner
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/econome:/opt/econome
+      - github_runner_config:/home/runner/actions-runner
     networks:
       - platform_network
     profiles:
@@ -159,6 +161,7 @@ volumes:
   platform_db_data:
   traefik_acme:
   traefik_logs:
+  github_runner_config:
 
 networks:
   platform_network:
