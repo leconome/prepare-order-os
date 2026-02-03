@@ -347,6 +347,7 @@ export async function createMedusaContainer(
       [`traefik.http.routers.${tenant.slug}-store.rule`]:
         `Host(\`store.${tenant.subdomain}.${DOMAIN}\`)`,
       [`traefik.http.routers.${tenant.slug}-store.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
+      [`traefik.http.routers.${tenant.slug}-store.priority`]: "100",
       ...(IS_PRODUCTION && {
         [`traefik.http.routers.${tenant.slug}-store.tls`]: "true",
         [`traefik.http.routers.${tenant.slug}-store.tls.certresolver`]: "letsencrypt",
@@ -476,6 +477,7 @@ export async function createClientContainer(
       [`traefik.http.routers.${tenant.slug}-client.rule`]:
         `Host(\`${tenant.subdomain}.${DOMAIN}\`)`,
       [`traefik.http.routers.${tenant.slug}-client.entrypoints`]: IS_PRODUCTION ? "websecure" : "web",
+      [`traefik.http.routers.${tenant.slug}-client.priority`]: "100",
       ...(IS_PRODUCTION && {
         [`traefik.http.routers.${tenant.slug}-client.tls`]: "true",
         [`traefik.http.routers.${tenant.slug}-client.tls.certresolver`]: "letsencrypt",
