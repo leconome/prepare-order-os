@@ -3,7 +3,7 @@ services:
   # Reverse Proxy
   # ===================
   traefik:
-    image: traefik:v3.0
+    image: traefik:latest
     container_name: econome-traefik
     restart: unless-stopped
     command:
