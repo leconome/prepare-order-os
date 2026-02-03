@@ -1,30 +1,31 @@
 {
-  "name": "econome-prepare-os",
-  "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "pnpm run dev:infra && pnpm run dev:migrate && pnpm run dev:store",
-    "dev:infra": "docker compose up -d platform-db store-db store-redis traefik api admin && pnpm run dev:wait-db",
-    "dev:wait-db": "until docker exec econome-store-db pg_isready -U postgres -d medusa-v2 > /dev/null 2>&1 && docker exec econome-platform-db pg_isready -U platform -d platform > /dev/null 2>&1; do sleep 1; done",
-    "dev:migrate": "pnpm --filter api run db:push && pnpm --filter store run medusa:migrate && pnpm run dev:seed",
-    "dev:seed": "pnpm --filter store run seed && (pnpm --filter store exec medusa user -e admin@admin.com -p admin123 || true)",
-    "dev:store": "pnpm --filter store run dev",
-    "dev:local": "pnpm run dev:infra:local && pnpm run dev:migrate && turbo run dev",
-    "dev:infra:local": "docker compose up -d platform-db store-db store-redis traefik && pnpm run dev:wait-db",
-    "dev:docker": "docker compose up -d && pnpm run dev:migrate",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
-  },
-  "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.8.0",
-    "typescript": "5.9.2"
-  },
-  "packageManager": "pnpm@10.6.3",
-  "engines": {
-    "node": ">=18"
-  }
+	"name": "econome-prepare-os",
+	"private": true,
+	"scripts": {
+		"build": "turbo run build",
+		"dev": "pnpm run dev:infra && pnpm run dev:migrate && pnpm run dev:store",
+		"dev:infra": "docker compose up -d platform-db store-db store-redis traefik api admin && pnpm run dev:wait-db",
+		"dev:wait-db": "until docker exec econome-store-db pg_isready -U postgres -d medusa-v2 > /dev/null 2>&1 && docker exec econome-platform-db pg_isready -U platform -d platform > /dev/null 2>&1; do sleep 1; done",
+		"dev:migrate": "pnpm --filter api run db:push && pnpm --filter store run medusa:migrate && pnpm run dev:seed",
+		"dev:seed": "pnpm --filter store run seed && (pnpm --filter store exec medusa user -e admin@admin.com -p admin123 || true)",
+		"dev:store": "pnpm --filter store run dev",
+		"dev:local": "pnpm run dev:infra:local && pnpm run dev:migrate && turbo run dev",
+		"dev:infra:local": "docker compose up -d platform-db store-db store-redis traefik && pnpm run dev:wait-db",
+		"dev:docker": "docker compose up -d && pnpm run dev:migrate",
+		"docker:up": "docker compose up -d",
+		"docker:down": "docker compose down",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"check-types": "turbo run check-types"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.11",
+		"turbo": "^2.8.0",
+		"typescript": "5.9.2"
+	},
+	"packageManager": "pnpm@10.6.3",
+	"engines": {
+		"node": ">=18"
+	}
 }
