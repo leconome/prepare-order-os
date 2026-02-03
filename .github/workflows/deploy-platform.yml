@@ -39,9 +39,6 @@ on:
         default: false
         type: boolean
 
-env:
-  APP_DIR: /opt/econome
-
 jobs:
   deploy:
     name: Deploy to Production
@@ -49,16 +46,16 @@ jobs:
 
     steps:
       - name: Pull latest code
-        working-directory: ${{ env.APP_DIR }}
         run: |
           echo "=== Pulling latest code ==="
+          cd /opt/econome
           git fetch origin
           git reset --hard origin/main
 
       - name: Detect changes
         id: changes
-        working-directory: ${{ env.APP_DIR }}
         run: |
+          cd /opt/econome
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SERVICE="${{ github.event.inputs.services }}"
             if [ "$SERVICE" = "all" ]; then
@@ -80,36 +77,35 @@ jobs:
 
       - name: Rebuild API
         if: steps.changes.outputs.api == 'true'
-        working-directory: ${{ env.APP_DIR }}
         run: |
+          cd /opt/econome
           echo "=== Rebuilding API ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production build api
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d api
 
       - name: Rebuild Admin
         if: steps.changes.outputs.admin == 'true'
-        working-directory: ${{ env.APP_DIR }}
         run: |
+          cd /opt/econome
           echo "=== Rebuilding Admin ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production build admin
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d admin
 
       - name: Restart Traefik
         if: steps.changes.outputs.traefik == 'true'
-        working-directory: ${{ env.APP_DIR }}
         run: |
+          cd /opt/econome
           echo "=== Restarting Traefik ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d traefik
 
       - name: Run migrations
         if: github.event.inputs.migrate == 'true'
-        working-directory: ${{ env.APP_DIR }}
         run: |
+          cd /opt/econome
           echo "=== Running migrations ==="
           docker compose -f docker-compose.prod.yml --env-file .env.production exec -T api pnpm db:push
 
       - name: Health check
-        working-directory: ${{ env.APP_DIR }}
         run: |
           sleep 10
           echo "=== Health Check ==="

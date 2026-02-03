@@ -133,6 +133,28 @@ services:
       - "traefik.http.routers.admin.middlewares=security-headers@file"
       - "traefik.http.services.admin.loadbalancer.server.port=3000"
 
+  # ===================
+  # GitHub Actions Runner (Self-hosted)
+  # ===================
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: econome-github-runner
+    restart: unless-stopped
+    environment:
+      - REPO_URL=${GITHUB_REPO_URL:-https://github.com/leconome/prepare-order-os}
+      - RUNNER_NAME=${GITHUB_RUNNER_NAME:-econome-runner}
+      - RUNNER_TOKEN=${GITHUB_RUNNER_TOKEN}
+      - RUNNER_WORKDIR=/opt/econome/_work
+      - LABELS=self-hosted,linux,x64,econome
+      - DISABLE_AUTO_UPDATE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/econome:/opt/econome
+    networks:
+      - platform_network
+    profiles:
+      - runner
+
 volumes:
   platform_db_data:
   traefik_acme:
