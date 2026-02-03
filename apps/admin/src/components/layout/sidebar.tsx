@@ -21,7 +21,7 @@ export function Sidebar() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
           <Store className="h-4 w-4" />
         </div>
-        <span className="text-lg font-semibold">Econome</span>
+        <span className="text-lg font-semibold">PrepareOS</span>
       </div>
 
       <nav className="space-y-1 p-4">
