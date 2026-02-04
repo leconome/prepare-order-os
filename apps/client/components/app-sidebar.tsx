@@ -9,6 +9,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -26,7 +27,20 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  owner: "Propriétaire",
+  staff: "Employé",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+  owner: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  staff: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+};
 
 const navigation = [
   {
@@ -56,6 +70,15 @@ const catalogueNavigation = [
     title: "Menus",
     url: "/menus",
     icon: Menu,
+  },
+];
+
+const managementNavigation = [
+  {
+    title: "Équipe",
+    url: "/staff",
+    icon: Users,
+    roles: ["admin", "owner"],
   },
 ];
 
@@ -149,6 +172,36 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Management section - only for admin/owner */}
+        {user?.role && ["admin", "owner"].includes(user.role) && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-muted-foreground/70">
+              Gestion
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {managementNavigation.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={
+                        pathname === item.url || pathname.startsWith(item.url)
+                      }
+                      tooltip={item.title}
+                      className="data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-500/10 data-[active=true]:to-indigo-500/10 data-[active=true]:text-blue-700 dark:data-[active=true]:text-blue-300"
+                    >
+                      <Link href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
@@ -174,13 +227,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="border-t border-sidebar-border/50 relative">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip={user?.email ?? "User"}>
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs text-white">
+            <SidebarMenuButton tooltip={user?.email ?? "User"} className="h-auto py-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
                 {user?.name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
               </div>
-              <span className="truncate">
-                {user?.name ?? user?.email ?? "User"}
-              </span>
+              <div className="flex flex-col items-start gap-0.5 overflow-hidden">
+                <span className="truncate text-sm font-medium">
+                  {user?.name ?? user?.email ?? "User"}
+                </span>
+                {user?.role && (
+                  <Badge
+                    variant="secondary"
+                    className={`text-[10px] px-1.5 py-0 h-4 ${ROLE_COLORS[user.role] || ""}`}
+                  >
+                    {ROLE_LABELS[user.role] || user.role}
+                  </Badge>
+                )}
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

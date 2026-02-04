@@ -5,6 +5,7 @@ import type {
   CreateMenu,
   CreateOrder,
   CreateProduct,
+  CreateStaff,
   Menu,
   MenuFilters,
   MenuWithProducts,
@@ -19,6 +20,7 @@ import type {
   UpdateOrder,
   UpdateOrderStatus,
   UpdateProduct,
+  UpdateStaff,
   User,
 } from "@prepareos/data";
 
@@ -290,6 +292,29 @@ export async function fetchStaff(
   return fetchApi<StaffResponse>(`/users/staff${query ? `?${query}` : ""}`);
 }
 
+export async function createStaff(data: CreateStaff): Promise<StaffUser> {
+  return fetchApi<StaffUser>("/users/staff", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateStaff(
+  userId: string,
+  data: UpdateStaff,
+): Promise<StaffUser> {
+  return fetchApi<StaffUser>(`/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteStaff(userId: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -333,4 +358,6 @@ export type {
   MenuFilters,
   User,
   StaffFilters,
+  CreateStaff,
+  UpdateStaff,
 };
