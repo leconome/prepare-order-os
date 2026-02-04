@@ -106,29 +106,27 @@ export function TenantActions({
 				</Button>
 			)}
 
-			{tenant.status !== "terminating" && tenant.status !== "terminated" && (
-				<Button
-					size={buttonSize}
-					variant="destructive"
-					onClick={() => {
-						const runningWarning =
-							tenant.status === "running"
-								? "The tenant is currently running. "
-								: "";
-						if (
-							confirm(
-								`${runningWarning}Are you sure you want to delete ${tenant.name}? This will remove all containers, data, and cannot be undone.`,
-							)
-						) {
-							handleAction("delete", () => api.deleteTenant(tenant.id));
-						}
-					}}
-					loading={loading === "delete"}
-				>
-					<Trash2 className={`${iconSize} mr-1`} />
-					Delete
-				</Button>
-			)}
+			<Button
+				size={buttonSize}
+				variant="destructive"
+				onClick={() => {
+					const runningWarning =
+						tenant.status === "running"
+							? "The tenant is currently running. "
+							: "";
+					if (
+						confirm(
+							`${runningWarning}Are you sure you want to delete ${tenant.name}? This will remove all containers, data, and cannot be undone.`,
+						)
+					) {
+						handleAction("delete", () => api.deleteTenant(tenant.id));
+					}
+				}}
+				loading={loading === "delete"}
+			>
+				<Trash2 className={`${iconSize} mr-1`} />
+				Delete
+			</Button>
 
 			{tenant.status === "failed" && (
 				<Button
