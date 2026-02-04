@@ -70,9 +70,10 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy only necessary files from builder
+# Next.js standalone in monorepo creates nested structure: .next/standalone/apps/client/
 COPY --from=builder /app/apps/client/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/client/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/client/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/client/.next/static ./apps/client/.next/static
 
 # Switch to non-root user
 USER nextjs
@@ -84,5 +85,5 @@ EXPOSE 3002
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3002
 
-# Start the application
-CMD ["node", "server.js"]
+# Start the application (server.js is in apps/client/ due to monorepo structure)
+CMD ["node", "apps/client/server.js"]
