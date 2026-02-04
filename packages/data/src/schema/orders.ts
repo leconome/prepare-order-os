@@ -11,7 +11,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { employees } from "./employees.js";
+import { employees } from "./employees";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",

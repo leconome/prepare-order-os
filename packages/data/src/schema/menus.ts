@@ -11,7 +11,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { products, type Product } from "./products.js";
+import { products, type Product } from "./products";
 
 export const menus = pgTable("menus", {
   id: uuid("id").primaryKey().defaultRandom(),
