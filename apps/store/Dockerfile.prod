@@ -44,21 +44,24 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 hono
+# Install pnpm for running drizzle-kit
+RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
 
 # Copy the deployed bundle (includes node_modules with real files, not symlinks)
-COPY --from=builder --chown=hono:nodejs /app/deploy ./
+COPY --from=builder /app/deploy ./
 
 # Copy built dist from the original location
-COPY --from=builder --chown=hono:nodejs /app/apps/store/dist ./dist
+COPY --from=builder /app/apps/store/dist ./dist
 
-# Switch to non-root user
-USER hono
+# Copy drizzle config and schema for migrations
+COPY --from=builder /app/apps/store/drizzle.config.ts ./
+COPY --from=builder /app/apps/store/src/db ./src/db
+
+# Install drizzle-kit for migrations
+RUN pnpm add drizzle-kit
 
 # Expose port
 EXPOSE 9000
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Run migrations on startup, then start the application
+CMD ["sh", "-c", "npx drizzle-kit push --force && node dist/index.js"]

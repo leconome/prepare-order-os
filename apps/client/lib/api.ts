@@ -2,9 +2,11 @@ import type { Order, OrderWithItems, OrderFilters, CreateOrder, UpdateOrder, Upd
 
 // Dynamically determine API URL based on current hostname
 // Client is at {subdomain}.{domain}, Store API is at store.{subdomain}.{domain}
+// Called lazily per-request to ensure we get the correct hostname on the client
 function getApiUrl(): string {
   if (typeof window === "undefined") {
     // Server-side: use env var or default
+    // This is only for SSR - actual API calls should happen client-side
     return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
   }
 
@@ -21,13 +23,12 @@ function getApiUrl(): string {
   return `${protocol}//store.${hostname}`;
 }
 
-const API_URL = getApiUrl();
-
 async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_URL}/api${endpoint}`;
+  // Get API URL lazily to ensure we have the correct hostname on client
+  const url = `${getApiUrl()}/api${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
