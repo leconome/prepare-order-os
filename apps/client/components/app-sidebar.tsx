@@ -117,10 +117,10 @@ export function AppSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton tooltip={user?.email ?? "User"}>
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                {user?.first_name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
+                {user?.name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
               </div>
               <span className="truncate">
-                {user?.first_name ?? user?.email ?? "User"}
+                {user?.name ?? user?.email ?? "User"}
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>

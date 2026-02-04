@@ -46,8 +46,16 @@ export const orderSchema = z.object({
   updatedAt: z.coerce.date(),
 });
 
+// Employee reference for relations
+const employeeRefSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+}).nullable();
+
 export const orderWithItemsSchema = orderSchema.extend({
   items: z.array(orderItemSchema),
+  createdBy: employeeRefSchema.optional(),
+  assignedTo: employeeRefSchema.optional(),
 });
 
 export const createOrderItemSchema = z.object({
