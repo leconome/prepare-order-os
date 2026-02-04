@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -17,7 +17,7 @@ export function TenantLogs({ tenantId }: TenantLogsProps) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const fetchLogs = async () => {
+	const fetchLogs = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
@@ -28,11 +28,11 @@ export function TenantLogs({ tenantId }: TenantLogsProps) {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [tenantId, service]);
 
 	useEffect(() => {
 		fetchLogs();
-	}, [tenantId, service, fetchLogs]);
+	}, [fetchLogs]);
 
 	return (
 		<div className="space-y-4">

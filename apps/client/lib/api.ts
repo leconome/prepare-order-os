@@ -1,6 +1,27 @@
 import type { Order, OrderWithItems, OrderFilters, CreateOrder, UpdateOrder, UpdateOrderStatus } from "@repo/store-types";
 
-const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+// Dynamically determine API URL based on current hostname
+// Client is at {subdomain}.{domain}, Store API is at store.{subdomain}.{domain}
+function getApiUrl(): string {
+  if (typeof window === "undefined") {
+    // Server-side: use env var or default
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
+
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+
+  // For localhost development
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
+
+  // For production: client is at {subdomain}.{domain}
+  // Store API is at store.{subdomain}.{domain}
+  return `${protocol}//store.${hostname}`;
+}
+
+const API_URL = getApiUrl();
 
 async function fetchApi<T>(
   endpoint: string,
