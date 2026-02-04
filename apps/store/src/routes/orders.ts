@@ -5,7 +5,7 @@ import {
   updateOrderSchema,
   updateOrderStatusSchema,
   orderFiltersSchema,
-} from "@repo/store-types";
+} from "@prepareos/data";
 import * as orderService from "../services/order.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { optionalPinAuthMiddleware } from "../middleware/pin-auth.js";

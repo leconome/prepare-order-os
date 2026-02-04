@@ -1,5 +1,5 @@
 {
-  "name": "@repo/store-types",
+  "name": "@prepareos/data",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./schemas": {
-      "types": "./dist/schemas/index.d.ts",
-      "import": "./dist/schemas/index.js"
-    },
-    "./types": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/types/index.js"
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
     }
   },
   "main": "./dist/index.js",
@@ -28,6 +24,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "drizzle-orm": "^0.41.0",
+    "drizzle-zod": "^0.7.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -1,13 +1,14 @@
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { orders, orderItems } from "../db/schema/index.js";
+import {
+  orders,
+  orderItems,
+  type CreateOrder,
+  type UpdateOrder,
+  type UpdateOrderStatus,
+  type OrderFilters,
+} from "@prepareos/data";
 import { generateTicketNumber } from "./ticket.service.js";
-import type {
-  CreateOrder,
-  UpdateOrder,
-  UpdateOrderStatus,
-  OrderFilters,
-} from "@repo/store-types";
 
 export async function listOrders(filters: OrderFilters) {
   const {

@@ -4,7 +4,7 @@ import {
   createMenuSchema,
   updateMenuSchema,
   menuFiltersSchema,
-} from "@repo/store-types";
+} from "@prepareos/data";
 import * as menuService from "../services/menu.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { managerOrAdmin } from "../middleware/role-guard.js";

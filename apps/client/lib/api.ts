@@ -5,7 +5,7 @@ import type {
   CreateOrder,
   UpdateOrder,
   UpdateOrderStatus,
-} from "@repo/store-types";
+} from "@prepareos/data";
 
 const API_URL =
   process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";

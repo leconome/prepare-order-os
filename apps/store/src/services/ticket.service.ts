@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { ticketCounters } from "../db/schema/index.js";
+import { ticketCounters } from "@prepareos/data";
 
 function getDateKey(): string {
   const now = new Date();

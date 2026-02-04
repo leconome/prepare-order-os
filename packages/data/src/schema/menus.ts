@@ -9,7 +9,9 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { products } from "./products.js";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
+import { products, type Product } from "./products.js";
 
 export const menus = pgTable("menus", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -54,7 +56,43 @@ export const menuProductsRelations = relations(menuProducts, ({ one }) => ({
   }),
 }));
 
+// Drizzle types
 export type Menu = typeof menus.$inferSelect;
 export type NewMenu = typeof menus.$inferInsert;
 export type MenuProduct = typeof menuProducts.$inferSelect;
 export type NewMenuProduct = typeof menuProducts.$inferInsert;
+
+// Zod schemas from drizzle-zod
+export const insertMenuSchema = createInsertSchema(menus);
+export const selectMenuSchema = createSelectSchema(menus);
+export const insertMenuProductSchema = createInsertSchema(menuProducts);
+export const selectMenuProductSchema = createSelectSchema(menuProducts);
+
+// Custom schemas for API
+export const createMenuSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+  productIds: z.array(z.string().uuid()).optional(),
+});
+
+export const updateMenuSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  productIds: z.array(z.string().uuid()).optional(),
+});
+
+export const menuFiltersSchema = z.object({
+  isActive: z.coerce.boolean().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+
+// Types
+export type MenuWithProducts = Menu & { products: Product[] };
+export type CreateMenu = z.infer<typeof createMenuSchema>;
+export type UpdateMenu = z.infer<typeof updateMenuSchema>;
+export type MenuFilters = z.infer<typeof menuFiltersSchema>;

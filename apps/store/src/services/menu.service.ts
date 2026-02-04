@@ -1,7 +1,13 @@
 import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { menus, menuProducts, products } from "../db/schema/index.js";
-import type { CreateMenu, UpdateMenu, MenuFilters } from "@repo/store-types";
+import {
+  menus,
+  menuProducts,
+  products,
+  type CreateMenu,
+  type UpdateMenu,
+  type MenuFilters,
+} from "@prepareos/data";
 
 export async function listMenus(filters: MenuFilters) {
   const { isActive, page = 1, limit = 20 } = filters;

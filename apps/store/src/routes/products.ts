@@ -4,7 +4,7 @@ import {
   createProductSchema,
   updateProductSchema,
   productFiltersSchema,
-} from "@repo/store-types";
+} from "@prepareos/data";
 import * as productService from "../services/product.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { managerOrAdmin } from "../middleware/role-guard.js";

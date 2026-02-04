@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { users, accounts } from "../db/schema/index.js";
+import { users, accounts } from "@prepareos/data/schema";
 import { auth } from "../lib/auth.js";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";

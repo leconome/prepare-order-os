@@ -15,7 +15,7 @@
   "dependencies": {
     "@hono/node-server": "^1.14.1",
     "@hono/zod-validator": "^0.4.3",
-    "@repo/store-types": "workspace:*",
+    "@prepareos/data": "workspace:*",
     "better-auth": "^1.4.18",
     "drizzle-orm": "^0.41.0",
     "hono": "^4.7.7",

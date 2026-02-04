@@ -2,10 +2,10 @@
   "name": "prepare-order-os",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel dev",
-    "dev:store": "pnpm --filter store dev",
-    "dev:client": "pnpm --filter client dev",
-    "build": "pnpm -r build",
+    "dev": "turbo dev",
+    "dev:store": "turbo dev --filter=store",
+    "dev:client": "turbo dev --filter=client",
+    "build": "turbo build",
     "lint": "biome check .",
     "format": "biome format --write .",
     "db:push": "pnpm --filter store db:push",
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "turbo": "^2.8.0",
     "typescript": "5.9.2"
   },
   "packageManager": "pnpm@10.6.3",

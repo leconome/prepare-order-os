@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler, Next } from "hono";
 import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { employees } from "../db/schema/index.js";
+import { employees } from "@prepareos/data";
 
 export type EmployeeContext = {
   id: string;

@@ -4,7 +4,7 @@ import {
   createEmployeeSchema,
   updateEmployeeSchema,
   employeeFiltersSchema,
-} from "@repo/store-types";
+} from "@prepareos/data";
 import * as employeeService from "../services/employee.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { managerOrAdmin } from "../middleware/role-guard.js";

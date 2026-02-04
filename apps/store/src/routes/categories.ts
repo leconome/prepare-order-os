@@ -4,7 +4,7 @@ import {
   createCategorySchema,
   updateCategorySchema,
   categoryFiltersSchema,
-} from "@repo/store-types";
+} from "@prepareos/data";
 import * as categoryService from "../services/category.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { managerOrAdmin } from "../middleware/role-guard.js";

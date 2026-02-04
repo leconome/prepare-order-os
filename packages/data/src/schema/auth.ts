@@ -1,4 +1,5 @@
 import { pgTable, text, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const userRoleEnum = pgEnum("user_role", [
   "admin",
@@ -77,9 +78,18 @@ export const verifications = pgTable("verifications", {
     .defaultNow(),
 });
 
+// Drizzle types
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type Account = typeof accounts.$inferSelect;
 export type NewAccount = typeof accounts.$inferInsert;
+
+// Zod schemas
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+export const insertSessionSchema = createInsertSchema(sessions);
+export const selectSessionSchema = createSelectSchema(sessions);
+export const insertAccountSchema = createInsertSchema(accounts);
+export const selectAccountSchema = createSelectSchema(accounts);

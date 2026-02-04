@@ -21,18 +21,13 @@ A simple POS (Point of Sale) system with order management.
 
 2. **Setup PostgreSQL**
    ```bash
-   # macOS with Homebrew
+   # Using docker-compose (recommended)
+   docker compose up -d
+
+   # Or macOS with Homebrew
    brew install postgresql@15
    brew services start postgresql@15
    createdb store
-
-   # Or use Docker for just Postgres
-   docker run -d --name store-db \
-     -e POSTGRES_DB=store \
-     -e POSTGRES_USER=postgres \
-     -e POSTGRES_PASSWORD=postgres \
-     -p 5432:5432 \
-     postgres:15-alpine
    ```
 
 3. **Configure environment**
