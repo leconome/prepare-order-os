@@ -73,55 +73,10 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
 
-  migrate:
+  register:
     needs: build
     runs-on: [self-hosted, linux, x64, econome]
-    steps:
-      - name: Check if migration should run
-        id: check
-        run: |
-          if [ -n "${{ secrets.STORE_DATABASE_URL }}" ]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "STORE_DATABASE_URL secret not configured, skipping migrations"
-          fi
-
-      - name: Checkout repository
-        if: steps.check.outputs.should_run == 'true'
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        if: steps.check.outputs.should_run == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Setup pnpm
-        if: steps.check.outputs.should_run == 'true'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.3
-
-      - name: Install dependencies
-        if: steps.check.outputs.should_run == 'true'
-        run: pnpm install --frozen-lockfile
-
-      - name: Build store-types
-        if: steps.check.outputs.should_run == 'true'
-        run: pnpm --filter @repo/store-types build
-
-      - name: Run database migrations
-        if: steps.check.outputs.should_run == 'true'
-        working-directory: apps/store
-        env:
-          DATABASE_URL: ${{ secrets.STORE_DATABASE_URL }}
-        run: pnpm db:push
-
-  register:
-    needs: [build, migrate]
-    runs-on: [self-hosted, linux, x64, econome]
-    if: ${{ always() && needs.build.result == 'success' && vars.PLATFORM_API_URL != '' }}
+    if: ${{ vars.PLATFORM_API_URL != '' }}
     steps:
       - name: Register image in platform
         run: |
