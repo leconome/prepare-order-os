@@ -14,10 +14,20 @@ import * as dockerService from "./docker.js";
 // Check if running in Swarm mode
 const SWARM_MODE = process.env.SWARM_MODE === "true";
 
+// Domain configuration
+const DOMAIN = process.env.DOMAIN || "localhost";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 // Log mode on startup
 console.log(
 	`Tenant service running in ${SWARM_MODE ? "SWARM" : "CONTAINER"} mode`,
 );
+
+// Get the Store API URL for a tenant
+export function getStoreUrl(tenant: Tenant): string {
+	const protocol = IS_PRODUCTION ? "https" : "http";
+	return `${protocol}://store.${tenant.subdomain}.${DOMAIN}`;
+}
 
 // Resource type literal type
 type ResourceType = "network" | "postgres" | "store" | "client";

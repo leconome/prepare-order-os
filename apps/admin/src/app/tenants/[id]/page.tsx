@@ -18,6 +18,7 @@ import { StatusBadge } from "@/components/tenants/status-badge";
 import { TenantActions } from "@/components/tenants/tenant-actions";
 import { TenantBackups } from "@/components/tenants/tenant-backups";
 import { TenantLogs } from "@/components/tenants/tenant-logs";
+import { TenantUsers } from "@/components/tenants/tenant-users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,7 +47,7 @@ export default function TenantDetailPage() {
 	const [clientImages, setClientImages] = useState<ClientImage[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeTab, setActiveTab] = useState<
-		"overview" | "backups" | "logs" | "events"
+		"overview" | "users" | "backups" | "logs" | "events"
 	>("overview");
 	const [upgrading, setUpgrading] = useState(false);
 	const [upgradeError, setUpgradeError] = useState<string | null>(null);
@@ -227,7 +228,7 @@ export default function TenantDetailPage() {
 				</div>
 
 				<div className="mb-6 flex gap-2 border-b">
-					{(["overview", "backups", "logs", "events"] as const).map((tab) => (
+					{(["overview", "users", "backups", "logs", "events"] as const).map((tab) => (
 						<button
 							key={tab}
 							className={`px-4 py-2 text-sm font-medium capitalize ${
@@ -655,6 +656,20 @@ export default function TenantDetailPage() {
 								</Card>
 							)}
 					</div>
+				)}
+
+				{activeTab === "users" && (
+					<Card>
+						<CardHeader>
+							<CardTitle>User Management</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<TenantUsers
+								tenantId={tenantId}
+								tenantStatus={tenant.status}
+							/>
+						</CardContent>
+					</Card>
 				)}
 
 				{activeTab === "backups" && (

@@ -348,4 +348,93 @@ tenants.get("/:id/events", async (c) => {
 	}
 });
 
+// GET /tenants/:id/users - List users for a tenant
+tenants.get("/:id/users", async (c) => {
+	try {
+		const id = c.req.param("id");
+		const tenant = await tenantService.getTenant(id);
+
+		if (!tenant) {
+			return c.json({ error: "Tenant not found" }, 404);
+		}
+
+		if (tenant.status !== "running") {
+			return c.json({ error: "Tenant is not running" }, 400);
+		}
+
+		const storeUrl = tenantService.getStoreUrl(tenant);
+		const response = await fetch(`${storeUrl}/api/users`);
+
+		if (!response.ok) {
+			throw new Error(`Store API returned ${response.status}`);
+		}
+
+		const data = await response.json();
+		return c.json(data);
+	} catch (error) {
+		console.error("Error listing tenant users:", error);
+		return c.json(
+			{
+				error: error instanceof Error ? error.message : "Failed to list users",
+			},
+			500,
+		);
+	}
+});
+
+// User creation schema
+const createTenantUserSchema = z.object({
+	email: z.string().email(),
+	password: z.string().min(8),
+	name: z.string().optional(),
+	role: z.enum(["admin", "manager", "cashier", "kitchen"]).optional(),
+});
+
+// POST /tenants/:id/users - Create a user for a tenant
+tenants.post(
+	"/:id/users",
+	zValidator("json", createTenantUserSchema),
+	async (c) => {
+		try {
+			const id = c.req.param("id");
+			const input = c.req.valid("json");
+			const tenant = await tenantService.getTenant(id);
+
+			if (!tenant) {
+				return c.json({ error: "Tenant not found" }, 404);
+			}
+
+			if (tenant.status !== "running") {
+				return c.json({ error: "Tenant is not running" }, 400);
+			}
+
+			const storeUrl = tenantService.getStoreUrl(tenant);
+			const response = await fetch(`${storeUrl}/api/users`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(input),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				return c.json(
+					{ error: data.error || "Failed to create user" },
+					response.status as 400 | 409 | 500,
+				);
+			}
+
+			return c.json(data, 201);
+		} catch (error) {
+			console.error("Error creating tenant user:", error);
+			return c.json(
+				{
+					error: error instanceof Error ? error.message : "Failed to create user",
+				},
+				500,
+			);
+		}
+	},
+);
+
 export default tenants;

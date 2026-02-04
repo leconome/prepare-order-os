@@ -308,6 +308,37 @@ class ApiClient {
 	getBackupDownloadUrl(filename: string): string {
 		return `${this.baseUrl}/backups/download/${filename}`;
 	}
+
+	// Tenant Users
+	async listTenantUsers(tenantId: string): Promise<{ users: TenantUser[] }> {
+		return this.request(`/tenants/${tenantId}/users`);
+	}
+
+	async createTenantUser(
+		tenantId: string,
+		data: CreateTenantUser,
+	): Promise<{ user: TenantUser }> {
+		return this.request(`/tenants/${tenantId}/users`, {
+			method: "POST",
+			body: JSON.stringify(data),
+		});
+	}
+}
+
+export interface TenantUser {
+	id: string;
+	email: string;
+	name: string | null;
+	role: "admin" | "manager" | "cashier" | "kitchen";
+	emailVerified: boolean;
+	createdAt: string;
+}
+
+export interface CreateTenantUser {
+	email: string;
+	password: string;
+	name?: string;
+	role?: "admin" | "manager" | "cashier" | "kitchen";
 }
 
 export const api = new ApiClient(API_URL);
