@@ -11,7 +11,6 @@
 #   - VPS_HOST: IP or hostname of the VPS
 #   - VPS_USER: SSH username
 #   - VPS_SSH_KEY: Private SSH key
-#   - GHCR_TOKEN: GitHub PAT with read:packages scope (for pulling tenant images)
 
 name: Deploy Platform
 
@@ -92,10 +91,6 @@ jobs:
           git fetch origin
           git reset --hard origin/main
           ENDSSH
-
-      - name: Login to GHCR on VPS
-        run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin"
 
       - name: Rebuild API
         if: steps.changes.outputs.api == 'true'
