@@ -247,13 +247,13 @@ class ApiClient {
 		});
 	}
 
-	// Store Images
+	// Store Images (registered at /images, same endpoint Medusa used)
 	async listImages(): Promise<{ images: PlatformImage[] }> {
-		return this.request("/images/store");
+		return this.request("/images");
 	}
 
 	async getLatestImage(): Promise<{ image: PlatformImage }> {
-		return this.request("/images/store/latest");
+		return this.request("/images/latest");
 	}
 
 	// Client Images

@@ -83,7 +83,7 @@ jobs:
           # Only attempt registration if the API URL is configured
           if [ -n "${{ vars.PLATFORM_API_URL }}" ]; then
             HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X POST "${{ vars.PLATFORM_API_URL }}/images/store" \
+              -X POST "${{ vars.PLATFORM_API_URL }}/images" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${{ secrets.PLATFORM_API_KEY }}" \
               -d '{
