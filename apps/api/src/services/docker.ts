@@ -250,7 +250,7 @@ export async function createStoreContainer(
 			`DATABASE_URL=${databaseUrl}`,
 			`BETTER_AUTH_SECRET=${generateSecret()}`,
 			`BETTER_AUTH_URL=${storeUrl}`,
-			`CORS_ORIGIN=${defaultStoreCors}`,
+			`CORS_ORIGINS=${defaultStoreCors}`,
 			`NODE_ENV=${IS_PRODUCTION ? "production" : "development"}`,
 		],
 		Labels: {
