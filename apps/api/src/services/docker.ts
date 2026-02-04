@@ -315,6 +315,90 @@ export async function createStoreContainer(
 	};
 }
 
+// Run store database migrations using a one-shot container
+export async function runStoreMigrations(
+	tenant: Tenant,
+	networkName: string,
+	postgresContainer: ContainerInfo,
+	imageTag?: string,
+): Promise<void> {
+	const image = imageTag || DEFAULT_STORE_IMAGE;
+	const containerName = getContainerName(tenant, "store-migrations");
+	const postgresName = getContainerName(tenant, "postgres");
+
+	// Get postgres credentials from container labels
+	const postgresContainerInfo = docker.getContainer(
+		postgresContainer.containerId,
+	);
+	const postgresInspect = await postgresContainerInfo.inspect();
+	const labels = postgresInspect.Config.Labels || {};
+
+	const dbName = labels["econome.db.name"];
+	const dbUser = labels["econome.db.user"];
+	const dbPassword = labels["econome.db.password"];
+
+	const databaseUrl = `postgres://${dbUser}:${dbPassword}@${postgresName}:5432/${dbName}?sslmode=disable`;
+
+	console.log(`Running store migrations for tenant ${tenant.slug}...`);
+
+	// Remove any existing migration container
+	const existing = await getExistingContainer(containerName);
+	if (existing) {
+		const container = docker.getContainer(existing.Id);
+		await container.remove({ force: true });
+	}
+
+	// Create one-shot container to run migrations
+	const container = await docker.createContainer({
+		Image: image,
+		name: containerName,
+		Cmd: ["npx", "drizzle-kit", "push", "--force"],
+		Env: [`DATABASE_URL=${databaseUrl}`],
+		Labels: {
+			"econome.tenant.id": tenant.id,
+			"econome.tenant.slug": tenant.slug,
+			"econome.service": "store-migrations",
+		},
+		HostConfig: {
+			NetworkMode: networkName,
+			AutoRemove: true,
+		},
+	});
+
+	await container.start();
+
+	// Wait for migration to complete (max 60 seconds)
+	const startTime = Date.now();
+	const timeout = 60000;
+
+	while (Date.now() - startTime < timeout) {
+		try {
+			const inspection = await container.inspect();
+			if (!inspection.State.Running) {
+				if (inspection.State.ExitCode === 0) {
+					console.log(`Migrations completed successfully for tenant ${tenant.slug}`);
+					return;
+				}
+				// Get logs for debugging
+				const logs = await container.logs({ stdout: true, stderr: true });
+				throw new Error(
+					`Migration failed with exit code ${inspection.State.ExitCode}: ${logs.toString()}`,
+				);
+			}
+		} catch (err: unknown) {
+			// Container might have been auto-removed
+			if (err instanceof Error && err.message.includes("no such container")) {
+				console.log(`Migrations completed for tenant ${tenant.slug} (container auto-removed)`);
+				return;
+			}
+			throw err;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	}
+
+	throw new Error(`Migration timed out for tenant ${tenant.slug}`);
+}
+
 export async function createClientContainer(
 	tenant: Tenant,
 	networkName: string,

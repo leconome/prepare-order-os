@@ -261,6 +261,16 @@ export async function provisionTenant(
 		await dockerService.waitForHealthy(postgres.containerId, 60000);
 		await logEvent(tenantId, "postgres_healthy", "PostgreSQL is healthy");
 
+		// Run database migrations before starting Store
+		await logEvent(tenantId, "migrations_running", "Running database migrations");
+		await dockerService.runStoreMigrations(
+			tenant,
+			networkName,
+			postgres,
+			imageTag,
+		);
+		await logEvent(tenantId, "migrations_complete", "Database migrations completed");
+
 		// Create Store with specific image tag
 		const store = await dockerService.createStoreContainer(
 			tenant,
@@ -779,6 +789,21 @@ export async function upgradeTenant(
 		if (storeExists) {
 			await dockerService.removeContainer(storeResource.containerId);
 		}
+
+		// Run database migrations with new image before starting store
+		await logEvent(tenantId, "migrations_running", "Running database migrations for new version");
+		await dockerService.runStoreMigrations(
+			tenant,
+			networkName,
+			{
+				containerId: postgresResource.containerId,
+				containerName: postgresResource.containerName || "",
+				status: "running",
+				port: postgresResource.port || undefined,
+			},
+			targetImage.imageTag,
+		);
+		await logEvent(tenantId, "migrations_complete", "Database migrations completed");
 
 		// Create new store container with the new image
 		const store = await dockerService.createStoreContainer(
