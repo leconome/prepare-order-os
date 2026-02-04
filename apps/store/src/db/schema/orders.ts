@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, decimal, pgEnum, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { employees } from "./employees";
+import { employees } from "./employees.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",

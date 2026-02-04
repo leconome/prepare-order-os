@@ -1,5 +1,5 @@
 # Production Dockerfile for Client Storefront
-# Multi-stage build for optimized production image
+# Built from repo root to include workspace packages
 
 # ==========================================
 # Stage 1: Dependencies
@@ -8,14 +8,18 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Enable corepack for pnpm
+RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
 
-# Copy package files
-COPY package.json ./
+# Copy workspace config and lockfile
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 
-# Install all dependencies (including devDependencies for build)
-RUN pnpm install
+# Copy package.json files for workspace packages
+COPY packages/store-types/package.json ./packages/store-types/
+COPY apps/client/package.json ./apps/client/
+
+# Install dependencies
+RUN pnpm install --filter @repo/store-types --filter client
 
 # ==========================================
 # Stage 2: Builder
@@ -24,8 +28,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
+# Enable corepack for pnpm
+RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
 
 # Build arguments (must be set at build time for Next.js)
 ARG NEXT_PUBLIC_STORE_API_URL
@@ -33,16 +37,22 @@ ARG NEXT_PUBLIC_DOMAIN
 ENV NEXT_PUBLIC_STORE_API_URL=${NEXT_PUBLIC_STORE_API_URL}
 ENV NEXT_PUBLIC_DOMAIN=${NEXT_PUBLIC_DOMAIN}
 
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Copy everything from deps
+COPY --from=deps /app ./
+
+# Copy source files
+COPY packages/store-types ./packages/store-types
+COPY apps/client ./apps/client
+
+# Build store-types first
+RUN pnpm --filter @repo/store-types build
 
 # Set production environment for build
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the Next.js application
-RUN pnpm build
+RUN pnpm --filter client build
 
 # ==========================================
 # Stage 3: Production Runner
@@ -60,9 +70,9 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 # Copy only necessary files from builder
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/apps/client/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/client/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/client/.next/static ./.next/static
 
 # Switch to non-root user
 USER nextjs
