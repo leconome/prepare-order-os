@@ -1,10 +1,9 @@
-# Dynamic Traefik configuration for LOCAL development
-# All frontend apps run on host machine, only infra runs in Docker
-# Use this config when running `pnpm dev` (local turbo mode)
+# Dynamic Traefik configuration for platform services
+# Tenant routes are configured via Docker labels when containers are created
 
 http:
   routers:
-    # Platform API (still in Docker)
+    # Platform API
     api:
       rule: "Host(`api.localhost`)"
       entrypoints:
@@ -12,39 +11,39 @@ http:
       service: api
       priority: 10
 
-    # Platform Admin (local dev server)
+    # Platform Admin
     admin:
       rule: "Host(`admin.localhost`)"
       entrypoints:
         - web
-      service: admin-local
+      service: admin
       priority: 10
 
-    # Platform Client (local dev server)
+    # Platform Client (demo/testing)
     client:
       rule: "Host(`client.localhost`)"
       entrypoints:
         - web
-      service: client-local
+      service: client
       priority: 10
 
-    # Local dev tenant client
+    # Local dev tenant client - routes to Docker container
     dev-tenant:
       rule: "Host(`dev.localhost`)"
       entrypoints:
         - web
-      service: client-local
+      service: client
       priority: 10
 
-    # Local dev tenant store API (Hono)
+    # Local dev tenant store API (Hono) - routes to host machine
     dev-tenant-store:
       rule: "Host(`store.dev.localhost`)"
       entrypoints:
         - web
-      service: store-local
+      service: store
       priority: 10
 
-    # Catch-all for store subdomains
+    # Catch-all for store subdomains (handled by Docker labels on tenant containers)
     store-catchall:
       rule: "HostRegexp(`store.{subdomain:[a-z0-9-]+}.localhost`)"
       entrypoints:
@@ -52,7 +51,7 @@ http:
       service: noop@internal
       priority: 2
 
-    # Catch-all for tenant subdomains
+    # Catch-all for tenant subdomains (handled by Docker labels on tenant containers)
     tenant-catchall:
       rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.localhost`)"
       entrypoints:
@@ -61,26 +60,26 @@ http:
       priority: 1
 
   services:
-    # Platform API service (still in Docker)
+    # Platform API service
     api:
       loadBalancer:
         servers:
           - url: "http://econome-api:3001"
 
-    # Admin running locally on host machine
-    admin-local:
+    # Platform Admin service
+    admin:
       loadBalancer:
         servers:
-          - url: "http://host.docker.internal:3000"
+          - url: "http://econome-admin:3000"
 
-    # Client running locally on host machine
-    client-local:
+    # Platform Client service
+    client:
       loadBalancer:
         servers:
-          - url: "http://host.docker.internal:3002"
+          - url: "http://econome-client:3002"
 
-    # Store (Hono API) running locally on host machine
-    store-local:
+    # Platform Store service (Hono) - runs on host machine
+    store:
       loadBalancer:
         servers:
           - url: "http://host.docker.internal:9000"

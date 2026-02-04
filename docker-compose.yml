@@ -4,7 +4,7 @@ services:
   # ===================
   traefik:
     image: traefik:latest
-    container_name: econome-traefik
+    container_name: prepare-os-traefik
     restart: unless-stopped
     command:
       - "--api.dashboard=true"
@@ -24,6 +24,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./infrastructure/traefik/dynamic:/etc/traefik/dynamic:ro
+    extra_hosts:
+      # So Traefik can reach host services (admin/client/store) in local dev; no-op on Mac/Windows
+      - "host.docker.internal:host-gateway"
     networks:
       - platform_network
     labels:
@@ -36,7 +39,7 @@ services:
   # ===================
   platform-db:
     image: postgres:15-alpine
-    container_name: econome-platform-db
+    container_name: prepare-os-platform-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: platform
@@ -62,7 +65,7 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-    container_name: econome-api
+    container_name: prepare-os-api
     restart: on-failure:3
     depends_on:
       platform-db:
@@ -102,8 +105,8 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=http://api.localhost
     volumes:
-      - ./apps/admin/src:/app/src:ro
-      - ./apps/admin/public:/app/public:ro
+      - ./apps/admin/src:/app/src
+      - ./apps/admin/public:/app/public
       - ./apps/admin/package.json:/app/package.json:ro
       - ./apps/admin/tsconfig.json:/app/tsconfig.json:ro
       - ./apps/admin/next.config.js:/app/next.config.js:ro
@@ -126,8 +129,6 @@ services:
       dockerfile: Dockerfile
     container_name: econome-client
     restart: on-failure:3
-    depends_on:
-      - api
     ports:
       - "3002:3002"
     environment:
@@ -135,12 +136,16 @@ services:
       - NEXT_PUBLIC_STORE_API_URL=http://store.dev.localhost
       - NEXT_PUBLIC_DOMAIN=localhost
     volumes:
-      - ./apps/client/app:/app/app:ro
-      - ./apps/client/public:/app/public:ro
+      - ./apps/client/app:/app/app
+      - ./apps/client/components:/app/components
+      - ./apps/client/lib:/app/lib
+      - ./apps/client/hooks:/app/hooks
+      - ./apps/client/public:/app/public
       - ./apps/client/package.json:/app/package.json:ro
       - ./apps/client/tsconfig.json:/app/tsconfig.json:ro
       - ./apps/client/next.config.ts:/app/next.config.ts:ro
       - ./apps/client/postcss.config.mjs:/app/postcss.config.mjs:ro
+      - ./apps/client/components.json:/app/components.json:ro
     networks:
       - platform_network
     labels:
@@ -150,43 +155,24 @@ services:
       - "traefik.http.services.client.loadbalancer.server.port=3002"
 
   # ===================
-  # Store Database (Local Dev)
+  # Store Database
   # ===================
   store-db:
     image: postgres:15-alpine
-    container_name: econome-store-db
+    container_name: prepare-os-store-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: medusa-v2
+      POSTGRES_DB: store
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - store_db_data:/var/lib/postgresql/data
     networks:
       - platform_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d medusa-v2"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # ===================
-  # Store Redis (Local Dev)
-  # ===================
-  store-redis:
-    image: redis:7-alpine
-    container_name: econome-store-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - store_redis_data:/var/lib/redis/data
-    networks:
-      - platform_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d store"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -216,10 +202,9 @@ services:
 volumes:
   platform_db_data:
   store_db_data:
-  store_redis_data:
   github_runner_data:
 
 networks:
   platform_network:
     name: platform_network
-    external: true
+    driver: bridge
