@@ -4,12 +4,11 @@ import type { Tenant, TenantConfig } from "../db/schema.js";
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 // Default images - can be overridden per tenant
-const DEFAULT_MEDUSA_IMAGE =
-	process.env.DEFAULT_MEDUSA_IMAGE || "ghcr.io/leconome/medusa:latest";
+const DEFAULT_STORE_IMAGE =
+	process.env.DEFAULT_STORE_IMAGE || "ghcr.io/leconome/store:latest";
 const DEFAULT_CLIENT_IMAGE =
 	process.env.DEFAULT_CLIENT_IMAGE || "ghcr.io/leconome/client:latest";
 const POSTGRES_IMAGE = "postgres:15-alpine";
-const REDIS_IMAGE = "redis:7-alpine";
 
 // Domain configuration - defaults to localhost for development
 const DOMAIN = process.env.DOMAIN || "localhost";
@@ -25,8 +24,8 @@ export interface ContainerInfo {
 export interface TenantContainers {
 	network: { networkId: string; networkName: string };
 	postgres: ContainerInfo;
-	redis: ContainerInfo;
-	medusa: ContainerInfo;
+	store: ContainerInfo;
+	client: ContainerInfo;
 }
 
 function getNetworkName(tenant: Tenant): string {
@@ -101,8 +100,8 @@ export async function createPostgresContainer(
 		await pullImage(POSTGRES_IMAGE);
 	}
 
-	const dbName = `medusa_${tenant.slug}`;
-	const dbUser = `medusa_${tenant.slug}`;
+	const dbName = `store_${tenant.slug}`;
+	const dbUser = `store_${tenant.slug}`;
 	const dbPassword = generatePassword();
 	const volumeName = `tenant_${tenant.slug}_postgres_data`;
 
@@ -157,96 +156,20 @@ export async function createPostgresContainer(
 	};
 }
 
-export async function createRedisContainer(
-	tenant: Tenant,
-	networkName: string,
-	port: number,
-): Promise<ContainerInfo> {
-	const containerName = getContainerName(tenant, "redis");
-
-	// Check if container already exists
-	const existing = await getExistingContainer(containerName);
-	if (existing) {
-		console.log(`Container ${containerName} already exists, reusing...`);
-		// Start if stopped
-		if (existing.State !== "running") {
-			const container = docker.getContainer(existing.Id);
-			await container.start();
-		}
-		return {
-			containerId: existing.Id,
-			containerName,
-			status: "running",
-			port,
-		};
-	}
-
-	// Pull image if not exists
-	if (!(await imageExists(REDIS_IMAGE))) {
-		await pullImage(REDIS_IMAGE);
-	}
-
-	const volumeName = `tenant_${tenant.slug}_redis_data`;
-
-	// Create volume if it doesn't exist
-	try {
-		await docker.createVolume({ Name: volumeName });
-	} catch {
-		// Volume might already exist
-	}
-
-	const container = await docker.createContainer({
-		Image: REDIS_IMAGE,
-		name: containerName,
-		Cmd: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"],
-		Labels: {
-			"econome.tenant.id": tenant.id,
-			"econome.tenant.slug": tenant.slug,
-			"econome.service": "redis",
-		},
-		HostConfig: {
-			NetworkMode: networkName,
-			PortBindings: {
-				"6379/tcp": [{ HostPort: port.toString() }],
-			},
-			RestartPolicy: { Name: "unless-stopped" },
-			Binds: [`${volumeName}:/data`],
-		},
-		Healthcheck: {
-			Test: ["CMD", "redis-cli", "ping"],
-			Interval: 5000000000,
-			Timeout: 5000000000,
-			Retries: 5,
-		},
-		ExposedPorts: { "6379/tcp": {} },
-	});
-
-	await container.start();
-
-	return {
-		containerId: container.id,
-		containerName,
-		status: "running",
-		port,
-	};
-}
-
-export async function createMedusaContainer(
+export async function createStoreContainer(
 	tenant: Tenant,
 	networkName: string,
 	postgresContainer: ContainerInfo,
-	_redisContainer: ContainerInfo,
 	apiPort: number,
-	_adminPort: number,
 	imageTag?: string,
 ): Promise<ContainerInfo> {
-	const image = imageTag || DEFAULT_MEDUSA_IMAGE;
-	const containerName = getContainerName(tenant, "medusa");
+	const image = imageTag || DEFAULT_STORE_IMAGE;
+	const containerName = getContainerName(tenant, "store");
 
 	// Check if container already exists
 	const existing = await getExistingContainer(containerName);
 	if (existing) {
-		// For Medusa containers, check if labels are correct - if not, recreate
+		// For Store containers, check if labels are correct - if not, recreate
 		const container = docker.getContainer(existing.Id);
 		const inspection = await container.inspect();
 		const existingLabels = inspection.Config.Labels || {};
@@ -297,7 +220,6 @@ export async function createMedusaContainer(
 	}
 
 	const postgresName = getContainerName(tenant, "postgres");
-	const redisName = getContainerName(tenant, "redis");
 
 	// Get postgres credentials from container labels
 	const postgresContainerInfo = docker.getContainer(
@@ -311,7 +233,6 @@ export async function createMedusaContainer(
 	const dbPassword = labels["econome.db.password"];
 
 	const databaseUrl = `postgres://${dbUser}:${dbPassword}@${postgresName}:5432/${dbName}?sslmode=disable`;
-	const redisUrl = `redis://${redisName}:6379`;
 
 	const config = tenant.config as TenantConfig;
 
@@ -321,37 +242,26 @@ export async function createMedusaContainer(
 	const clientUrl = `${protocol}://${tenant.subdomain}.${DOMAIN}`;
 	const storeUrl = `${protocol}://store.${tenant.subdomain}.${DOMAIN}`;
 	const defaultStoreCors = config.storeCors || clientUrl;
-	const defaultAdminCors = config.adminCors || storeUrl;
-	const defaultAuthCors = `${clientUrl},${storeUrl}`;
 
 	const container = await docker.createContainer({
 		Image: image,
 		name: containerName,
 		Env: [
 			`DATABASE_URL=${databaseUrl}`,
-			`REDIS_URL=${redisUrl}`,
-			`CACHE_REDIS_URL=${redisUrl}`,
-			`JWT_SECRET=${generateSecret()}`,
-			`COOKIE_SECRET=${generateSecret()}`,
-			`STORE_CORS=${defaultStoreCors}`,
-			`ADMIN_CORS=${defaultAdminCors}`,
-			`AUTH_CORS=${defaultAuthCors}`,
-			`MEDUSA_BACKEND_URL=${storeUrl}`,
-			`MEDUSA_ADMIN_ONBOARDING_TYPE=default`,
-			`ADMIN_EMAIL=${tenant.adminEmail || "admin@example.com"}`,
-			`ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,
+			`BETTER_AUTH_SECRET=${generateSecret()}`,
+			`BETTER_AUTH_URL=${storeUrl}`,
+			`CORS_ORIGIN=${defaultStoreCors}`,
 			`NODE_ENV=${IS_PRODUCTION ? "production" : "development"}`,
 		],
 		Labels: {
 			"econome.tenant.id": tenant.id,
 			"econome.tenant.slug": tenant.slug,
-			"econome.service": "medusa",
+			"econome.service": "store",
 			// Traefik labels for dynamic routing
-			// Medusa serves Store API at store.{subdomain}.{domain}
-			// Admin dashboard is at store.{subdomain}.{domain}/app
+			// Store API at store.{subdomain}.{domain}
 			"traefik.enable": "true",
 			"traefik.docker.network": "platform_network",
-			// Router for store subdomain - API and Admin served from port 9000
+			// Router for store subdomain - API served from port 9000
 			[`traefik.http.routers.${tenant.slug}-store.rule`]: `Host(\`store.${tenant.subdomain}.${DOMAIN}\`)`,
 			[`traefik.http.routers.${tenant.slug}-store.entrypoints`]: IS_PRODUCTION
 				? "websecure"
@@ -376,11 +286,11 @@ export async function createMedusaContainer(
 			RestartPolicy: { Name: "unless-stopped" },
 		},
 		Healthcheck: {
-			Test: ["CMD", "curl", "-f", "http://localhost:9000/health"],
+			Test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/api/health"],
 			Interval: 10000000000, // 10s
 			Timeout: 10000000000,
 			Retries: 10,
-			StartPeriod: 60000000000, // 60s - give Medusa time to start
+			StartPeriod: 30000000000, // 30s
 		},
 		ExposedPorts: {
 			"9000/tcp": {},
@@ -736,23 +646,17 @@ export async function imageExists(imageTag: string): Promise<boolean> {
 
 // Port allocation
 let nextPostgresPort = 5500;
-let nextRedisPort = 6400;
-let nextMedusaApiPort = 9100;
-let nextMedusaAdminPort = 5200;
+let nextStorePort = 9100;
 let nextClientPort = 3100;
 
 export function allocatePorts(): {
 	postgres: number;
-	redis: number;
-	medusaApi: number;
-	medusaAdmin: number;
+	store: number;
 	client: number;
 } {
 	const ports = {
 		postgres: nextPostgresPort++,
-		redis: nextRedisPort++,
-		medusaApi: nextMedusaApiPort++,
-		medusaAdmin: nextMedusaAdminPort++,
+		store: nextStorePort++,
 		client: nextClientPort++,
 	};
 	return ports;

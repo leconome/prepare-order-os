@@ -28,8 +28,8 @@ export async function createBackup(tenantSlug: string): Promise<BackupInfo> {
 	await fs.mkdir(BACKUP_DIR, { recursive: true });
 
 	// Get database credentials from container
-	const dbName = `medusa_${tenantSlug}`;
-	const dbUser = `medusa_${tenantSlug}`;
+	const dbName = `store_${tenantSlug}`;
+	const dbUser = `store_${tenantSlug}`;
 
 	// Create backup using pg_dump
 	const command = `docker exec ${containerName} pg_dump -U ${dbUser} -d ${dbName} --no-owner --no-acl | gzip > ${backupPath}`;
@@ -109,7 +109,7 @@ export async function restoreBackup(
 	filename: string,
 ): Promise<void> {
 	const containerName = `tenant_${tenantSlug}_postgres`;
-	const medusaContainer = `tenant_${tenantSlug}_medusa`;
+	const storeContainer = `tenant_${tenantSlug}_store`;
 	const backupPath = path.join(BACKUP_DIR, filename);
 
 	// Verify backup exists
@@ -125,12 +125,12 @@ export async function restoreBackup(
 		throw new Error(`PostgreSQL container is not running: ${status}`);
 	}
 
-	const dbName = `medusa_${tenantSlug}`;
-	const dbUser = `medusa_${tenantSlug}`;
+	const dbName = `store_${tenantSlug}`;
+	const dbUser = `store_${tenantSlug}`;
 
-	// Stop Medusa to prevent connections during restore
+	// Stop Store to prevent connections during restore
 	try {
-		await execAsync(`docker stop ${medusaContainer}`, { timeout: 30000 });
+		await execAsync(`docker stop ${storeContainer}`, { timeout: 30000 });
 	} catch {
 		// Container might not be running
 	}
@@ -152,11 +152,11 @@ export async function restoreBackup(
 			{ timeout: 600000 }, // 10 minute timeout for large databases
 		);
 
-		// Restart Medusa
-		await execAsync(`docker start ${medusaContainer}`, { timeout: 30000 });
+		// Restart Store
+		await execAsync(`docker start ${storeContainer}`, { timeout: 30000 });
 	} catch (error) {
-		// Try to restart Medusa even if restore failed
-		await execAsync(`docker start ${medusaContainer}`).catch(() => {});
+		// Try to restart Store even if restore failed
+		await execAsync(`docker start ${storeContainer}`).catch(() => {});
 		throw new Error(
 			`Failed to restore backup: ${error instanceof Error ? error.message : String(error)}`,
 		);

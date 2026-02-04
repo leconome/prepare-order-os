@@ -26,8 +26,7 @@ export const tenantStatusEnum = pgEnum("tenant_status", [
 export const resourceTypeEnum = pgEnum("resource_type", [
 	"network",
 	"postgres",
-	"redis",
-	"medusa",
+	"store",
 	"client",
 ]);
 
@@ -47,9 +46,7 @@ export const eventTypeEnum = pgEnum("event_type", [
 	"network_created",
 	"postgres_created",
 	"postgres_healthy",
-	"redis_created",
-	"redis_healthy",
-	"medusa_created",
+	"store_created",
 	"client_created",
 	"image_pulling",
 	"service_updating",
@@ -87,7 +84,7 @@ export const tenants = pgTable("tenants", {
 	config: jsonb("config").$type<TenantConfig>().default({}),
 	adminEmail: varchar("admin_email", { length: 255 }),
 	adminPassword: varchar("admin_password", { length: 255 }),
-	medusaVersion: varchar("medusa_version", { length: 50 }),
+	storeVersion: varchar("store_version", { length: 50 }),
 	imageTag: varchar("image_tag", { length: 255 }),
 	clientVersion: varchar("client_version", { length: 50 }),
 	clientImageTag: varchar("client_image_tag", { length: 255 }),
@@ -175,11 +172,10 @@ export const clientImages = pgTable("client_images", {
 
 // Types
 export type TenantConfig = {
-	medusaPort?: number;
+	storePort?: number;
 	adminPort?: number;
 	clientPort?: number;
 	postgresPort?: number;
-	redisPort?: number;
 	storeCors?: string;
 	adminCors?: string;
 	environment?: Record<string, string>;

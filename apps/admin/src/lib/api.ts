@@ -40,16 +40,15 @@ export interface Tenant {
 		| "terminating"
 		| "terminated";
 	config: {
-		medusaPort?: number;
+		storePort?: number;
 		adminPort?: number;
 		clientPort?: number;
 		postgresPort?: number;
-		redisPort?: number;
 		storeCors?: string;
 		adminCors?: string;
 	};
 	adminEmail?: string;
-	medusaVersion?: string | null;
+	storeVersion?: string | null;
 	imageTag?: string | null;
 	clientVersion?: string | null;
 	clientImageTag?: string | null;
@@ -213,7 +212,7 @@ class ApiClient {
 
 	async getTenantLogs(
 		id: string,
-		service: string = "medusa",
+		service: string = "store",
 		tail: number = 100,
 	): Promise<{ logs: string }> {
 		return this.request(`/tenants/${id}/logs?service=${service}&tail=${tail}`);
@@ -247,7 +246,7 @@ class ApiClient {
 		});
 	}
 
-	// Store Images (registered at /images, same endpoint Medusa used)
+	// Store Images
 	async listImages(): Promise<{ images: PlatformImage[] }> {
 		return this.request("/images");
 	}

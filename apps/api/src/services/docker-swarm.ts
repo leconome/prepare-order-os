@@ -3,11 +3,10 @@ import type { Tenant, TenantConfig } from "../db/schema.js";
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-// Default Medusa image - can be overridden per tenant
-const DEFAULT_MEDUSA_IMAGE =
-	process.env.DEFAULT_MEDUSA_IMAGE || "ghcr.io/leconome/medusa:latest";
+// Default Store image - can be overridden per tenant
+const DEFAULT_STORE_IMAGE =
+	process.env.DEFAULT_STORE_IMAGE || "ghcr.io/leconome/store:latest";
 const POSTGRES_IMAGE = "postgres:15-alpine";
-const REDIS_IMAGE = "redis:7-alpine";
 
 // Domain configuration
 const DOMAIN = process.env.DOMAIN || "localhost";
@@ -23,8 +22,8 @@ export interface ServiceInfo {
 export interface TenantServices {
 	network: { networkId: string; networkName: string };
 	postgres: ServiceInfo;
-	redis: ServiceInfo;
-	medusa: ServiceInfo;
+	store: ServiceInfo;
+	client: ServiceInfo;
 }
 
 function getNetworkName(tenant: Tenant): string {
@@ -139,8 +138,8 @@ export async function createPostgresService(
 		};
 	}
 
-	const dbName = `medusa_${tenant.slug}`;
-	const dbUser = `medusa_${tenant.slug}`;
+	const dbName = `store_${tenant.slug}`;
+	const dbUser = `store_${tenant.slug}`;
 	const dbPassword = generatePassword();
 	const volumeName = `tenant_${tenant.slug}_postgres_data`;
 
@@ -202,95 +201,16 @@ export async function createPostgresService(
 }
 
 /**
- * Create Redis service for tenant
+ * Create Store service for tenant
  */
-export async function createRedisService(
-	tenant: Tenant,
-	networkName: string,
-): Promise<ServiceInfo> {
-	const serviceName = getServiceName(tenant, "redis");
-
-	// Check if service already exists
-	const existing = await getExistingService(serviceName);
-	if (existing) {
-		const status = await getServiceStatus(serviceName);
-		return {
-			serviceId: (await existing.inspect()).ID,
-			serviceName,
-			status: status.status,
-			replicas: { running: status.running, desired: status.desired },
-		};
-	}
-
-	const volumeName = `tenant_${tenant.slug}_redis_data`;
-
-	await docker.createService({
-		Name: serviceName,
-		Labels: {
-			"econome.tenant.id": tenant.id,
-			"econome.tenant.slug": tenant.slug,
-			"econome.service": "redis",
-		},
-		TaskTemplate: {
-			ContainerSpec: {
-				Image: REDIS_IMAGE,
-				Args: [
-					"redis-server",
-					"--appendonly",
-					"yes",
-					"--appendfsync",
-					"everysec",
-				],
-				Mounts: [
-					{
-						Type: "volume",
-						Source: volumeName,
-						Target: "/data",
-					},
-				],
-				HealthCheck: {
-					Test: ["CMD", "redis-cli", "ping"],
-					Interval: 5000000000,
-					Timeout: 5000000000,
-					Retries: 5,
-				},
-			},
-			Networks: [{ Target: networkName }],
-			RestartPolicy: {
-				Condition: "on-failure",
-				Delay: 5000000000,
-				MaxAttempts: 3,
-			},
-		},
-		Mode: { Replicated: { Replicas: 1 } },
-	});
-
-	// Get the created service to retrieve its ID
-	const createdService = await getExistingService(serviceName);
-	const serviceId = createdService
-		? (await createdService.inspect()).ID
-		: serviceName;
-
-	return {
-		serviceId,
-		serviceName,
-		status: "starting",
-		replicas: { running: 0, desired: 1 },
-	};
-}
-
-/**
- * Create Medusa service for tenant
- */
-export async function createMedusaService(
+export async function createStoreService(
 	tenant: Tenant,
 	networkName: string,
 	_postgresService: ServiceInfo,
-	_redisService: ServiceInfo,
 	imageTag?: string,
 ): Promise<ServiceInfo> {
-	const image = imageTag || DEFAULT_MEDUSA_IMAGE;
-	const serviceName = getServiceName(tenant, "medusa");
+	const image = imageTag || DEFAULT_STORE_IMAGE;
+	const serviceName = getServiceName(tenant, "store");
 
 	// Check if service already exists
 	const existing = await getExistingService(serviceName);
@@ -305,7 +225,6 @@ export async function createMedusaService(
 	}
 
 	const postgresName = getServiceName(tenant, "postgres");
-	const redisName = getServiceName(tenant, "redis");
 
 	// Get postgres credentials from service labels
 	const postgresServiceObj = await getExistingService(postgresName);
@@ -320,61 +239,51 @@ export async function createMedusaService(
 	const dbPassword = labels["econome.db.password"];
 
 	const databaseUrl = `postgres://${dbUser}:${dbPassword}@${postgresName}:5432/${dbName}?sslmode=disable`;
-	const redisUrl = `redis://${redisName}:6379`;
 
 	const config = tenant.config as TenantConfig;
 	const protocol = IS_PRODUCTION ? "https" : "http";
-	const tenantUrl = `${protocol}://${tenant.subdomain}.${DOMAIN}`;
-	const defaultStoreCors = config.storeCors || tenantUrl;
-	const defaultAdminCors = config.adminCors || tenantUrl;
-	const defaultAuthCors = tenantUrl;
+	const clientUrl = `${protocol}://${tenant.subdomain}.${DOMAIN}`;
+	const storeUrl = `${protocol}://store.${tenant.subdomain}.${DOMAIN}`;
+	const defaultStoreCors = config.storeCors || clientUrl;
 
 	await docker.createService({
 		Name: serviceName,
 		Labels: {
 			"econome.tenant.id": tenant.id,
 			"econome.tenant.slug": tenant.slug,
-			"econome.service": "medusa",
+			"econome.service": "store",
 			// Traefik labels for Swarm
 			"traefik.enable": "true",
 			"traefik.docker.network": "platform_network",
-			[`traefik.http.routers.${tenant.slug}.rule`]: `Host(\`${tenant.subdomain}.${DOMAIN}\`)`,
-			[`traefik.http.routers.${tenant.slug}.entrypoints`]: IS_PRODUCTION
+			[`traefik.http.routers.${tenant.slug}-store.rule`]: `Host(\`store.${tenant.subdomain}.${DOMAIN}\`)`,
+			[`traefik.http.routers.${tenant.slug}-store.entrypoints`]: IS_PRODUCTION
 				? "websecure"
 				: "web",
 			...(IS_PRODUCTION && {
-				[`traefik.http.routers.${tenant.slug}.tls`]: "true",
-				[`traefik.http.routers.${tenant.slug}.tls.certresolver`]: "letsencrypt",
-				[`traefik.http.routers.${tenant.slug}.middlewares`]:
+				[`traefik.http.routers.${tenant.slug}-store.tls`]: "true",
+				[`traefik.http.routers.${tenant.slug}-store.tls.certresolver`]: "letsencrypt",
+				[`traefik.http.routers.${tenant.slug}-store.middlewares`]:
 					"tenant-cors@file,security-headers@file",
 			}),
-			[`traefik.http.routers.${tenant.slug}.service`]: tenant.slug,
-			[`traefik.http.services.${tenant.slug}.loadbalancer.server.port`]: "9000",
+			[`traefik.http.routers.${tenant.slug}-store.service`]: `${tenant.slug}-store`,
+			[`traefik.http.services.${tenant.slug}-store.loadbalancer.server.port`]: "9000",
 		},
 		TaskTemplate: {
 			ContainerSpec: {
 				Image: image,
 				Env: [
 					`DATABASE_URL=${databaseUrl}`,
-					`REDIS_URL=${redisUrl}`,
-					`CACHE_REDIS_URL=${redisUrl}`,
-					`JWT_SECRET=${generateSecret()}`,
-					`COOKIE_SECRET=${generateSecret()}`,
-					`STORE_CORS=${defaultStoreCors}`,
-					`ADMIN_CORS=${defaultAdminCors}`,
-					`AUTH_CORS=${defaultAuthCors}`,
-					`MEDUSA_BACKEND_URL=${tenantUrl}`,
-					`MEDUSA_ADMIN_ONBOARDING_TYPE=default`,
-					`ADMIN_EMAIL=${tenant.adminEmail || "admin@example.com"}`,
-					`ADMIN_PASSWORD=${tenant.adminPassword || "admin123"}`,
+					`BETTER_AUTH_SECRET=${generateSecret()}`,
+					`BETTER_AUTH_URL=${storeUrl}`,
+					`CORS_ORIGIN=${defaultStoreCors}`,
 					`NODE_ENV=${IS_PRODUCTION ? "production" : "development"}`,
 				],
 				HealthCheck: {
-					Test: ["CMD", "curl", "-f", "http://localhost:9000/health"],
+					Test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/api/health"],
 					Interval: 10000000000,
 					Timeout: 10000000000,
 					Retries: 10,
-					StartPeriod: 60000000000,
+					StartPeriod: 30000000000,
 				},
 			},
 			Networks: [{ Target: networkName }, { Target: "platform_network" }],

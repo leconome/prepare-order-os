@@ -143,9 +143,9 @@ export default function TenantDetailPage() {
 
 	const latestImage = images.find((img) => img.isLatest);
 	const hasNewerVersion =
-		tenant && latestImage && tenant.medusaVersion !== latestImage.version;
+		tenant && latestImage && tenant.storeVersion !== latestImage.version;
 	const availableUpgrades = images.filter(
-		(img) => tenant && img.version !== tenant.medusaVersion,
+		(img) => tenant && img.version !== tenant.storeVersion,
 	);
 
 	const latestClientImage = clientImages.find((img) => img.isLatest);
@@ -267,7 +267,7 @@ export default function TenantDetailPage() {
 										<span className="text-zinc-500">Store Version</span>
 										<div className="flex items-center gap-2">
 											<p className="font-medium">
-												{tenant.medusaVersion || "Default"}
+												{tenant.storeVersion || "Default"}
 											</p>
 											{hasNewerVersion && (
 												<Badge variant="warning" className="text-xs">
@@ -297,10 +297,10 @@ export default function TenantDetailPage() {
 											</p>
 										</div>
 									)}
-									{tenant.config.medusaPort && (
+									{tenant.config.storePort && (
 										<div>
 											<span className="text-zinc-500">API Port</span>
-											<p className="font-medium">{tenant.config.medusaPort}</p>
+											<p className="font-medium">{tenant.config.storePort}</p>
 										</div>
 									)}
 									{tenant.config.adminPort && (
@@ -337,10 +337,7 @@ export default function TenantDetailPage() {
 													{resource.resourceType === "postgres" && (
 														<Database className="h-4 w-4 text-blue-500" />
 													)}
-													{resource.resourceType === "redis" && (
-														<Server className="h-4 w-4 text-red-500" />
-													)}
-													{(resource.resourceType === "medusa" || resource.resourceType === "store") && (
+													{resource.resourceType === "store" && (
 														<Cpu className="h-4 w-4 text-purple-500" />
 													)}
 													{resource.resourceType === "client" && (
@@ -522,7 +519,7 @@ export default function TenantDetailPage() {
 											<div className="flex items-center gap-2 text-sm">
 												<span className="text-zinc-500">Current Version:</span>
 												<Badge variant="outline">
-													{tenant.medusaVersion || "Default"}
+													{tenant.storeVersion || "Default"}
 												</Badge>
 												{hasNewerVersion && latestImage && (
 													<span className="text-zinc-500">

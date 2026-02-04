@@ -32,7 +32,7 @@ const updateImageSchema = z.object({
 	isDeprecated: z.boolean().optional(),
 });
 
-// GET /images - List all available Medusa versions
+// GET /images - List all available Store versions
 images.get("/", async (c) => {
 	try {
 		const allImages = await db

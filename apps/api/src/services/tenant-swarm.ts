@@ -66,7 +66,7 @@ export async function createTenant(input: {
 			config: input.config || {},
 			adminEmail: input.adminEmail,
 			adminPassword: input.adminPassword,
-			medusaVersion: input.version,
+			storeVersion: input.version,
 		})
 		.returning();
 
@@ -117,44 +117,31 @@ export async function provisionTenant(
 		await swarmService.waitForServiceHealthy(postgres.serviceName, 60000);
 		await logEvent(id, "postgres_healthy", "PostgreSQL service is healthy");
 
-		// Create Redis service
-		const redis = await swarmService.createRedisService(
-			tenant,
-			`tenant_${tenant.slug}_network`,
-		);
-		await saveResource(id, "redis", redis.serviceId, redis.serviceName);
-		await logEvent(id, "redis_created", "Redis service created");
-
-		// Wait for Redis to be healthy
-		await swarmService.waitForServiceHealthy(redis.serviceName, 30000);
-		await logEvent(id, "redis_healthy", "Redis service is healthy");
-
-		// Pull Medusa image if needed
+		// Pull Store image if needed
 		const imageTag = version
-			? `ghcr.io/leconome/medusa:${version}`
-			: process.env.DEFAULT_MEDUSA_IMAGE || "ghcr.io/leconome/medusa:latest";
+			? `ghcr.io/leconome/store:${version}`
+			: process.env.DEFAULT_STORE_IMAGE || "ghcr.io/leconome/store:latest";
 
 		if (!(await swarmService.imageExists(imageTag))) {
 			await logEvent(id, "image_pulling", `Pulling image ${imageTag}`);
 			await swarmService.pullImage(imageTag);
 		}
 
-		// Create Medusa service
-		const medusa = await swarmService.createMedusaService(
+		// Create Store service
+		const store = await swarmService.createStoreService(
 			tenant,
 			`tenant_${tenant.slug}_network`,
 			postgres,
-			redis,
 			imageTag,
 		);
-		await saveResource(id, "medusa", medusa.serviceId, medusa.serviceName);
-		await logEvent(id, "medusa_created", "Medusa service created");
+		await saveResource(id, "store", store.serviceId, store.serviceName);
+		await logEvent(id, "store_created", "Store service created");
 
 		// Update tenant with version info
 		await db
 			.update(tenants)
 			.set({
-				medusaVersion: version || "latest",
+				storeVersion: version || "latest",
 				imageTag,
 				status: "running",
 				updatedAt: new Date(),
@@ -186,8 +173,8 @@ export async function upgradeTenant(
 	const tenant = await getTenant(id);
 	if (!tenant) throw new Error("Tenant not found");
 
-	const imageTag = `ghcr.io/leconome/medusa:${version}`;
-	const serviceName = `tenant_${tenant.slug}_medusa`;
+	const imageTag = `ghcr.io/leconome/store:${version}`;
+	const serviceName = `tenant_${tenant.slug}_store`;
 
 	await logEvent(id, "upgrade_started", `Upgrading to version ${version}`);
 
@@ -213,7 +200,7 @@ export async function upgradeTenant(
 		await db
 			.update(tenants)
 			.set({
-				medusaVersion: version,
+				storeVersion: version,
 				imageTag,
 				lastUpgradedAt: new Date(),
 				updatedAt: new Date(),
@@ -241,7 +228,7 @@ export async function startTenant(id: string): Promise<Tenant> {
 	const tenant = await getTenant(id);
 	if (!tenant) throw new Error("Tenant not found");
 
-	const services = ["postgres", "redis", "medusa"];
+	const services = ["postgres", "store", "client"];
 
 	for (const svc of services) {
 		const serviceName = `tenant_${tenant.slug}_${svc}`;
@@ -263,7 +250,7 @@ export async function stopTenant(id: string): Promise<Tenant> {
 	if (!tenant) throw new Error("Tenant not found");
 
 	// Stop in reverse order
-	const services = ["medusa", "redis", "postgres"];
+	const services = ["client", "store", "postgres"];
 
 	for (const svc of services) {
 		const serviceName = `tenant_${tenant.slug}_${svc}`;
@@ -294,7 +281,7 @@ export async function deleteTenant(id: string): Promise<void> {
 	await logEvent(id, "deletion_started", "Starting tenant deletion");
 
 	// Remove services in reverse order
-	const services = ["medusa", "redis", "postgres"];
+	const services = ["client", "store", "postgres"];
 	for (const svc of services) {
 		const serviceName = `tenant_${tenant.slug}_${svc}`;
 		try {
@@ -319,7 +306,7 @@ export async function deleteTenant(id: string): Promise<void> {
 
 export async function getTenantLogs(
 	id: string,
-	service: "medusa" | "postgres" | "redis" = "medusa",
+	service: "store" | "postgres" | "client" = "store",
 	tail: number = 100,
 ): Promise<string> {
 	const tenant = await getTenant(id);
@@ -344,7 +331,7 @@ export async function getTenantHealth(id: string): Promise<{
 		{ status: string; replicas: { running: number; desired: number } }
 	> = {};
 
-	for (const svc of ["postgres", "redis", "medusa"]) {
+	for (const svc of ["postgres", "store", "client"]) {
 		const serviceName = `tenant_${tenant.slug}_${svc}`;
 		const status = await swarmService.getServiceStatus(serviceName);
 		services[svc] = {
@@ -408,9 +395,8 @@ type EventType =
 	| "network_created"
 	| "postgres_created"
 	| "postgres_healthy"
-	| "redis_created"
-	| "redis_healthy"
-	| "medusa_created"
+	| "store_created"
+	| "client_created"
 	| "image_pulling"
 	| "service_updating"
 	| "started"
@@ -425,7 +411,7 @@ type EventType =
 	| "upgrade_started"
 	| "upgrade_completed"
 	| "upgrade_failed";
-type ResourceType = "network" | "postgres" | "redis" | "medusa";
+type ResourceType = "network" | "postgres" | "store" | "client";
 
 async function logEvent(
 	tenantId: string,

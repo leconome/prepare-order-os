@@ -20,7 +20,7 @@ console.log(
 );
 
 // Resource type literal type
-type ResourceType = "network" | "postgres" | "redis" | "medusa" | "client";
+type ResourceType = "network" | "postgres" | "store" | "client";
 type ResourceStatus = "creating" | "running" | "stopped" | "error";
 
 // Helper to upsert a tenant resource (insert or update if exists)
@@ -166,7 +166,7 @@ export async function provisionTenant(
 
 	// Resolve image tag from version
 	let imageTag: string | undefined;
-	let medusaVersion: string | undefined;
+	let storeVersion: string | undefined;
 
 	if (version) {
 		const [image] = await db
@@ -184,7 +184,7 @@ export async function provisionTenant(
 		}
 
 		imageTag = image.imageTag;
-		medusaVersion = image.version;
+		storeVersion = image.version;
 	} else {
 		// Try to get the latest version
 		const [latestImage] = await db
@@ -195,7 +195,7 @@ export async function provisionTenant(
 
 		if (latestImage) {
 			imageTag = latestImage.imageTag;
-			medusaVersion = latestImage.version;
+			storeVersion = latestImage.version;
 		}
 		// If no version in DB, will use default image from docker service
 	}
@@ -209,7 +209,7 @@ export async function provisionTenant(
 	await logEvent(
 		tenantId,
 		"provisioning_started",
-		`Starting container provisioning${medusaVersion ? ` with version ${medusaVersion}` : ""}`,
+		`Starting container provisioning${storeVersion ? ` with version ${storeVersion}` : ""}`,
 	);
 
 	try {
@@ -249,46 +249,28 @@ export async function provisionTenant(
 
 		// Wait for PostgreSQL to be healthy
 		await dockerService.waitForHealthy(postgres.containerId, 60000);
+		await logEvent(tenantId, "postgres_healthy", "PostgreSQL is healthy");
 
-		// Create Redis
-		const redis = await dockerService.createRedisContainer(
-			tenant,
-			networkName,
-			ports.redis,
-		);
-
-		await upsertResource(tenantId, "redis", {
-			containerId: redis.containerId,
-			containerName: redis.containerName,
-			status: "running",
-			port: redis.port,
-		});
-
-		// Wait for Redis to be healthy
-		await dockerService.waitForHealthy(redis.containerId, 30000);
-
-		// Create Medusa with specific image tag
-		const medusa = await dockerService.createMedusaContainer(
+		// Create Store with specific image tag
+		const store = await dockerService.createStoreContainer(
 			tenant,
 			networkName,
 			postgres,
-			redis,
-			ports.medusaApi,
-			ports.medusaAdmin,
+			ports.store,
 			imageTag,
 		);
 
-		await upsertResource(tenantId, "medusa", {
-			containerId: medusa.containerId,
-			containerName: medusa.containerName,
+		await upsertResource(tenantId, "store", {
+			containerId: store.containerId,
+			containerName: store.containerName,
 			status: "running",
-			port: medusa.port,
-			metadata: { adminPort: ports.medusaAdmin, imageTag },
+			port: store.port,
+			metadata: { imageTag },
 		});
 
-		// Wait for Medusa to be healthy before starting client
-		await dockerService.waitForHealthy(medusa.containerId, 120000);
-		await logEvent(tenantId, "medusa_created", "Medusa container is healthy");
+		// Wait for Store to be healthy before starting client
+		await dockerService.waitForHealthy(store.containerId, 60000);
+		await logEvent(tenantId, "store_created", "Store container is healthy");
 
 		// Create Client container
 		const client = await dockerService.createClientContainer(
@@ -315,14 +297,12 @@ export async function provisionTenant(
 			.update(tenants)
 			.set({
 				status: "running",
-				medusaVersion: medusaVersion || null,
+				storeVersion: storeVersion || null,
 				imageTag: imageTag || null,
 				config: {
 					...(tenant.config as TenantConfig),
 					postgresPort: ports.postgres,
-					redisPort: ports.redis,
-					medusaPort: ports.medusaApi,
-					adminPort: ports.medusaAdmin,
+					storePort: ports.store,
 					clientPort: ports.client,
 				},
 				updatedAt: new Date(),
@@ -408,7 +388,7 @@ export async function startTenant(tenantId: string): Promise<Tenant> {
 
 	// Check if any containers are missing
 	let hasMissingContainers = false;
-	const order = ["postgres", "redis", "medusa", "client"];
+	const order = ["postgres", "store", "client"];
 
 	for (const resourceType of order) {
 		const resource = tenant.resources.find(
@@ -448,7 +428,7 @@ export async function startTenant(tenantId: string): Promise<Tenant> {
 			.where(eq(tenants.id, tenantId));
 
 		// Trigger reprovisioning
-		return provisionTenant(tenantId, tenant.medusaVersion || undefined);
+		return provisionTenant(tenantId, tenant.storeVersion || undefined);
 	}
 
 	// All containers exist, start them in order
@@ -536,7 +516,7 @@ export async function restartTenant(tenantId: string): Promise<Tenant> {
 			.where(eq(tenants.id, tenantId));
 
 		// Trigger reprovisioning
-		return provisionTenant(tenantId, tenant.medusaVersion || undefined);
+		return provisionTenant(tenantId, tenant.storeVersion || undefined);
 	}
 
 	// All containers exist, restart them
@@ -567,7 +547,7 @@ export async function restartTenant(tenantId: string): Promise<Tenant> {
 	return updatedTenant;
 }
 
-// Migrate tenant to new URL structure (adds client, updates medusa routing)
+// Migrate tenant to new URL structure (adds client, updates store routing)
 export async function migrateTenant(tenantId: string): Promise<Tenant> {
 	const tenant = await getTenant(tenantId);
 	if (!tenant) throw new Error("Tenant not found");
@@ -586,8 +566,8 @@ export async function migrateTenant(tenantId: string): Promise<Tenant> {
 	const networkName = `tenant_${tenant.slug}_network`;
 
 	// Find existing resources
-	const medusaResource = tenant.resources.find(
-		(r) => r.resourceType === "medusa",
+	const storeResource = tenant.resources.find(
+		(r) => r.resourceType === "store",
 	);
 	const clientResource = tenant.resources.find(
 		(r) => r.resourceType === "client",
@@ -595,24 +575,21 @@ export async function migrateTenant(tenantId: string): Promise<Tenant> {
 	const postgresResource = tenant.resources.find(
 		(r) => r.resourceType === "postgres",
 	);
-	const redisResource = tenant.resources.find(
-		(r) => r.resourceType === "redis",
-	);
 
-	if (!medusaResource?.containerId) {
-		throw new Error("Medusa container not found - cannot migrate");
+	if (!storeResource?.containerId) {
+		throw new Error("Store container not found - cannot migrate");
 	}
 
 	try {
-		// Step 1: Recreate Medusa container with new store.{subdomain} routing
+		// Step 1: Recreate Store container with new store.{subdomain} routing
 		await logEvent(
 			tenantId,
 			"service_updating",
-			"Updating Medusa routing to store subdomain",
+			"Updating Store routing to store subdomain",
 		);
 
-		// The createMedusaContainer function checks labels and recreates if wrong
-		const medusa = await dockerService.createMedusaContainer(
+		// The createStoreContainer function checks labels and recreates if wrong
+		const store = await dockerService.createStoreContainer(
 			tenant,
 			networkName,
 			{
@@ -621,31 +598,24 @@ export async function migrateTenant(tenantId: string): Promise<Tenant> {
 				status: "running",
 				port: postgresResource?.port || undefined,
 			},
-			{
-				containerId: redisResource?.containerId || "",
-				containerName: redisResource?.containerName || "",
-				status: "running",
-				port: redisResource?.port || undefined,
-			},
-			config.medusaPort || 9000,
-			config.adminPort || 5173,
+			config.storePort || 9000,
 			tenant.imageTag || undefined,
 		);
 
-		// Update medusa resource if container ID changed
-		if (medusa.containerId !== medusaResource.containerId) {
+		// Update store resource if container ID changed
+		if (store.containerId !== storeResource.containerId) {
 			await db
 				.update(tenantResources)
 				.set({
-					containerId: medusa.containerId,
-					containerName: medusa.containerName,
+					containerId: store.containerId,
+					containerName: store.containerName,
 					status: "running",
 					updatedAt: new Date(),
 				})
 				.where(
 					and(
 						eq(tenantResources.tenantId, tenantId),
-						eq(tenantResources.resourceType, "medusa"),
+						eq(tenantResources.resourceType, "store"),
 					),
 				);
 		}
@@ -718,7 +688,7 @@ export async function migrateTenant(tenantId: string): Promise<Tenant> {
 	}
 }
 
-// Upgrade tenant to a new Medusa version
+// Upgrade tenant to a new Store version
 export async function upgradeTenant(
 	tenantId: string,
 	targetVersion: string,
@@ -745,11 +715,11 @@ export async function upgradeTenant(
 		throw new Error(`Version ${targetVersion} is deprecated`);
 	}
 
-	if (tenant.medusaVersion === targetVersion) {
+	if (tenant.storeVersion === targetVersion) {
 		throw new Error(`Tenant is already running version ${targetVersion}`);
 	}
 
-	const previousVersion = tenant.medusaVersion;
+	const previousVersion = tenant.storeVersion;
 
 	await logEvent(
 		tenantId,
@@ -765,47 +735,43 @@ export async function upgradeTenant(
 			await dockerService.pullImage(targetImage.imageTag);
 		}
 
-		// Find the medusa resource
-		const medusaResource = tenant.resources.find(
-			(r) => r.resourceType === "medusa",
+		// Find the store resource
+		const storeResource = tenant.resources.find(
+			(r) => r.resourceType === "store",
 		);
-		if (!medusaResource?.containerId) {
-			throw new Error("Medusa container not found");
+		if (!storeResource?.containerId) {
+			throw new Error("Store container not found");
 		}
 
-		// Find postgres and redis resources for recreating medusa
+		// Find postgres resource for recreating store
 		const postgresResource = tenant.resources.find(
 			(r) => r.resourceType === "postgres",
 		);
-		const redisResource = tenant.resources.find(
-			(r) => r.resourceType === "redis",
-		);
 
-		if (!postgresResource?.containerId || !redisResource?.containerId) {
-			throw new Error("Required containers not found");
+		if (!postgresResource?.containerId) {
+			throw new Error("PostgreSQL container not found");
 		}
 
-		// Verify containers exist
+		// Verify postgres container exists
 		const postgresExists = await containerExists(postgresResource.containerId);
-		const redisExists = await containerExists(redisResource.containerId);
 
-		if (!postgresExists || !redisExists) {
+		if (!postgresExists) {
 			throw new Error(
-				"Required containers (postgres/redis) are missing. Please restart the tenant first to recreate them.",
+				"PostgreSQL container is missing. Please restart the tenant first to recreate it.",
 			);
 		}
 
 		const networkName = `tenant_${tenant.slug}_network`;
 		const config = tenant.config as TenantConfig;
 
-		// Stop and remove the old medusa container (if it exists)
-		const medusaExists = await containerExists(medusaResource.containerId);
-		if (medusaExists) {
-			await dockerService.removeContainer(medusaResource.containerId);
+		// Stop and remove the old store container (if it exists)
+		const storeExists = await containerExists(storeResource.containerId);
+		if (storeExists) {
+			await dockerService.removeContainer(storeResource.containerId);
 		}
 
-		// Create new medusa container with the new image
-		const medusa = await dockerService.createMedusaContainer(
+		// Create new store container with the new image
+		const store = await dockerService.createStoreContainer(
 			tenant,
 			networkName,
 			{
@@ -814,33 +780,25 @@ export async function upgradeTenant(
 				status: "running",
 				port: postgresResource.port || undefined,
 			},
-			{
-				containerId: redisResource.containerId,
-				containerName: redisResource.containerName || "",
-				status: "running",
-				port: redisResource.port || undefined,
-			},
-			config.medusaPort || 9000,
-			config.adminPort || 5173,
+			config.storePort || 9000,
 			targetImage.imageTag,
 		);
 
-		// Update medusa resource record
+		// Update store resource record
 		await db
 			.update(tenantResources)
 			.set({
-				containerId: medusa.containerId,
-				containerName: medusa.containerName,
+				containerId: store.containerId,
+				containerName: store.containerName,
 				status: "running",
 				metadata: {
-					adminPort: config.adminPort,
 					imageTag: targetImage.imageTag,
 				},
 			})
 			.where(
 				and(
 					eq(tenantResources.tenantId, tenantId),
-					eq(tenantResources.resourceType, "medusa"),
+					eq(tenantResources.resourceType, "store"),
 				),
 			);
 
@@ -848,7 +806,7 @@ export async function upgradeTenant(
 		const [updatedTenant] = await db
 			.update(tenants)
 			.set({
-				medusaVersion: targetVersion,
+				storeVersion: targetVersion,
 				imageTag: targetImage.imageTag,
 				lastUpgradedAt: new Date(),
 				status: "running",
@@ -1019,7 +977,7 @@ export async function deleteTenant(tenantId: string): Promise<void> {
 	await logEvent(tenantId, "terminating", "Starting tenant termination");
 
 	// Remove containers in reverse order
-	const order = ["client", "medusa", "redis", "postgres"];
+	const order = ["client", "store", "postgres"];
 	for (const resourceType of order) {
 		const resource = tenant.resources.find(
 			(r) => r.resourceType === resourceType,
@@ -1070,7 +1028,7 @@ export async function deleteTenant(tenantId: string): Promise<void> {
 // Get tenant logs
 export async function getTenantLogs(
 	tenantId: string,
-	service: "medusa" | "postgres" | "redis" = "medusa",
+	service: "store" | "postgres" | "client" = "store",
 	tail: number = 100,
 ): Promise<string> {
 	const tenant = await getTenant(tenantId);

@@ -134,7 +134,7 @@ export function TenantBackups({
 							</div>
 							<div className="flex items-center gap-2 text-sm text-green-800">
 								<CheckCircle className="h-4 w-4" />
-								<span>Redis AOF persistence enabled</span>
+								<span>Session data stored in database</span>
 							</div>
 							<div className="flex items-center gap-2 text-sm text-green-800">
 								<CheckCircle className="h-4 w-4" />
@@ -290,7 +290,7 @@ export function TenantBackups({
 					<li>Automated daily backups run at 2:00 AM server time</li>
 					<li>Backups are retained for 7 days by default</li>
 					<li>
-						Restoring a backup will stop Medusa, replace all data, and restart
+						Restoring a backup will stop the Store, replace all data, and restart
 					</li>
 				</ul>
 			</div>

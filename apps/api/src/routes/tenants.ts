@@ -229,7 +229,7 @@ tenants.post("/:id/migrate", async (c) => {
 	}
 });
 
-// POST /tenants/:id/upgrade - Upgrade tenant Medusa to a new version
+// POST /tenants/:id/upgrade - Upgrade tenant Store to a new version
 tenants.post(
 	"/:id/upgrade",
 	zValidator("json", upgradeTenantSchema),
@@ -298,7 +298,7 @@ tenants.get("/:id/logs", async (c) => {
 	try {
 		const id = c.req.param("id");
 		const service =
-			(c.req.query("service") as "medusa" | "postgres" | "redis") || "medusa";
+			(c.req.query("service") as "store" | "postgres" | "client") || "store";
 		const tail = parseInt(c.req.query("tail") || "100", 10);
 
 		const logs = await tenantService.getTenantLogs(id, service, tail);

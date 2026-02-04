@@ -11,7 +11,7 @@ interface TenantLogsProps {
 
 export function TenantLogs({ tenantId }: TenantLogsProps) {
 	const [logs, setLogs] = useState<string>("");
-	const [service, setService] = useState<"store" | "postgres" | "redis" | "client">(
+	const [service, setService] = useState<"store" | "postgres" | "client">(
 		"store",
 	);
 	const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export function TenantLogs({ tenantId }: TenantLogsProps) {
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
 				<div className="flex gap-2">
-					{(["store", "postgres", "redis", "client"] as const).map((s) => (
+					{(["store", "postgres", "client"] as const).map((s) => (
 						<Button
 							key={s}
 							size="sm"
