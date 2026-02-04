@@ -82,4 +82,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # for tenant container provisioning. The socket is mounted read-write.
 
 # Run database migrations on startup, then start the server
-CMD ["sh", "-c", "npx drizzle-kit push && node dist/index.js"]
+CMD ["sh", "-c", "npx drizzle-kit push --force && node dist/index.js"]
