@@ -339,7 +339,9 @@ export async function updateServiceImage(
 	}
 
 	// Update the image
-	spec.TaskTemplate?.ContainerSpec!.Image = newImage;
+	if (spec.TaskTemplate?.ContainerSpec) {
+		spec.TaskTemplate.ContainerSpec.Image = newImage;
+	}
 
 	// Force update by incrementing version
 	const version = (await service.inspect()).Version?.Index;
