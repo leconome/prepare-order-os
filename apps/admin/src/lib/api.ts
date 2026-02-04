@@ -249,11 +249,11 @@ class ApiClient {
 
 	// Store Images
 	async listImages(): Promise<{ images: PlatformImage[] }> {
-		return this.request("/images");
+		return this.request("/images/store");
 	}
 
 	async getLatestImage(): Promise<{ image: PlatformImage }> {
-		return this.request("/images/latest");
+		return this.request("/images/store/latest");
 	}
 
 	// Client Images
