@@ -44,4 +44,4 @@ yarn-error.log*
 *.pem
 
 apps/store/node_modules
-apps/store/.pnpm-store
+apps/store/.pnpm-storeinfrastructure/traefik/dynamic/platform.yml
