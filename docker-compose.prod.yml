@@ -134,6 +134,28 @@ services:
       - "traefik.http.services.admin.loadbalancer.server.port=3000"
 
   # ===================
+  # Database Browser (pgweb)
+  # ===================
+  pgweb:
+    image: sosedoff/pgweb:latest
+    container_name: econome-pgweb
+    restart: unless-stopped
+    environment:
+      - PGWEB_DATABASE_URL=postgres://platform:${POSTGRES_PASSWORD}@platform-db:5432/platform?sslmode=disable
+    networks:
+      - platform_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgweb.rule=Host(`pgweb.${DOMAIN}`)"
+      - "traefik.http.routers.pgweb.entrypoints=websecure"
+      - "traefik.http.routers.pgweb.tls=true"
+      - "traefik.http.routers.pgweb.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pgweb.middlewares=security-headers@file"
+      - "traefik.http.services.pgweb.loadbalancer.server.port=8081"
+    profiles:
+      - tools
+
+  # ===================
   # GitHub Actions Runner (Self-hosted)
   # ===================
   github-runner:

@@ -95,12 +95,11 @@ export interface TenantWithResources extends Tenant {
 	}>;
 }
 
-// Get all tenants (excluding soft-deleted)
+// Get all tenants (including all statuses)
 export async function listTenants(): Promise<Tenant[]> {
 	return db
 		.select()
 		.from(tenants)
-		.where(isNull(tenants.deletedAt))
 		.orderBy(desc(tenants.createdAt));
 }
 
