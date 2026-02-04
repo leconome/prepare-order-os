@@ -14,11 +14,6 @@ export function getStoreApiUrl(subdomain: string): string {
 	return `${protocol}://store.${subdomain}.${DOMAIN}`;
 }
 
-// Helper to get tenant admin URL (store subdomain + /app)
-export function getTenantAdminUrl(subdomain: string): string {
-	return `${getStoreApiUrl(subdomain)}/app`;
-}
-
 // Legacy alias for backward compatibility
 export function getTenantUrl(subdomain: string): string {
 	return getClientUrl(subdomain);

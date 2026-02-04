@@ -2,9 +2,9 @@
 # Built from repo root to include workspace packages
 
 # ==========================================
-# Stage 1: Dependencies
+# Stage 1: Dependencies & Build
 # ==========================================
-FROM node:22-alpine AS deps
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -18,21 +18,8 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/store-types/package.json ./packages/store-types/
 COPY apps/store/package.json ./apps/store/
 
-# Install dependencies (need to use --no-frozen-lockfile for workspace resolution)
-RUN pnpm install --filter @repo/store-types --filter store
-
-# ==========================================
-# Stage 2: Builder
-# ==========================================
-FROM node:22-alpine AS builder
-
-WORKDIR /app
-
-# Enable corepack for pnpm
-RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
-
-# Copy everything from deps
-COPY --from=deps /app ./
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY packages/store-types ./packages/store-types
@@ -44,8 +31,11 @@ RUN pnpm --filter @repo/store-types build
 # Build the store app
 RUN pnpm --filter store build
 
+# Use pnpm deploy to create a self-contained production bundle
+RUN pnpm --filter store deploy --prod /app/deploy
+
 # ==========================================
-# Stage 3: Production Runner
+# Stage 2: Production Runner
 # ==========================================
 FROM node:22-alpine AS runner
 
@@ -58,14 +48,11 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 hono
 
-# Copy built artifacts
-COPY --from=builder --chown=hono:nodejs /app/apps/store/dist ./dist
-COPY --from=builder --chown=hono:nodejs /app/apps/store/package.json ./
+# Copy the deployed bundle (includes node_modules with real files, not symlinks)
+COPY --from=builder --chown=hono:nodejs /app/deploy ./
 
-# Copy production dependencies and built store-types
-COPY --from=builder --chown=hono:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=hono:nodejs /app/packages/store-types/dist ./node_modules/@repo/store-types/dist
-COPY --from=builder --chown=hono:nodejs /app/packages/store-types/package.json ./node_modules/@repo/store-types/
+# Copy built dist from the original location
+COPY --from=builder --chown=hono:nodejs /app/apps/store/dist ./dist
 
 # Switch to non-root user
 USER hono

@@ -27,7 +27,6 @@ import {
 	DOMAIN,
 	getClientUrl,
 	getStoreApiUrl,
-	getTenantAdminUrl,
 	type PlatformImage,
 	type TenantEvent,
 	type TenantHealth,
@@ -462,16 +461,6 @@ export default function TenantDetailPage() {
 													<Button variant="outline">
 														<ExternalLink className="mr-2 h-4 w-4" />
 														Store API
-													</Button>
-												</a>
-												<a
-													href={getTenantAdminUrl(tenant.subdomain)}
-													target="_blank"
-													rel="noopener noreferrer"
-												>
-													<Button variant="outline">
-														<ExternalLink className="mr-2 h-4 w-4" />
-														Admin Dashboard
 													</Button>
 												</a>
 											</>
