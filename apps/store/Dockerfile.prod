@@ -31,8 +31,16 @@ RUN pnpm --filter @repo/store-types build
 # Build the store app
 RUN pnpm --filter store build
 
+# Install drizzle-kit in workspace (for migrations container)
+RUN pnpm add -w -D drizzle-kit
+
 # Use pnpm deploy to create a self-contained production bundle
+# This resolves workspace:* -> real files, removes symlinks
 RUN pnpm --filter store deploy --prod --legacy /app/deploy
+
+# Copy drizzle-kit to deploy bundle for migrations
+RUN cp -r node_modules/.pnpm/drizzle-kit*/node_modules/drizzle-kit /app/deploy/node_modules/ 2>/dev/null || true
+RUN cp -r node_modules/drizzle-kit /app/deploy/node_modules/ 2>/dev/null || true
 
 # ==========================================
 # Stage 2: Production Runner
@@ -50,15 +58,12 @@ COPY --from=builder /app/deploy ./
 # Copy built dist from the original location
 COPY --from=builder /app/apps/store/dist ./dist
 
-# Copy drizzle config and schema for migrations
+# Copy drizzle config and schema for migrations (can run via separate container)
 COPY --from=builder /app/apps/store/drizzle.config.ts ./
 COPY --from=builder /app/apps/store/src/db ./src/db
-
-# Install drizzle-kit for migrations (use npm to avoid pnpm workspace issues)
-RUN npm install drizzle-kit --save-dev
 
 # Expose port
 EXPOSE 9000
 
-# Run migrations on startup, then start the application
-CMD ["sh", "-c", "npx drizzle-kit push --force && node dist/index.js"]
+# Start the application (migrations run separately)
+CMD ["node", "dist/index.js"]
