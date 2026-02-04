@@ -44,9 +44,6 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 
-# Install pnpm for running drizzle-kit
-RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
-
 # Copy the deployed bundle (includes node_modules with real files, not symlinks)
 COPY --from=builder /app/deploy ./
 
@@ -57,8 +54,8 @@ COPY --from=builder /app/apps/store/dist ./dist
 COPY --from=builder /app/apps/store/drizzle.config.ts ./
 COPY --from=builder /app/apps/store/src/db ./src/db
 
-# Install drizzle-kit for migrations
-RUN pnpm add drizzle-kit
+# Install drizzle-kit for migrations (use npm to avoid pnpm workspace issues)
+RUN npm install drizzle-kit --save-dev
 
 # Expose port
 EXPOSE 9000
