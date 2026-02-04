@@ -247,7 +247,7 @@ class ApiClient {
 		});
 	}
 
-	// Medusa Images
+	// Store Images
 	async listImages(): Promise<{ images: PlatformImage[] }> {
 		return this.request("/images");
 	}

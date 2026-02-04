@@ -86,7 +86,7 @@ export function CreateTenantForm() {
 			<CardHeader>
 				<CardTitle>Create New Tenant</CardTitle>
 				<CardDescription>
-					Set up a new tenant with their own Medusa instance
+					Set up a new tenant with their own Store API instance
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -151,7 +151,7 @@ export function CreateTenantForm() {
 					</div>
 
 					<div className="border-t pt-6">
-						<h4 className="mb-4 font-medium">Medusa Version</h4>
+						<h4 className="mb-4 font-medium">Store Version</h4>
 						<div className="space-y-2">
 							<Label htmlFor="version">Version</Label>
 							<select
@@ -184,8 +184,8 @@ export function CreateTenantForm() {
 								)}
 							</select>
 							<p className="text-xs text-zinc-500">
-								Select the Medusa version for this tenant. Leave empty to use
-								the default image.
+								Select the Store API version for this tenant. Leave empty to
+								use the default image.
 							</p>
 						</div>
 					</div>
