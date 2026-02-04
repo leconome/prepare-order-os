@@ -1,10 +1,25 @@
 import type {
-  Order,
-  OrderWithItems,
-  OrderFilters,
+  Category,
+  CategoryFilters,
+  CreateCategory,
+  CreateMenu,
   CreateOrder,
+  CreateProduct,
+  Employee,
+  EmployeeFilters,
+  Menu,
+  MenuFilters,
+  MenuWithProducts,
+  Order,
+  OrderFilters,
+  OrderWithItems,
+  Product,
+  ProductFilters,
+  UpdateCategory,
+  UpdateMenu,
   UpdateOrder,
   UpdateOrderStatus,
+  UpdateProduct,
 } from "@prepareos/data";
 
 const API_URL =
@@ -35,8 +50,10 @@ async function fetchApi<T>(
   return response.json();
 }
 
-export interface OrdersResponse {
-  data: OrderWithItems[];
+// ============ PAGINATION TYPES ============
+
+interface PaginatedResponse<T> {
+  data: T[];
   pagination: {
     page: number;
     limit: number;
@@ -45,9 +62,9 @@ export interface OrdersResponse {
   };
 }
 
-export interface OrderResponse {
-  order: OrderWithItems;
-}
+// ============ ORDERS ============
+
+export type OrdersResponse = PaginatedResponse<OrderWithItems>;
 
 export async function fetchOrders(
   params?: Partial<OrderFilters>,
@@ -110,7 +127,165 @@ export async function deleteOrder(orderId: string): Promise<void> {
   });
 }
 
-// Format currency
+// ============ PRODUCTS ============
+
+export type ProductsResponse = PaginatedResponse<Product>;
+
+export async function fetchProducts(
+  params?: Partial<ProductFilters>,
+): Promise<ProductsResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.categoryId) searchParams.set("categoryId", params.categoryId);
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+  if (params?.search) searchParams.set("search", params.search);
+
+  const query = searchParams.toString();
+  return fetchApi<ProductsResponse>(`/products${query ? `?${query}` : ""}`);
+}
+
+export async function fetchProduct(productId: string): Promise<Product> {
+  return fetchApi<Product>(`/products/${productId}`);
+}
+
+export async function createProduct(data: CreateProduct): Promise<Product> {
+  return fetchApi<Product>("/products", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProduct(
+  productId: string,
+  data: UpdateProduct,
+): Promise<Product> {
+  return fetchApi<Product>(`/products/${productId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteProduct(productId: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/products/${productId}`, {
+    method: "DELETE",
+  });
+}
+
+// ============ CATEGORIES ============
+
+export type CategoriesResponse = PaginatedResponse<Category>;
+
+export async function fetchCategories(
+  params?: Partial<CategoryFilters>,
+): Promise<CategoriesResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.parentId) searchParams.set("parentId", params.parentId);
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+
+  const query = searchParams.toString();
+  return fetchApi<CategoriesResponse>(`/categories${query ? `?${query}` : ""}`);
+}
+
+export async function fetchCategory(categoryId: string): Promise<Category> {
+  return fetchApi<Category>(`/categories/${categoryId}`);
+}
+
+export async function createCategory(data: CreateCategory): Promise<Category> {
+  return fetchApi<Category>("/categories", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCategory(
+  categoryId: string,
+  data: UpdateCategory,
+): Promise<Category> {
+  return fetchApi<Category>(`/categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCategory(categoryId: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/categories/${categoryId}`, {
+    method: "DELETE",
+  });
+}
+
+// ============ MENUS ============
+
+export type MenusResponse = PaginatedResponse<Menu>;
+
+export async function fetchMenus(
+  params?: Partial<MenuFilters>,
+): Promise<MenusResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+
+  const query = searchParams.toString();
+  return fetchApi<MenusResponse>(`/menus${query ? `?${query}` : ""}`);
+}
+
+export async function fetchMenu(menuId: string): Promise<MenuWithProducts> {
+  return fetchApi<MenuWithProducts>(`/menus/${menuId}`);
+}
+
+export async function createMenu(data: CreateMenu): Promise<MenuWithProducts> {
+  return fetchApi<MenuWithProducts>("/menus", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateMenu(
+  menuId: string,
+  data: UpdateMenu,
+): Promise<MenuWithProducts> {
+  return fetchApi<MenuWithProducts>(`/menus/${menuId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteMenu(menuId: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/menus/${menuId}`, {
+    method: "DELETE",
+  });
+}
+
+// ============ EMPLOYEES ============
+
+export type EmployeesResponse = PaginatedResponse<Employee>;
+
+export async function fetchEmployees(
+  params?: Partial<EmployeeFilters>,
+): Promise<EmployeesResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.role) searchParams.set("role", params.role);
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+
+  const query = searchParams.toString();
+  return fetchApi<EmployeesResponse>(`/employees${query ? `?${query}` : ""}`);
+}
+
+// ============ UTILS ============
+
 export function formatCurrency(
   amount: string | number,
   currencyCode: string = "EUR",
@@ -122,7 +297,6 @@ export function formatCurrency(
   }).format(numAmount);
 }
 
-// Format date
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "medium",
@@ -138,4 +312,19 @@ export type {
   CreateOrder,
   UpdateOrder,
   UpdateOrderStatus,
+  Product,
+  CreateProduct,
+  UpdateProduct,
+  ProductFilters,
+  Category,
+  CreateCategory,
+  UpdateCategory,
+  CategoryFilters,
+  Menu,
+  MenuWithProducts,
+  CreateMenu,
+  UpdateMenu,
+  MenuFilters,
+  Employee,
+  EmployeeFilters,
 };
