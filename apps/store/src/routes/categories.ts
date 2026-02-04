@@ -43,7 +43,7 @@ categories.post(
     const data = c.req.valid("json");
     const category = await categoryService.createCategory(data);
     return c.json(category, 201);
-  }
+  },
 );
 
 categories.patch(
@@ -61,7 +61,7 @@ categories.patch(
 
     const category = await categoryService.updateCategory(id, data);
     return c.json(category);
-  }
+  },
 );
 
 categories.delete("/:id", managerOrAdmin, async (c) => {

@@ -1,29 +1,22 @@
 {
-  "name": "prepare-os",
+  "name": "prepare-order-os",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "pnpm run dev:config:local && pnpm run dev:infra && pnpm run dev:migrate && turbo run dev --filter=admin --filter=client --filter=store",
-    "dev:infra": "docker compose up -d platform-db store-db traefik api && pnpm run dev:wait-db",
-    "dev:wait-db": "until docker exec prepare-os-store-db pg_isready -U postgres -d store > /dev/null 2>&1 && docker exec prepare-os-platform-db pg_isready -U platform -d platform > /dev/null 2>&1; do sleep 1; done",
-    "dev:migrate": "pnpm --filter api run db:push && pnpm --filter store run db:push",
-    "dev:config:local": "cp infrastructure/traefik/dynamic/platform-local.yml infrastructure/traefik/dynamic/platform.yml",
-    "dev:config:docker": "cp infrastructure/traefik/dynamic/platform-docker.yml infrastructure/traefik/dynamic/platform.yml",
-    "dev:docker": "pnpm run dev:config:docker && docker compose up -d && pnpm run dev:migrate",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
+    "dev": "pnpm --parallel dev",
+    "dev:store": "pnpm --filter store dev",
+    "dev:client": "pnpm --filter client dev",
+    "build": "pnpm -r build",
     "lint": "biome check .",
-    "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "check-types": "turbo run check-types"
+    "db:push": "pnpm --filter store db:push",
+    "db:studio": "pnpm --filter store db:studio"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
-    "turbo": "^2.8.0",
     "typescript": "5.9.2"
   },
   "packageManager": "pnpm@10.6.3",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }

@@ -38,7 +38,7 @@ menus.post(
     const data = c.req.valid("json");
     const menu = await menuService.createMenu(data);
     return c.json(menu, 201);
-  }
+  },
 );
 
 menus.patch(
@@ -56,7 +56,7 @@ menus.patch(
 
     const menu = await menuService.updateMenu(id, data);
     return c.json(menu);
-  }
+  },
 );
 
 menus.delete("/:id", managerOrAdmin, async (c) => {

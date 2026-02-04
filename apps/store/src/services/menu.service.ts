@@ -22,10 +22,7 @@ export async function listMenus(filters: MenuFilters) {
       offset,
       orderBy: [asc(menus.sortOrder), asc(menus.name)],
     }),
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(menus)
-      .where(whereClause),
+    db.select({ count: sql<number>`count(*)` }).from(menus).where(whereClause),
   ]);
 
   const total = Number(countResult[0]?.count ?? 0);
@@ -86,7 +83,7 @@ export async function createMenu(data: CreateMenu) {
         menuId: menu.id,
         productId,
         sortOrder: index,
-      }))
+      })),
     );
   }
 
@@ -114,7 +111,7 @@ export async function updateMenu(id: string, data: UpdateMenu) {
           menuId: id,
           productId,
           sortOrder: index,
-        }))
+        })),
       );
     }
   }

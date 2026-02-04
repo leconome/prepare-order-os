@@ -23,11 +23,7 @@ export const createEmployeeSchema = z.object({
 
 export const updateEmployeeSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  pin: z
-    .string()
-    .length(4)
-    .regex(/^\d+$/, "PIN must be 4 digits")
-    .optional(),
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits").optional(),
   role: employeeRoleSchema.optional(),
   isActive: z.boolean().optional(),
 });

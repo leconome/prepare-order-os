@@ -1,34 +1,20 @@
-import type { Order, OrderWithItems, OrderFilters, CreateOrder, UpdateOrder, UpdateOrderStatus } from "@repo/store-types";
+import type {
+  Order,
+  OrderWithItems,
+  OrderFilters,
+  CreateOrder,
+  UpdateOrder,
+  UpdateOrderStatus,
+} from "@repo/store-types";
 
-// Dynamically determine API URL based on current hostname
-// Client is at {subdomain}.{domain}, Store API is at store.{subdomain}.{domain}
-// Called lazily per-request to ensure we get the correct hostname on the client
-function getApiUrl(): string {
-  if (typeof window === "undefined") {
-    // Server-side: use env var or default
-    // This is only for SSR - actual API calls should happen client-side
-    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-  }
-
-  const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
-
-  // For localhost development
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-  }
-
-  // For production: client is at {subdomain}.{domain}
-  // Store API is at store.{subdomain}.{domain}
-  return `${protocol}//store.${hostname}`;
-}
+const API_URL =
+  process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
 
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
-  // Get API URL lazily to ensure we have the correct hostname on client
-  const url = `${getApiUrl()}/api${endpoint}`;
+  const url = `${API_URL}/api${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
@@ -40,7 +26,9 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }
 
@@ -61,17 +49,24 @@ export interface OrderResponse {
   order: OrderWithItems;
 }
 
-export async function fetchOrders(params?: Partial<OrderFilters>): Promise<OrdersResponse> {
+export async function fetchOrders(
+  params?: Partial<OrderFilters>,
+): Promise<OrdersResponse> {
   const searchParams = new URLSearchParams();
 
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.paymentStatus) searchParams.set("paymentStatus", params.paymentStatus);
-  if (params?.preparationStatus) searchParams.set("preparationStatus", params.preparationStatus);
+  if (params?.paymentStatus)
+    searchParams.set("paymentStatus", params.paymentStatus);
+  if (params?.preparationStatus)
+    searchParams.set("preparationStatus", params.preparationStatus);
   if (params?.createdById) searchParams.set("createdById", params.createdById);
-  if (params?.assignedToId) searchParams.set("assignedToId", params.assignedToId);
-  if (params?.pickupDate) searchParams.set("pickupDate", params.pickupDate.toISOString());
-  if (params?.fromDate) searchParams.set("fromDate", params.fromDate.toISOString());
+  if (params?.assignedToId)
+    searchParams.set("assignedToId", params.assignedToId);
+  if (params?.pickupDate)
+    searchParams.set("pickupDate", params.pickupDate.toISOString());
+  if (params?.fromDate)
+    searchParams.set("fromDate", params.fromDate.toISOString());
   if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
 
   const query = searchParams.toString();
@@ -89,7 +84,10 @@ export async function createOrder(data: CreateOrder): Promise<OrderWithItems> {
   });
 }
 
-export async function updateOrder(orderId: string, data: UpdateOrder): Promise<OrderWithItems> {
+export async function updateOrder(
+  orderId: string,
+  data: UpdateOrder,
+): Promise<OrderWithItems> {
   return fetchApi<OrderWithItems>(`/orders/${orderId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
@@ -98,7 +96,7 @@ export async function updateOrder(orderId: string, data: UpdateOrder): Promise<O
 
 export async function updateOrderStatus(
   orderId: string,
-  data: UpdateOrderStatus
+  data: UpdateOrderStatus,
 ): Promise<OrderWithItems> {
   return fetchApi<OrderWithItems>(`/orders/${orderId}/status`, {
     method: "PATCH",
@@ -115,7 +113,7 @@ export async function deleteOrder(orderId: string): Promise<void> {
 // Format currency
 export function formatCurrency(
   amount: string | number,
-  currencyCode: string = "EUR"
+  currencyCode: string = "EUR",
 ): string {
   const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
   return new Intl.NumberFormat("fr-FR", {
@@ -133,4 +131,11 @@ export function formatDate(date: string | Date): string {
 }
 
 // Re-export types for convenience
-export type { Order, OrderWithItems, OrderFilters, CreateOrder, UpdateOrder, UpdateOrderStatus };
+export type {
+  Order,
+  OrderWithItems,
+  OrderFilters,
+  CreateOrder,
+  UpdateOrder,
+  UpdateOrderStatus,
+};

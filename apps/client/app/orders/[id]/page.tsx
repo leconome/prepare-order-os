@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchOrder, updateOrderStatus, formatCurrency, formatDate } from "@/lib/api";
+import {
+  fetchOrder,
+  updateOrderStatus,
+  formatCurrency,
+  formatDate,
+} from "@/lib/api";
 
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
@@ -86,15 +91,22 @@ export default function OrderDetailPage() {
   const orderId = params.id as string;
   const queryClient = useQueryClient();
 
-  const { data: order, isLoading, isError, error } = useQuery({
+  const {
+    data: order,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => fetchOrder(orderId),
     enabled: !!orderId,
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: (data: { paymentStatus?: string; preparationStatus?: string }) =>
-      updateOrderStatus(orderId, data as any),
+    mutationFn: (data: {
+      paymentStatus?: string;
+      preparationStatus?: string;
+    }) => updateOrderStatus(orderId, data as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -103,7 +115,9 @@ export default function OrderDetailPage() {
 
   return (
     <DashboardLayout
-      title={order ? `Commande #${order.ticketNumber}` : "Détails de la commande"}
+      title={
+        order ? `Commande #${order.ticketNumber}` : "Détails de la commande"
+      }
       description={order ? formatDate(order.createdAt) : undefined}
     >
       <div className="space-y-6">
@@ -145,7 +159,9 @@ export default function OrderDetailPage() {
                       <Select
                         value={order.preparationStatus}
                         onValueChange={(value) =>
-                          updateStatusMutation.mutate({ preparationStatus: value })
+                          updateStatusMutation.mutate({
+                            preparationStatus: value,
+                          })
                         }
                         disabled={updateStatusMutation.isPending}
                       >
@@ -154,7 +170,9 @@ export default function OrderDetailPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="in_preparation">En préparation</SelectItem>
+                          <SelectItem value="in_preparation">
+                            En préparation
+                          </SelectItem>
                           <SelectItem value="ready">Prêt</SelectItem>
                           <SelectItem value="picked_up">Récupéré</SelectItem>
                         </SelectContent>
@@ -186,7 +204,9 @@ export default function OrderDetailPage() {
                         <SelectContent>
                           <SelectItem value="pending">En attente</SelectItem>
                           <SelectItem value="paid">Payé</SelectItem>
-                          <SelectItem value="partially_paid">Partiellement payé</SelectItem>
+                          <SelectItem value="partially_paid">
+                            Partiellement payé
+                          </SelectItem>
                           <SelectItem value="refunded">Remboursé</SelectItem>
                         </SelectContent>
                       </Select>

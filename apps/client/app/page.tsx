@@ -1,12 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  DollarSign,
-  Package,
-  ShoppingCart,
-  TrendingUp,
-} from "lucide-react";
+import { DollarSign, Package, ShoppingCart, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -84,9 +79,14 @@ export default function DashboardPage() {
   const totalOrders = data?.pagination?.total ?? 0;
 
   // Calculate stats
-  const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.total), 0);
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + parseFloat(order.total),
+    0,
+  );
   const pendingOrders = orders.filter(
-    (o) => o.preparationStatus === "pending" || o.preparationStatus === "in_preparation"
+    (o) =>
+      o.preparationStatus === "pending" ||
+      o.preparationStatus === "in_preparation",
   ).length;
   const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
 

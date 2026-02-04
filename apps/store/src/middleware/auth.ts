@@ -17,7 +17,10 @@ export type AuthVariables = {
   };
 };
 
-export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) => {
+export const authMiddleware: MiddlewareHandler = async (
+  c: Context,
+  next: Next,
+) => {
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
@@ -38,7 +41,10 @@ export const authMiddleware: MiddlewareHandler = async (c: Context, next: Next) 
   await next();
 };
 
-export const optionalAuthMiddleware: MiddlewareHandler = async (c: Context, next: Next) => {
+export const optionalAuthMiddleware: MiddlewareHandler = async (
+  c: Context,
+  next: Next,
+) => {
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });

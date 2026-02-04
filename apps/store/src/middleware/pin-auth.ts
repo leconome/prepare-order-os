@@ -13,7 +13,10 @@ export type PinAuthVariables = {
   employee: EmployeeContext;
 };
 
-export const pinAuthMiddleware: MiddlewareHandler = async (c: Context, next: Next) => {
+export const pinAuthMiddleware: MiddlewareHandler = async (
+  c: Context,
+  next: Next,
+) => {
   const pin = c.req.header("X-Employee-PIN");
 
   if (!pin) {
@@ -25,10 +28,7 @@ export const pinAuthMiddleware: MiddlewareHandler = async (c: Context, next: Nex
   }
 
   const employee = await db.query.employees.findFirst({
-    where: and(
-      eq(employees.pin, pin),
-      eq(employees.isActive, true)
-    ),
+    where: and(eq(employees.pin, pin), eq(employees.isActive, true)),
   });
 
   if (!employee) {
@@ -44,15 +44,15 @@ export const pinAuthMiddleware: MiddlewareHandler = async (c: Context, next: Nex
   await next();
 };
 
-export const optionalPinAuthMiddleware: MiddlewareHandler = async (c: Context, next: Next) => {
+export const optionalPinAuthMiddleware: MiddlewareHandler = async (
+  c: Context,
+  next: Next,
+) => {
   const pin = c.req.header("X-Employee-PIN");
 
   if (pin && /^\d{4}$/.test(pin)) {
     const employee = await db.query.employees.findFirst({
-      where: and(
-        eq(employees.pin, pin),
-        eq(employees.isActive, true)
-      ),
+      where: and(eq(employees.pin, pin), eq(employees.isActive, true)),
     });
 
     if (employee) {

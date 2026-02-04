@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Home,
-  LogOut,
-  Settings,
-  ShoppingCart,
-  Store,
-} from "lucide-react";
+import { Home, LogOut, Settings, ShoppingCart, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -46,9 +40,7 @@ const secondaryNavigation = [
   },
 ];
 
-export function AppSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();

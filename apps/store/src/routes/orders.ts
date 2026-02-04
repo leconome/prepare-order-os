@@ -47,7 +47,7 @@ orders.post(
 
     const order = await orderService.createOrder(orderData);
     return c.json(order, 201);
-  }
+  },
 );
 
 orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
@@ -77,7 +77,7 @@ orders.patch(
 
     const order = await orderService.updateOrderStatus(id, data);
     return c.json(order);
-  }
+  },
 );
 
 orders.delete("/:id", async (c) => {

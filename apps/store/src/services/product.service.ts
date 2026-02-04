@@ -1,7 +1,11 @@
 import { eq, and, ilike, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { products } from "../db/schema/index.js";
-import type { CreateProduct, UpdateProduct, ProductFilters } from "@repo/store-types";
+import type {
+  CreateProduct,
+  UpdateProduct,
+  ProductFilters,
+} from "@repo/store-types";
 
 export async function listProducts(filters: ProductFilters) {
   const { categoryId, isActive, search, page = 1, limit = 20 } = filters;

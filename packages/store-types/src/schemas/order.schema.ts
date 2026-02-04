@@ -47,10 +47,12 @@ export const orderSchema = z.object({
 });
 
 // Employee reference for relations
-const employeeRefSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-}).nullable();
+const employeeRefSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string(),
+  })
+  .nullable();
 
 export const orderWithItemsSchema = orderSchema.extend({
   items: z.array(orderItemSchema),

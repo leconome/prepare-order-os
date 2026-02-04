@@ -28,7 +28,7 @@ app.use(
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-Employee-PIN"],
-  })
+  }),
 );
 
 // Routes
@@ -61,7 +61,7 @@ app.onError((err, c) => {
     {
       error: err.message || "Internal Server Error",
     },
-    500
+    500,
   );
 });
 

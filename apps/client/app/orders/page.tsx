@@ -70,7 +70,7 @@ const PREPARATION_STATUS_LABELS: Record<string, string> = {
 };
 
 function getPaymentBadgeVariant(
-  status: string
+  status: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "paid":
@@ -86,7 +86,7 @@ function getPaymentBadgeVariant(
 }
 
 function getPreparationBadgeVariant(
-  status: string
+  status: string,
 ): "default" | "secondary" | "destructive" | "outline" {
   switch (status) {
     case "ready":
@@ -145,14 +145,17 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
               </div>
             </TableCell>
             <TableCell>
-              <Badge variant={getPreparationBadgeVariant(order.preparationStatus)}>
+              <Badge
+                variant={getPreparationBadgeVariant(order.preparationStatus)}
+              >
                 {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
                   order.preparationStatus}
               </Badge>
             </TableCell>
             <TableCell>
               <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                {PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus}
+                {PAYMENT_STATUS_LABELS[order.paymentStatus] ||
+                  order.paymentStatus}
               </Badge>
             </TableCell>
             <TableCell className="text-right font-medium">
@@ -339,14 +342,7 @@ function CreateOrderDialog() {
 }
 
 export default function OrdersPage() {
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isFetching,
-  } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["orders"],
     queryFn: () => fetchOrders({ limit: 50 }),
   });

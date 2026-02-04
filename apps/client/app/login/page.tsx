@@ -55,7 +55,7 @@ export default function LoginPage() {
       try {
         const response = await fetch(
           `${getApiUrl()}/api/users/check/${encodeURIComponent(DEFAULT_CREDENTIALS.email)}`,
-          { credentials: "include" }
+          { credentials: "include" },
         );
         const data = await response.json();
         setUserExists(data.exists);
@@ -118,7 +118,9 @@ export default function LoginPage() {
       fillDefaultCredentials();
     } catch (err) {
       console.error("Failed to create user:", err);
-      setError(err instanceof Error ? err.message : "Échec de la création du compte");
+      setError(
+        err instanceof Error ? err.message : "Échec de la création du compte",
+      );
     } finally {
       setCreatingUser(false);
     }
@@ -152,17 +154,16 @@ export default function LoginPage() {
                 {checkingUser ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : userExists === true ? (
-                  <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                  <Badge
+                    variant="default"
+                    className="bg-green-500 hover:bg-green-600"
+                  >
                     Utilisateur existe
                   </Badge>
                 ) : userExists === false ? (
-                  <Badge variant="destructive">
-                    Utilisateur inexistant
-                  </Badge>
+                  <Badge variant="destructive">Utilisateur inexistant</Badge>
                 ) : (
-                  <Badge variant="secondary">
-                    Statut inconnu
-                  </Badge>
+                  <Badge variant="secondary">Statut inconnu</Badge>
                 )}
               </div>
               <div className="text-sm space-y-1">

@@ -38,7 +38,7 @@ products.post(
     const data = c.req.valid("json");
     const product = await productService.createProduct(data);
     return c.json(product, 201);
-  }
+  },
 );
 
 products.patch(
@@ -56,7 +56,7 @@ products.patch(
 
     const product = await productService.updateProduct(id, data);
     return c.json(product);
-  }
+  },
 );
 
 products.delete("/:id", managerOrAdmin, async (c) => {

@@ -38,7 +38,7 @@ employees.post(
     const data = c.req.valid("json");
     const employee = await employeeService.createEmployee(data);
     return c.json(employee, 201);
-  }
+  },
 );
 
 employees.patch(
@@ -56,7 +56,7 @@ employees.patch(
 
     const employee = await employeeService.updateEmployee(id, data);
     return c.json(employee);
-  }
+  },
 );
 
 employees.delete("/:id", managerOrAdmin, async (c) => {

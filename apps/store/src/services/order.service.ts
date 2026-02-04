@@ -82,10 +82,7 @@ export async function listOrders(filters: OrderFilters) {
         },
       },
     }),
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(orders)
-      .where(whereClause),
+    db.select({ count: sql<number>`count(*)` }).from(orders).where(whereClause),
   ]);
 
   const total = Number(countResult[0]?.count ?? 0);
@@ -165,7 +162,7 @@ export async function createOrder(data: CreateOrder) {
       itemsToInsert.map((item) => ({
         ...item,
         orderId: order.id,
-      }))
+      })),
     );
   }
 

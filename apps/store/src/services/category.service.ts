@@ -1,7 +1,11 @@
 import { eq, and, isNull, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { categories } from "../db/schema/index.js";
-import type { CreateCategory, UpdateCategory, CategoryFilters } from "@repo/store-types";
+import type {
+  CreateCategory,
+  UpdateCategory,
+  CategoryFilters,
+} from "@repo/store-types";
 
 export async function listCategories(filters: CategoryFilters) {
   const { parentId, isActive, page = 1, limit = 20 } = filters;
