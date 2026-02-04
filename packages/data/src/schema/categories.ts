@@ -17,6 +17,7 @@ export const categories = pgTable("categories", {
   description: text("description"),
   parentId: uuid("parent_id").references((): any => categories.id),
   imageUrl: text("image_url"),
+  color: varchar("color", { length: 7 }), // Hex color e.g. #FF5733
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -52,6 +53,7 @@ export const createCategorySchema = z.object({
   description: z.string().max(500).optional(),
   parentId: z.string().uuid().optional(),
   imageUrl: z.string().url().optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color").optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -61,6 +63,7 @@ export const updateCategorySchema = z.object({
   description: z.string().max(500).nullable().optional(),
   parentId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Invalid hex color").nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });

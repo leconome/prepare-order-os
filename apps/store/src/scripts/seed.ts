@@ -1,11 +1,13 @@
 import {
   categories,
+  clients,
   menuProducts,
   menus,
   orderItems,
   orders,
   products,
   ticketCounters,
+  users,
 } from "@prepareos/data";
 import * as schema from "@prepareos/data/schema";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -25,34 +27,128 @@ const CATEGORIES = [
     name: "Fromages à pâte molle",
     description:
       "Fromages onctueux à croûte fleurie ou lavée. Texture crémeuse et fondante.",
+    color: "#F97316", // Orange
     sortOrder: 1,
   },
   {
     name: "Fromages à pâte pressée",
     description: "Fromages à la texture ferme, affinés pendant plusieurs mois.",
+    color: "#EAB308", // Yellow
     sortOrder: 2,
   },
   {
     name: "Fromages à pâte persillée",
     description: "Fromages bleus avec des veines de moisissures nobles.",
+    color: "#3B82F6", // Blue
     sortOrder: 3,
   },
   {
     name: "Fromages de chèvre",
     description:
       "Fromages au lait de chèvre, frais ou affinés. Du plus doux au plus corsé.",
+    color: "#22C55E", // Green
     sortOrder: 4,
   },
   {
     name: "Fromages frais",
     description:
       "Fromages non affinés, doux et légers. Parfaits pour les desserts.",
+    color: "#14B8A6", // Turquoise
     sortOrder: 5,
   },
   {
     name: "Accompagnements",
     description: "Pain, crackers, fruits secs et autres accompagnements.",
+    color: "#6B7280", // Gray
     sortOrder: 6,
+  },
+];
+
+// Staff members to seed
+const STAFF = [
+  {
+    id: "staff-1",
+    name: "Marie Dupont",
+    email: "marie@fromagerie.local",
+    pin: "1234",
+    role: "owner" as const,
+    isActive: true,
+  },
+  {
+    id: "staff-2",
+    name: "Jean Martin",
+    email: "jean@fromagerie.local",
+    pin: "5678",
+    role: "staff" as const,
+    isActive: true,
+  },
+  {
+    id: "staff-3",
+    name: "Sophie Bernard",
+    email: "sophie@fromagerie.local",
+    pin: "9012",
+    role: "staff" as const,
+    isActive: true,
+  },
+  {
+    id: "staff-4",
+    name: "Pierre Lefebvre",
+    email: "pierre@fromagerie.local",
+    pin: "3456",
+    role: "admin" as const,
+    isActive: true,
+  },
+];
+
+// Clients to seed
+const CLIENTS = [
+  {
+    name: "Restaurant Le Gourmet",
+    phone: "01 42 33 44 55",
+    email: "contact@legourmet.fr",
+    notes: "Commande tous les lundis - livraison mardi matin",
+  },
+  {
+    name: "Hôtel du Parc",
+    phone: "01 45 67 89 00",
+    email: "cuisine@hotelduparc.fr",
+    notes: "Plateau fromages pour petit-déjeuner - compte entreprise",
+  },
+  {
+    name: "Famille Moreau",
+    phone: "06 12 34 56 78",
+    email: "moreau.famille@email.com",
+    notes: "Client fidèle - préfère les fromages de chèvre",
+  },
+  {
+    name: "Traiteur Delices",
+    phone: "01 55 66 77 88",
+    email: "commandes@traiteurdelices.fr",
+    notes: "Grosses commandes pour événements",
+  },
+  {
+    name: "Cave à Vins Saint-Michel",
+    phone: "01 33 44 55 66",
+    email: "contact@cave-st-michel.fr",
+    notes: "Accord vin-fromage - commandes régulières",
+  },
+  {
+    name: "Mme Dubois",
+    phone: "06 98 76 54 32",
+    email: null,
+    notes: "Cliente régulière - appelle pour commander",
+  },
+  {
+    name: "Bistrot du Coin",
+    phone: "01 22 33 44 55",
+    email: "bistrot.coin@resto.fr",
+    notes: "Plateau apéritif hebdomadaire",
+  },
+  {
+    name: "M. Laurent",
+    phone: "06 11 22 33 44",
+    email: "jlaurent@email.com",
+    notes: "Amateur de Roquefort et bleus",
   },
 ];
 
@@ -483,6 +579,9 @@ async function clearDatabase() {
   await db.delete(menus);
   await db.delete(products);
   await db.delete(categories);
+  await db.delete(clients);
+  // Don't delete users with BetterAuth accounts, only seed users
+  // We'll upsert staff instead
   console.log("✅ Database cleared");
 }
 
@@ -643,6 +742,58 @@ function getDateKey(): string {
   return `${year}${month}${day}`;
 }
 
+async function seedStaff() {
+  console.log("👥 Seeding staff members...");
+
+  const inserted = [];
+  for (const staff of STAFF) {
+    try {
+      const [result] = await db
+        .insert(users)
+        .values({
+          id: staff.id,
+          name: staff.name,
+          email: staff.email,
+          pin: staff.pin,
+          role: staff.role,
+          isActive: staff.isActive,
+          emailVerified: false,
+        })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            name: staff.name,
+            pin: staff.pin,
+            role: staff.role,
+            isActive: staff.isActive,
+          },
+        })
+        .returning();
+      inserted.push(result);
+    } catch (error) {
+      console.warn(`⚠️  Could not create staff ${staff.name}:`, error);
+    }
+  }
+
+  console.log(`✅ Created/updated ${inserted.length} staff members`);
+  return inserted;
+}
+
+async function seedClients() {
+  console.log("👤 Seeding clients...");
+
+  const clientsToInsert = CLIENTS.map((c) => ({
+    name: c.name,
+    phone: c.phone ?? null,
+    email: c.email ?? null,
+    notes: c.notes ?? null,
+  }));
+
+  const inserted = await db.insert(clients).values(clientsToInsert).returning();
+  console.log(`✅ Created ${inserted.length} clients`);
+  return inserted;
+}
+
 // ============ MAIN ============
 
 async function main() {
@@ -652,6 +803,8 @@ async function main() {
     await clearDatabase();
     console.log("");
 
+    const staffList = await seedStaff();
+    const clientList = await seedClients();
     const categoryList = await seedCategories();
     const productList = await seedProducts(categoryList);
     await seedMenus(productList);
@@ -659,6 +812,8 @@ async function main() {
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("\nSummary:");
+    console.log(`  - ${staffList.length} staff members`);
+    console.log(`  - ${clientList.length} clients`);
     console.log(`  - ${categoryList.length} categories`);
     console.log(`  - ${productList.length} products`);
     console.log(`  - ${MENUS.length} menus`);

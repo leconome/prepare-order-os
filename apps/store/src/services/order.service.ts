@@ -12,6 +12,7 @@ import { generateTicketNumber } from "./ticket.service.js";
 
 export async function listOrders(filters: OrderFilters) {
   const {
+    clientId,
     paymentStatus,
     preparationStatus,
     createdById,
@@ -25,6 +26,10 @@ export async function listOrders(filters: OrderFilters) {
   const offset = (page - 1) * limit;
 
   const conditions = [];
+
+  if (clientId) {
+    conditions.push(eq(orders.clientId, clientId));
+  }
 
   if (paymentStatus) {
     conditions.push(eq(orders.paymentStatus, paymentStatus));
@@ -69,6 +74,14 @@ export async function listOrders(filters: OrderFilters) {
       orderBy: desc(orders.createdAt),
       with: {
         items: true,
+        client: {
+          columns: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+          },
+        },
         createdBy: {
           columns: {
             id: true,
@@ -104,6 +117,14 @@ export async function getOrderById(id: string) {
     where: eq(orders.id, id),
     with: {
       items: true,
+      client: {
+        columns: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
       createdBy: {
         columns: {
           id: true,
@@ -145,6 +166,7 @@ export async function createOrder(data: CreateOrder) {
     .insert(orders)
     .values({
       ticketNumber,
+      clientId: data.clientId ?? null,
       pickupDate: data.pickupDate ?? null,
       pickupTimeStart: data.pickupTimeStart ?? null,
       pickupTimeEnd: data.pickupTimeEnd ?? null,
@@ -175,6 +197,7 @@ export async function updateOrder(id: string, data: UpdateOrder) {
     updatedAt: new Date(),
   };
 
+  if (data.clientId !== undefined) updateData.clientId = data.clientId;
   if (data.paymentStatus !== undefined)
     updateData.paymentStatus = data.paymentStatus;
   if (data.preparationStatus !== undefined)

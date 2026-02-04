@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createProductSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loader2, Plus, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type Category,
   type CreateProduct,
   createProduct,
   fetchCategories,
@@ -56,7 +57,18 @@ import {
   type Product,
 } from "@/lib/api";
 
-function ProductsTable({ products }: { products: Product[] }) {
+function ProductsTable({
+  products,
+  categories,
+}: {
+  products: Product[];
+  categories: Category[];
+}) {
+  const categoryMap = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  );
+
   if (products.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -70,44 +82,79 @@ function ProductsTable({ products }: { products: Product[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>Nom</TableHead>
+          <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
           <TableHead>Prix</TableHead>
           <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {products.map((product) => (
-          <TableRow
-            key={product.id}
-            className="cursor-pointer hover:bg-muted/50 transition-colors"
-          >
-            <TableCell className="font-medium">
-              <Link
-                href={`/products/${product.id}`}
-                className="block w-full hover:text-primary"
-              >
-                {product.name}
-              </Link>
-            </TableCell>
-            <TableCell className="max-w-[300px] truncate text-muted-foreground">
-              <Link href={`/products/${product.id}`} className="block w-full">
-                {product.description || "-"}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link href={`/products/${product.id}`} className="block w-full">
-                {formatCurrency(product.price)}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link href={`/products/${product.id}`} className="block w-full">
-                <Badge variant={product.isActive ? "active" : "inactive"}>
-                  {product.isActive ? "Actif" : "Inactif"}
-                </Badge>
-              </Link>
-            </TableCell>
-          </TableRow>
-        ))}
+        {products.map((product) => {
+          const category = product.categoryId
+            ? categoryMap.get(product.categoryId)
+            : null;
+          return (
+            <TableRow
+              key={product.id}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+            >
+              <TableCell className="font-medium">
+                <Link
+                  href={`/products/${product.id}`}
+                  className="block w-full hover:text-primary"
+                >
+                  {product.name}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block w-full">
+                  {category ? (
+                    <Badge
+                      variant="outline"
+                      className="gap-1"
+                      style={
+                        category.color
+                          ? {
+                              borderColor: category.color,
+                              backgroundColor: `${category.color}15`,
+                              color: category.color,
+                            }
+                          : undefined
+                      }
+                    >
+                      {category.color && (
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                      )}
+                      {category.name}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </Link>
+              </TableCell>
+              <TableCell className="max-w-[250px] truncate text-muted-foreground">
+                <Link href={`/products/${product.id}`} className="block w-full">
+                  {product.description || "-"}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block w-full">
+                  {formatCurrency(product.price)}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block w-full">
+                  <Badge variant={product.isActive ? "active" : "inactive"}>
+                    {product.isActive ? "Actif" : "Inactif"}
+                  </Badge>
+                </Link>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -312,10 +359,25 @@ function CreateProductDialog() {
 }
 
 export default function ProductsPage() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProducts({ limit: 50 }),
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => fetchCategories({ limit: 100 }),
   });
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ["products", selectedCategoryId],
+    queryFn: () =>
+      fetchProducts({
+        limit: 100,
+        categoryId: selectedCategoryId ?? undefined,
+      }),
+  });
+
+  const categories = categoriesData?.data ?? [];
 
   return (
     <DashboardLayout
@@ -323,10 +385,75 @@ export default function ProductsPage() {
       description="Gérez votre catalogue de produits"
     >
       <div className="space-y-4">
+        {/* Category filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground mr-2">
+            Filtrer par catégorie:
+          </span>
+          <button
+            onClick={() => setSelectedCategoryId(null)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
+              selectedCategoryId === null
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted hover:bg-muted/80"
+            }`}
+          >
+            Toutes
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              onClick={() =>
+                setSelectedCategoryId(
+                  selectedCategoryId === category.id ? null : category.id
+                )
+              }
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
+                selectedCategoryId === category.id
+                  ? "ring-2 ring-offset-1"
+                  : "hover:opacity-80"
+              }`}
+              style={
+                category.color
+                  ? {
+                      backgroundColor: `${category.color}20`,
+                      color: category.color,
+                      ...(selectedCategoryId === category.id
+                        ? { ringColor: category.color }
+                        : {}),
+                    }
+                  : undefined
+              }
+            >
+              {category.color && (
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: category.color }}
+                />
+              )}
+              {category.name}
+            </button>
+          ))}
+          {selectedCategoryId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedCategoryId(null)}
+              className="h-7 px-2"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Effacer
+            </Button>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {data?.pagination.total ?? 0} produits au total
+              {data?.pagination.total ?? 0} produits
+              {selectedCategoryId &&
+                categories.find((c) => c.id === selectedCategoryId) &&
+                ` dans "${categories.find((c) => c.id === selectedCategoryId)?.name}"`}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -366,7 +493,10 @@ export default function ProductsPage() {
                 </Button>
               </div>
             ) : (
-              <ProductsTable products={data?.data ?? []} />
+              <ProductsTable
+                products={data?.data ?? []}
+                categories={categories}
+              />
             )}
           </CardContent>
         </Card>

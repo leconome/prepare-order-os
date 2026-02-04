@@ -1,7 +1,10 @@
 import type {
   Category,
   CategoryFilters,
+  Client,
+  ClientFilters,
   CreateCategory,
+  CreateClient,
   CreateMenu,
   CreateOrder,
   CreateProduct,
@@ -16,6 +19,7 @@ import type {
   ProductFilters,
   StaffFilters,
   UpdateCategory,
+  UpdateClient,
   UpdateMenu,
   UpdateOrder,
   UpdateOrderStatus,
@@ -75,6 +79,7 @@ export async function fetchOrders(
 
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.clientId) searchParams.set("clientId", params.clientId);
   if (params?.paymentStatus)
     searchParams.set("paymentStatus", params.paymentStatus);
   if (params?.preparationStatus)
@@ -315,6 +320,50 @@ export async function deleteStaff(userId: string): Promise<void> {
   });
 }
 
+// ============ CLIENTS ============
+
+export type ClientsResponse = PaginatedResponse<Client>;
+
+export async function fetchClients(
+  params?: Partial<ClientFilters>,
+): Promise<ClientsResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.search) searchParams.set("search", params.search);
+
+  const query = searchParams.toString();
+  return fetchApi<ClientsResponse>(`/clients${query ? `?${query}` : ""}`);
+}
+
+export async function fetchClient(clientId: string): Promise<Client> {
+  return fetchApi<Client>(`/clients/${clientId}`);
+}
+
+export async function createClient(data: CreateClient): Promise<Client> {
+  return fetchApi<Client>("/clients", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateClient(
+  clientId: string,
+  data: UpdateClient,
+): Promise<Client> {
+  return fetchApi<Client>(`/clients/${clientId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteClient(clientId: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/clients/${clientId}`, {
+    method: "DELETE",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -360,4 +409,8 @@ export type {
   StaffFilters,
   CreateStaff,
   UpdateStaff,
+  Client,
+  CreateClient,
+  UpdateClient,
+  ClientFilters,
 };

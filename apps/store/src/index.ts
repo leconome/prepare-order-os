@@ -9,6 +9,7 @@ import products from "./routes/products.js";
 import categories from "./routes/categories.js";
 import menus from "./routes/menus.js";
 import usersRoutes from "./routes/users.js";
+import clientsRoutes from "./routes/clients.js";
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ app.route("/api/products", products);
 app.route("/api/categories", categories);
 app.route("/api/menus", menus);
 app.route("/api/users", usersRoutes);
+app.route("/api/clients", clientsRoutes);
 
 // Root route
 app.get("/", (c) => {

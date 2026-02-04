@@ -47,6 +47,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { ColorBadge, ColorPicker } from "@/components/color-picker";
 import {
   type Category,
   type CreateCategory,
@@ -67,6 +68,7 @@ function CategoriesTable({ categories }: { categories: Category[] }) {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Couleur</TableHead>
           <TableHead>Nom</TableHead>
           <TableHead>Description</TableHead>
           <TableHead>Ordre</TableHead>
@@ -79,11 +81,23 @@ function CategoriesTable({ categories }: { categories: Category[] }) {
             key={category.id}
             className="cursor-pointer hover:bg-muted/50 transition-colors"
           >
+            <TableCell>
+              <Link href={`/categories/${category.id}`} className="block w-full">
+                <ColorBadge color={category.color} />
+                {!category.color && <span className="text-muted-foreground">-</span>}
+              </Link>
+            </TableCell>
             <TableCell className="font-medium">
               <Link
                 href={`/categories/${category.id}`}
-                className="block w-full hover:text-primary"
+                className="flex items-center gap-2 hover:text-primary"
               >
+                {category.color && (
+                  <span
+                    className="h-3 w-3 rounded-full shrink-0"
+                    style={{ backgroundColor: category.color }}
+                  />
+                )}
                 {category.name}
               </Link>
             </TableCell>
@@ -141,6 +155,7 @@ function CreateCategoryDialog() {
       name: "",
       description: "",
       parentId: undefined,
+      color: undefined as string | undefined,
       isActive: true,
       sortOrder: 0,
     },
@@ -254,6 +269,22 @@ function CreateCategoryDialog() {
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="color"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Couleur</FormLabel>
+                  <FormControl>
+                    <ColorPicker
+                      value={field.value}
+                      onChange={(color) => field.onChange(color ?? undefined)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="isActive"

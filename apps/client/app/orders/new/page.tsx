@@ -1,13 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createOrderSchema } from "@prepareos/data";
+import { createClientSchema, createOrderSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   ArrowLeft,
   CalendarIcon,
+  Check,
+  ChevronsUpDown,
   Coffee,
   Loader2,
   Minus,
@@ -17,6 +19,8 @@ import {
   Sun,
   Sunset,
   Trash2,
+  UserPlus,
+  UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -51,9 +55,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type Client,
+  type CreateClient,
   type CreateOrder,
   type Product,
+  createClient,
   createOrder,
+  fetchClients,
   fetchStaff,
   fetchProducts,
   formatCurrency,
@@ -111,6 +119,11 @@ export default function NewOrderPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
 
+  // Client selection state
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products", searchQuery],
     queryFn: () =>
@@ -120,6 +133,31 @@ export default function NewOrderPage() {
   const { data: staffData } = useQuery({
     queryKey: ["staff"],
     queryFn: () => fetchStaff({ limit: 100, isActive: true }),
+  });
+
+  const { data: clientsData } = useQuery({
+    queryKey: ["clients", clientSearchQuery],
+    queryFn: () => fetchClients({ limit: 20, search: clientSearchQuery || undefined }),
+  });
+
+  // Quick client creation form
+  const clientForm = useForm({
+    resolver: zodResolver(createClientSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+    },
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: createClient,
+    onSuccess: (newClient) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setSelectedClient(newClient);
+      setShowNewClientForm(false);
+      clientForm.reset();
+    },
   });
 
   const form = useForm({
@@ -227,6 +265,7 @@ export default function NewOrderPage() {
 
     const orderData: CreateOrder = {
       items: orderItems,
+      clientId: selectedClient?.id || undefined,
       pickupDate: data.pickupDate || undefined,
       pickupTimeStart: data.pickupTimeStart || undefined,
       pickupTimeEnd: data.pickupTimeEnd || undefined,
@@ -236,6 +275,10 @@ export default function NewOrderPage() {
     };
 
     createOrderMutation.mutate(orderData);
+  });
+
+  const handleQuickClientCreate = clientForm.handleSubmit((data) => {
+    createClientMutation.mutate(data as CreateClient);
   });
 
   return (
@@ -326,6 +369,186 @@ export default function NewOrderPage() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Client Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserRound className="h-5 w-5" />
+                  Client
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!showNewClientForm ? (
+                  <div className="space-y-3">
+                    {/* Selected client display */}
+                    {selectedClient && (
+                      <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
+                            {selectedClient.name[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium">{selectedClient.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {selectedClient.phone || selectedClient.email || "Aucun contact"}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedClient(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Client search */}
+                    {!selectedClient && (
+                      <>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Rechercher un client..."
+                            value={clientSearchQuery}
+                            onChange={(e) => setClientSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+
+                        {/* Client list */}
+                        {clientsData?.data && clientsData.data.length > 0 && (
+                          <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
+                            {clientsData.data.map((client) => (
+                              <button
+                                key={client.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedClient(client);
+                                  setClientSearchQuery("");
+                                }}
+                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
+                              >
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
+                                  {client.name[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{client.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {client.phone || client.email || "Aucun contact"}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {clientSearchQuery && clientsData?.data?.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">
+                            Aucun client trouvé
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {/* New client button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowNewClientForm(true)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Nouveau client
+                    </Button>
+                  </div>
+                ) : (
+                  /* Quick client creation form */
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Nouveau client</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowNewClientForm(false);
+                          clientForm.reset();
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm font-medium">Nom *</label>
+                        <Input
+                          placeholder="Nom du client"
+                          {...clientForm.register("name")}
+                        />
+                        {clientForm.formState.errors.name && (
+                          <p className="text-xs text-destructive mt-1">
+                            {clientForm.formState.errors.name.message}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Téléphone</label>
+                        <Input
+                          placeholder="06 12 34 56 78"
+                          {...clientForm.register("phone")}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Email</label>
+                        <Input
+                          type="email"
+                          placeholder="client@example.com"
+                          {...clientForm.register("email")}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowNewClientForm(false);
+                          clientForm.reset();
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        type="button"
+                        className="flex-1"
+                        disabled={createClientMutation.isPending}
+                        onClick={handleQuickClientCreate}
+                      >
+                        {createClientMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Créer
+                      </Button>
+                    </div>
+
+                    {createClientMutation.isError && (
+                      <p className="text-sm text-destructive">
+                        Erreur: {(createClientMutation.error as Error).message}
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -590,6 +813,21 @@ export default function NewOrderPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Selected client in summary */}
+                    {selectedClient && (
+                      <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
+                        <UserRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">{selectedClient.name}</div>
+                          {(selectedClient.phone || selectedClient.email) && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {selectedClient.phone || selectedClient.email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between text-sm">

@@ -12,6 +12,7 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
+import { clients, type Client } from "./clients.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
@@ -30,6 +31,8 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
 export const orders = pgTable("orders", {
   id: uuid("id").primaryKey().defaultRandom(),
   ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
+  // Reference to client
+  clientId: uuid("client_id").references(() => clients.id),
   paymentStatus: paymentStatusEnum("payment_status")
     .notNull()
     .default("pending"),
@@ -81,6 +84,10 @@ export const orderItems = pgTable("order_items", {
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [orders.clientId],
+    references: [clients.id],
+  }),
   createdBy: one(users, {
     fields: [orders.createdById],
     references: [users.id],
@@ -138,6 +145,7 @@ export const createOrderItemSchema = z.object({
 });
 
 export const createOrderSchema = z.object({
+  clientId: z.string().uuid().optional(),
   pickupDate: z.coerce.date().optional(),
   pickupTimeStart: z.string().optional(),
   pickupTimeEnd: z.string().optional(),
@@ -150,6 +158,7 @@ export const createOrderSchema = z.object({
 });
 
 export const updateOrderSchema = z.object({
+  clientId: z.string().uuid().nullable().optional(),
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
   pickupDate: z.coerce.date().nullable().optional(),
@@ -166,6 +175,7 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export const orderFiltersSchema = z.object({
+  clientId: z.string().uuid().optional(),
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
   createdById: z.string().optional(),
@@ -177,9 +187,13 @@ export const orderFiltersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
+// Client reference type (minimal info for display)
+export type ClientRef = Pick<Client, "id" | "name" | "phone" | "email">;
+
 // Types
 export type OrderWithItems = Order & {
   items: OrderItem[];
+  client?: ClientRef | null;
   createdBy?: UserRef;
   assignedTo?: UserRef;
 };

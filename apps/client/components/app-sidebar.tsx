@@ -9,6 +9,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  UserRound,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -52,6 +53,11 @@ const navigation = [
     title: "Commandes",
     url: "/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Clients",
+    url: "/clients",
+    icon: UserRound,
   },
 ];
 

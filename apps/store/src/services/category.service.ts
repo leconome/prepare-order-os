@@ -81,6 +81,7 @@ export async function createCategory(data: CreateCategory) {
       description: data.description ?? null,
       parentId: data.parentId ?? null,
       imageUrl: data.imageUrl ?? null,
+      color: data.color ?? null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
     })
@@ -98,6 +99,7 @@ export async function updateCategory(id: string, data: UpdateCategory) {
   if (data.description !== undefined) updateData.description = data.description;
   if (data.parentId !== undefined) updateData.parentId = data.parentId;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
+  if (data.color !== undefined) updateData.color = data.color;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
