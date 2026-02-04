@@ -5,7 +5,6 @@ import { logger } from "hono/logger";
 import health from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
 import orders from "./routes/orders.js";
-import employees from "./routes/employees.js";
 import products from "./routes/products.js";
 import categories from "./routes/categories.js";
 import menus from "./routes/menus.js";
@@ -27,7 +26,7 @@ app.use(
     origin: corsOrigins,
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Employee-PIN"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN"],
   }),
 );
 
@@ -35,7 +34,6 @@ app.use(
 app.route("/api/health", health);
 app.route("/api/auth", authRoutes);
 app.route("/api/orders", orders);
-app.route("/api/employees", employees);
 app.route("/api/products", products);
 app.route("/api/categories", categories);
 app.route("/api/menus", menus);

@@ -7,7 +7,7 @@ import {
 } from "@prepareos/data";
 import * as productService from "../services/product.service.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { managerOrAdmin } from "../middleware/role-guard.js";
+import { ownerOrAdmin } from "../middleware/role-guard.js";
 
 const products = new Hono();
 
@@ -32,7 +32,7 @@ products.get("/:id", async (c) => {
 
 products.post(
   "/",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", createProductSchema),
   async (c) => {
     const data = c.req.valid("json");
@@ -43,7 +43,7 @@ products.post(
 
 products.patch(
   "/:id",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", updateProductSchema),
   async (c) => {
     const id = c.req.param("id");
@@ -59,7 +59,7 @@ products.patch(
   },
 );
 
-products.delete("/:id", managerOrAdmin, async (c) => {
+products.delete("/:id", ownerOrAdmin, async (c) => {
   const id = c.req.param("id");
 
   const existing = await productService.getProductById(id);

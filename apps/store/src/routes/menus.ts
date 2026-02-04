@@ -7,7 +7,7 @@ import {
 } from "@prepareos/data";
 import * as menuService from "../services/menu.service.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { managerOrAdmin } from "../middleware/role-guard.js";
+import { ownerOrAdmin } from "../middleware/role-guard.js";
 
 const menus = new Hono();
 
@@ -32,7 +32,7 @@ menus.get("/:id", async (c) => {
 
 menus.post(
   "/",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", createMenuSchema),
   async (c) => {
     const data = c.req.valid("json");
@@ -43,7 +43,7 @@ menus.post(
 
 menus.patch(
   "/:id",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", updateMenuSchema),
   async (c) => {
     const id = c.req.param("id");
@@ -59,7 +59,7 @@ menus.patch(
   },
 );
 
-menus.delete("/:id", managerOrAdmin, async (c) => {
+menus.delete("/:id", ownerOrAdmin, async (c) => {
   const id = c.req.param("id");
 
   const existing = await menuService.getMenuById(id);

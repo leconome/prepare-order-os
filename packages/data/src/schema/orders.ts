@@ -11,7 +11,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { employees } from "./employees";
+import { users, type UserRef } from "./auth.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
@@ -41,8 +41,9 @@ export const orders = pgTable("orders", {
   pickupTimeEnd: varchar("pickup_time_end", { length: 5 }),
   clientNote: text("client_note"),
   internalNote: text("internal_note"),
-  createdById: uuid("created_by_id").references(() => employees.id),
-  assignedToId: uuid("assigned_to_id").references(() => employees.id),
+  // References to users table (text ID from better-auth)
+  createdById: text("created_by_id").references(() => users.id),
+  assignedToId: text("assigned_to_id").references(() => users.id),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 })
     .notNull()
     .default("0.00"),
@@ -80,14 +81,14 @@ export const orderItems = pgTable("order_items", {
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
-  createdBy: one(employees, {
+  createdBy: one(users, {
     fields: [orders.createdById],
-    references: [employees.id],
+    references: [users.id],
     relationName: "createdOrders",
   }),
-  assignedTo: one(employees, {
+  assignedTo: one(users, {
     fields: [orders.assignedToId],
-    references: [employees.id],
+    references: [users.id],
     relationName: "assignedOrders",
   }),
   items: many(orderItems),
@@ -142,8 +143,9 @@ export const createOrderSchema = z.object({
   pickupTimeEnd: z.string().optional(),
   clientNote: z.string().optional(),
   internalNote: z.string().optional(),
-  createdById: z.string().uuid().optional(),
-  assignedToId: z.string().uuid().optional(),
+  // createdById is auto-filled from logged-in user, but can be overridden
+  createdById: z.string().optional(),
+  assignedToId: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
 });
 
@@ -155,7 +157,7 @@ export const updateOrderSchema = z.object({
   pickupTimeEnd: z.string().nullable().optional(),
   clientNote: z.string().nullable().optional(),
   internalNote: z.string().nullable().optional(),
-  assignedToId: z.string().uuid().nullable().optional(),
+  assignedToId: z.string().nullable().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -166,8 +168,8 @@ export const updateOrderStatusSchema = z.object({
 export const orderFiltersSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
-  createdById: z.string().uuid().optional(),
-  assignedToId: z.string().uuid().optional(),
+  createdById: z.string().optional(),
+  assignedToId: z.string().optional(),
   pickupDate: z.coerce.date().optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
@@ -175,17 +177,11 @@ export const orderFiltersSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
-// Employee reference type for relations
-export type EmployeeRef = {
-  id: string;
-  name: string;
-} | null;
-
 // Types
 export type OrderWithItems = Order & {
   items: OrderItem[];
-  createdBy?: EmployeeRef;
-  assignedTo?: EmployeeRef;
+  createdBy?: UserRef;
+  assignedTo?: UserRef;
 };
 export type PaymentStatusType = z.infer<typeof paymentStatusSchema>;
 export type PreparationStatusType = z.infer<typeof preparationStatusSchema>;

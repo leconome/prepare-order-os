@@ -8,11 +8,14 @@ import { fr } from "date-fns/locale";
 import {
   ArrowLeft,
   CalendarIcon,
+  Coffee,
   Loader2,
   Minus,
   Plus,
   Search,
   ShoppingCart,
+  Sun,
+  Sunset,
   Trash2,
   X,
 } from "lucide-react";
@@ -51,7 +54,7 @@ import {
   type CreateOrder,
   type Product,
   createOrder,
-  fetchEmployees,
+  fetchStaff,
   fetchProducts,
   formatCurrency,
 } from "@/lib/api";
@@ -65,30 +68,40 @@ type OrderItem = {
   notes?: string;
 };
 
-const TIME_SLOTS = [
-  "08:00",
-  "08:30",
-  "09:00",
-  "09:30",
-  "10:00",
-  "10:30",
-  "11:00",
-  "11:30",
-  "12:00",
-  "12:30",
-  "13:00",
-  "13:30",
-  "14:00",
-  "14:30",
-  "15:00",
-  "15:30",
-  "16:00",
-  "16:30",
-  "17:00",
-  "17:30",
-  "18:00",
-  "18:30",
-  "19:00",
+type TimeInterval = {
+  id: string;
+  label: string;
+  timeStart: string;
+  timeEnd: string;
+  icon: React.ReactNode;
+  color: string;
+};
+
+const TIME_INTERVALS: TimeInterval[] = [
+  {
+    id: "matin",
+    label: "Matin",
+    timeStart: "09:00",
+    timeEnd: "12:00",
+    icon: <Coffee className="h-5 w-5" />,
+    color: "from-amber-400 to-orange-500",
+  },
+  {
+    id: "midi",
+    label: "Midi",
+    timeStart: "12:00",
+    timeEnd: "14:00",
+    icon: <Sun className="h-5 w-5" />,
+    color: "from-yellow-400 to-amber-500",
+  },
+  {
+    id: "apres-midi",
+    label: "Après-midi",
+    timeStart: "14:00",
+    timeEnd: "18:00",
+    icon: <Sunset className="h-5 w-5" />,
+    color: "from-orange-400 to-rose-500",
+  },
 ];
 
 export default function NewOrderPage() {
@@ -96,6 +109,7 @@ export default function NewOrderPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products", searchQuery],
@@ -103,20 +117,19 @@ export default function NewOrderPage() {
       fetchProducts({ limit: 50, isActive: true, search: searchQuery || undefined }),
   });
 
-  const { data: employeesData } = useQuery({
-    queryKey: ["employees"],
-    queryFn: () => fetchEmployees({ limit: 100, isActive: true }),
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: () => fetchStaff({ limit: 100, isActive: true }),
   });
 
   const form = useForm({
     resolver: zodResolver(
-      createOrderSchema.omit({ items: true }).extend({
+      createOrderSchema.omit({ items: true, createdById: true }).extend({
         pickupDate: createOrderSchema.shape.pickupDate,
         pickupTimeStart: createOrderSchema.shape.pickupTimeStart,
         pickupTimeEnd: createOrderSchema.shape.pickupTimeEnd,
         clientNote: createOrderSchema.shape.clientNote,
         internalNote: createOrderSchema.shape.internalNote,
-        createdById: createOrderSchema.shape.createdById,
         assignedToId: createOrderSchema.shape.assignedToId,
       })
     ),
@@ -126,7 +139,6 @@ export default function NewOrderPage() {
       pickupTimeEnd: "",
       clientNote: "",
       internalNote: "",
-      createdById: "",
       assignedToId: "",
     },
   });
@@ -138,6 +150,20 @@ export default function NewOrderPage() {
       router.push("/orders");
     },
   });
+
+  const handleIntervalSelect = (interval: TimeInterval) => {
+    if (selectedInterval === interval.id) {
+      // Deselect
+      setSelectedInterval(null);
+      form.setValue("pickupTimeStart", "");
+      form.setValue("pickupTimeEnd", "");
+    } else {
+      // Select
+      setSelectedInterval(interval.id);
+      form.setValue("pickupTimeStart", interval.timeStart);
+      form.setValue("pickupTimeEnd", interval.timeEnd);
+    }
+  };
 
   const addProductToOrder = (product: Product) => {
     const existingItem = orderItems.find(
@@ -206,7 +232,6 @@ export default function NewOrderPage() {
       pickupTimeEnd: data.pickupTimeEnd || undefined,
       clientNote: data.clientNote || undefined,
       internalNote: data.internalNote || undefined,
-      createdById: data.createdById || undefined,
       assignedToId: data.assignedToId || undefined,
     };
 
@@ -312,170 +337,123 @@ export default function NewOrderPage() {
               <CardContent>
                 <Form {...form}>
                   <form className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <FormField
-                        control={form.control}
-                        name="pickupDate"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Date de retrait</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP", { locale: fr })
-                                    ) : (
-                                      <span>Choisir une date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-0"
-                                align="start"
-                              >
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                    date < new Date(new Date().setHours(0, 0, 0, 0))
-                                  }
-                                  initialFocus
-                                  locale={fr}
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="pickupTimeStart"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Heure début</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
+                    {/* Date picker */}
+                    <FormField
+                      control={form.control}
+                      name="pickupDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Date de retrait</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Début" />
-                                </SelectTrigger>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "EEEE d MMMM yyyy", { locale: fr })
+                                  ) : (
+                                    <span>Choisir une date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
                               </FormControl>
-                              <SelectContent>
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>
-                                    {time}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="pickupTimeEnd"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Heure fin</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
                             >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Fin" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {TIME_SLOTS.map((time) => (
-                                  <SelectItem key={time} value={time}>
-                                    {time}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date(new Date().setHours(0, 0, 0, 0))
+                                }
+                                initialFocus
+                                locale={fr}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Time intervals */}
+                    <div className="space-y-2">
+                      <FormLabel>Créneau de retrait</FormLabel>
+                      <div className="grid grid-cols-3 gap-3">
+                        {TIME_INTERVALS.map((interval) => (
+                          <button
+                            key={interval.id}
+                            type="button"
+                            onClick={() => handleIntervalSelect(interval)}
+                            className={cn(
+                              "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all hover:scale-[1.02]",
+                              selectedInterval === interval.id
+                                ? "border-transparent bg-gradient-to-br text-white shadow-lg " + interval.color
+                                : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-full",
+                              selectedInterval === interval.id
+                                ? "bg-white/20"
+                                : "bg-gradient-to-br " + interval.color + " text-white"
+                            )}>
+                              {interval.icon}
+                            </div>
+                            <div className="text-center">
+                              <div className="font-semibold">{interval.label}</div>
+                              <div className={cn(
+                                "text-xs",
+                                selectedInterval === interval.id
+                                  ? "text-white/80"
+                                  : "text-muted-foreground"
+                              )}>
+                                {interval.timeStart} - {interval.timeEnd}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="createdById"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Créé par</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Sélectionner un employé" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {employeesData?.data.map((employee) => (
-                                  <SelectItem
-                                    key={employee.id}
-                                    value={employee.id}
-                                  >
-                                    {employee.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="assignedToId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Assigné à</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Sélectionner un employé" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {employeesData?.data.map((employee) => (
-                                  <SelectItem
-                                    key={employee.id}
-                                    value={employee.id}
-                                  >
-                                    {employee.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="assignedToId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigné à</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionner un membre" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {staffData?.data.map((user) => (
+                                <SelectItem
+                                  key={user.id}
+                                  value={user.id}
+                                >
+                                  {user.name || user.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <FormField
                       control={form.control}

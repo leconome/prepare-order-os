@@ -7,7 +7,7 @@ import {
 } from "@prepareos/data";
 import * as categoryService from "../services/category.service.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { managerOrAdmin } from "../middleware/role-guard.js";
+import { ownerOrAdmin } from "../middleware/role-guard.js";
 
 const categories = new Hono();
 
@@ -37,7 +37,7 @@ categories.get("/:id", async (c) => {
 
 categories.post(
   "/",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", createCategorySchema),
   async (c) => {
     const data = c.req.valid("json");
@@ -48,7 +48,7 @@ categories.post(
 
 categories.patch(
   "/:id",
-  managerOrAdmin,
+  ownerOrAdmin,
   zValidator("json", updateCategorySchema),
   async (c) => {
     const id = c.req.param("id");
@@ -64,7 +64,7 @@ categories.patch(
   },
 );
 
-categories.delete("/:id", managerOrAdmin, async (c) => {
+categories.delete("/:id", ownerOrAdmin, async (c) => {
   const id = c.req.param("id");
 
   const existing = await categoryService.getCategoryById(id);

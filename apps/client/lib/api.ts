@@ -5,8 +5,6 @@ import type {
   CreateMenu,
   CreateOrder,
   CreateProduct,
-  Employee,
-  EmployeeFilters,
   Menu,
   MenuFilters,
   MenuWithProducts,
@@ -15,11 +13,13 @@ import type {
   OrderWithItems,
   Product,
   ProductFilters,
+  StaffFilters,
   UpdateCategory,
   UpdateMenu,
   UpdateOrder,
   UpdateOrderStatus,
   UpdateProduct,
+  User,
 } from "@prepareos/data";
 
 const API_URL =
@@ -265,13 +265,19 @@ export async function deleteMenu(menuId: string): Promise<void> {
   });
 }
 
-// ============ EMPLOYEES ============
+// ============ STAFF (USERS) ============
 
-export type EmployeesResponse = PaginatedResponse<Employee>;
+// Staff user type for listings (excludes sensitive fields like pin)
+export type StaffUser = Pick<
+  User,
+  "id" | "name" | "email" | "role" | "isActive" | "createdAt" | "updatedAt"
+>;
 
-export async function fetchEmployees(
-  params?: Partial<EmployeeFilters>,
-): Promise<EmployeesResponse> {
+export type StaffResponse = PaginatedResponse<StaffUser>;
+
+export async function fetchStaff(
+  params?: Partial<StaffFilters>,
+): Promise<StaffResponse> {
   const searchParams = new URLSearchParams();
 
   if (params?.page) searchParams.set("page", String(params.page));
@@ -281,7 +287,7 @@ export async function fetchEmployees(
     searchParams.set("isActive", String(params.isActive));
 
   const query = searchParams.toString();
-  return fetchApi<EmployeesResponse>(`/employees${query ? `?${query}` : ""}`);
+  return fetchApi<StaffResponse>(`/users/staff${query ? `?${query}` : ""}`);
 }
 
 // ============ UTILS ============
@@ -325,6 +331,6 @@ export type {
   CreateMenu,
   UpdateMenu,
   MenuFilters,
-  Employee,
-  EmployeeFilters,
+  User,
+  StaffFilters,
 };

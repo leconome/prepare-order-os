@@ -34,7 +34,7 @@ export const authMiddleware: MiddlewareHandler = async (
     id: user.id as string,
     email: user.email as string,
     name: (user.name as string | null) ?? null,
-    role: (user.role as string) ?? "cashier",
+    role: (user.role as string) ?? "staff",
   } satisfies AuthUser);
   c.set("session", session.session);
 
@@ -55,7 +55,7 @@ export const optionalAuthMiddleware: MiddlewareHandler = async (
       id: user.id as string,
       email: user.email as string,
       name: (user.name as string | null) ?? null,
-      role: (user.role as string) ?? "cashier",
+      role: (user.role as string) ?? "staff",
     } satisfies AuthUser);
     c.set("session", session.session);
   }

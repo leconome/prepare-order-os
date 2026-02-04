@@ -1,12 +1,16 @@
-import { pgTable, text, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  boolean,
+  timestamp,
+  pgEnum,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 
-export const userRoleEnum = pgEnum("user_role", [
-  "admin",
-  "manager",
-  "cashier",
-  "kitchen",
-]);
+// Unified role enum: admin (devs), owner (store owners), staff (employees)
+export const userRoleEnum = pgEnum("user_role", ["admin", "owner", "staff"]);
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -14,7 +18,11 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  role: userRoleEnum("role").notNull().default("cashier"),
+  role: userRoleEnum("role").notNull().default("staff"),
+  // PIN for staff login (4 digits, hashed)
+  pin: varchar("pin", { length: 255 }),
+  // Active status (for disabling accounts)
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -93,3 +101,47 @@ export const insertSessionSchema = createInsertSchema(sessions);
 export const selectSessionSchema = createSelectSchema(sessions);
 export const insertAccountSchema = createInsertSchema(accounts);
 export const selectAccountSchema = createSelectSchema(accounts);
+
+// Role schema
+export const userRoleSchema = z.enum(["admin", "owner", "staff"]);
+export type UserRole = z.infer<typeof userRoleSchema>;
+
+// PIN auth schema
+export const pinAuthSchema = z.object({
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
+});
+export type PinAuth = z.infer<typeof pinAuthSchema>;
+
+// User reference type for relations (used in orders)
+export type UserRef = {
+  id: string;
+  name: string | null;
+} | null;
+
+// Staff filters schema (for listing staff users)
+export const staffFiltersSchema = z.object({
+  role: userRoleSchema.optional(),
+  isActive: z.coerce.boolean().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+export type StaffFilters = z.infer<typeof staffFiltersSchema>;
+
+// Create staff schema (for creating users with PIN)
+export const createStaffSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
+  role: userRoleSchema.default("staff"),
+  isActive: z.boolean().default(true),
+});
+export type CreateStaff = z.infer<typeof createStaffSchema>;
+
+// Update staff schema
+export const updateStaffSchema = z.object({
+  name: z.string().min(1).optional(),
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits").optional(),
+  role: userRoleSchema.optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateStaff = z.infer<typeof updateStaffSchema>;

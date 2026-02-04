@@ -7,10 +7,9 @@ import {
   orderFiltersSchema,
 } from "@prepareos/data";
 import * as orderService from "../services/order.service.js";
-import { authMiddleware } from "../middleware/auth.js";
-import { optionalPinAuthMiddleware } from "../middleware/pin-auth.js";
+import { authMiddleware, type AuthUser, type AuthVariables } from "../middleware/auth.js";
 
-const orders = new Hono();
+const orders = new Hono<{ Variables: AuthVariables }>();
 
 orders.use("*", authMiddleware);
 
@@ -31,24 +30,19 @@ orders.get("/:id", async (c) => {
   return c.json(order);
 });
 
-orders.post(
-  "/",
-  optionalPinAuthMiddleware,
-  zValidator("json", createOrderSchema),
-  async (c) => {
-    const data = c.req.valid("json");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const employee = (c as any).get("employee") as { id: string } | undefined;
+orders.post("/", zValidator("json", createOrderSchema), async (c) => {
+  const data = c.req.valid("json");
+  // Auto-fill createdById from logged-in user
+  const user = c.get("user");
 
-    const orderData = {
-      ...data,
-      createdById: data.createdById ?? employee?.id,
-    };
+  const orderData = {
+    ...data,
+    createdById: data.createdById ?? user.id,
+  };
 
-    const order = await orderService.createOrder(orderData);
-    return c.json(order, 201);
-  },
-);
+  const order = await orderService.createOrder(orderData);
+  return c.json(order, 201);
+});
 
 orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
   const id = c.req.param("id");
