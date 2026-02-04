@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchOrders, formatCurrency, type Order } from "@/lib/api";
+import { fetchOrders, formatCurrency, type OrderWithItems } from "@/lib/api";
 
 function StatCard({
   title,
@@ -51,23 +51,23 @@ function StatCard({
   );
 }
 
-function RecentOrderItem({ order }: { order: Order }) {
+function RecentOrderItem({ order }: { order: OrderWithItems }) {
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-3">
         <div>
-          <p className="text-sm font-medium">#{order.display_id}</p>
+          <p className="text-sm font-medium">#{order.ticketNumber}</p>
           <p className="text-xs text-muted-foreground">
-            {order.email || order.shipping_address?.first_name || "Guest"}
+            {order.createdBy?.name || "Sans caissier"}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Badge variant="outline" className="text-xs">
-          {order.items?.length ?? 0} items
+          {order.items?.length ?? 0} articles
         </Badge>
         <span className="text-sm font-medium">
-          {formatCurrency(order.total, order.currency_code)}
+          {formatCurrency(order.total)}
         </span>
       </div>
     </div>
@@ -80,13 +80,13 @@ export default function DashboardPage() {
     queryFn: () => fetchOrders({ limit: 10 }),
   });
 
-  const orders = data?.orders ?? [];
-  const totalOrders = data?.count ?? 0;
+  const orders = data?.data ?? [];
+  const totalOrders = data?.pagination?.total ?? 0;
 
   // Calculate stats
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+  const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.total), 0);
   const pendingOrders = orders.filter(
-    (o) => o.fulfillment_status === "not_fulfilled"
+    (o) => o.preparationStatus === "pending" || o.preparationStatus === "in_preparation"
   ).length;
   const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
 
