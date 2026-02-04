@@ -1057,14 +1057,9 @@ export async function deleteTenant(tenantId: string): Promise<void> {
 	const tenant = await getTenant(tenantId);
 	if (!tenant) throw new Error("Tenant not found");
 
-	await db
-		.update(tenants)
-		.set({ status: "terminating", updatedAt: new Date() })
-		.where(eq(tenants.id, tenantId));
+	console.log(`Deleting tenant ${tenant.name} (${tenant.slug})...`);
 
-	await logEvent(tenantId, "terminating", "Starting tenant termination");
-
-	// Remove containers in reverse order
+	// Remove containers in reverse order (stop running ones first)
 	const order = ["client", "store", "postgres"];
 	for (const resourceType of order) {
 		const resource = tenant.resources.find(
@@ -1100,17 +1095,8 @@ export async function deleteTenant(tenantId: string): Promise<void> {
 		}
 	}
 
-	// Soft delete tenant
-	await db
-		.update(tenants)
-		.set({
-			status: "terminated",
-			deletedAt: new Date(),
-			updatedAt: new Date(),
-		})
-		.where(eq(tenants.id, tenantId));
-
-	await logEvent(tenantId, "terminated", "Tenant terminated and cleaned up");
+	// Hard delete tenant (cascade will remove resources, events, metrics)
+	await db.delete(tenants).where(eq(tenants.id, tenantId));
 }
 
 // Get tenant logs
