@@ -46,6 +46,8 @@ export const eventTypeEnum = pgEnum("event_type", [
 	"network_created",
 	"postgres_created",
 	"postgres_healthy",
+	"migrations_running",
+	"migrations_complete",
 	"store_created",
 	"client_created",
 	"image_pulling",
