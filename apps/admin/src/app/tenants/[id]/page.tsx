@@ -264,7 +264,7 @@ export default function TenantDetailPage() {
 										</p>
 									</div>
 									<div>
-										<span className="text-zinc-500">Medusa Version</span>
+										<span className="text-zinc-500">Store Version</span>
 										<div className="flex items-center gap-2">
 											<p className="font-medium">
 												{tenant.medusaVersion || "Default"}
@@ -340,7 +340,7 @@ export default function TenantDetailPage() {
 													{resource.resourceType === "redis" && (
 														<Server className="h-4 w-4 text-red-500" />
 													)}
-													{resource.resourceType === "medusa" && (
+													{(resource.resourceType === "medusa" || resource.resourceType === "store") && (
 														<Cpu className="h-4 w-4 text-purple-500" />
 													)}
 													{resource.resourceType === "client" && (
@@ -577,7 +577,7 @@ export default function TenantDetailPage() {
 											</div>
 
 											<p className="text-xs text-zinc-500">
-												Note: Upgrading will briefly stop the Medusa container
+												Note: Upgrading will briefly stop the Store container
 												while the new version is deployed. Data in the database
 												will be preserved.
 											</p>

@@ -18,8 +18,8 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/store-types/package.json ./packages/store-types/
 COPY apps/store/package.json ./apps/store/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (need to use --no-frozen-lockfile for workspace resolution)
+RUN pnpm install --filter @repo/store-types --filter store
 
 # ==========================================
 # Stage 2: Builder
@@ -31,23 +31,18 @@ WORKDIR /app
 # Enable corepack for pnpm
 RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
 
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/store-types/node_modules ./packages/store-types/node_modules
-COPY --from=deps /app/apps/store/node_modules ./apps/store/node_modules
+# Copy everything from deps
+COPY --from=deps /app ./
 
 # Copy source files
 COPY packages/store-types ./packages/store-types
 COPY apps/store ./apps/store
-COPY pnpm-workspace.yaml package.json ./
 
 # Build store-types first
-WORKDIR /app/packages/store-types
-RUN pnpm build
+RUN pnpm --filter @repo/store-types build
 
 # Build the store app
-WORKDIR /app/apps/store
-RUN pnpm build
+RUN pnpm --filter store build
 
 # ==========================================
 # Stage 3: Production Runner
@@ -67,10 +62,10 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=hono:nodejs /app/apps/store/dist ./dist
 COPY --from=builder --chown=hono:nodejs /app/apps/store/package.json ./
 
-# Copy production dependencies only
-COPY --from=deps /app/apps/store/node_modules ./node_modules
-COPY --from=deps /app/packages/store-types/dist ./node_modules/@repo/store-types/dist
-COPY --from=deps /app/packages/store-types/package.json ./node_modules/@repo/store-types/
+# Copy production dependencies and built store-types
+COPY --from=builder --chown=hono:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=hono:nodejs /app/packages/store-types/dist ./node_modules/@repo/store-types/dist
+COPY --from=builder --chown=hono:nodejs /app/packages/store-types/package.json ./node_modules/@repo/store-types/
 
 # Switch to non-root user
 USER hono
