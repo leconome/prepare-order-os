@@ -22,7 +22,21 @@ const DEFAULT_CREDENTIALS = {
   password: "admin123",
 };
 
-const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+// Lazily get API URL based on current hostname
+function getApiUrl(): string {
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
+
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
+
+  return `${protocol}//store.${hostname}`;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,7 +54,7 @@ export default function LoginPage() {
     async function checkDefaultUser() {
       try {
         const response = await fetch(
-          `${API_URL}/api/users/check/${encodeURIComponent(DEFAULT_CREDENTIALS.email)}`,
+          `${getApiUrl()}/api/users/check/${encodeURIComponent(DEFAULT_CREDENTIALS.email)}`,
           { credentials: "include" }
         );
         const data = await response.json();
@@ -86,7 +100,7 @@ export default function LoginPage() {
     setCreatingUser(true);
     setError("");
     try {
-      const response = await fetch(`${API_URL}/api/auth/sign-up/email`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/sign-up/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

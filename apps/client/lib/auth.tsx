@@ -6,14 +6,40 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+// Lazily get API URL based on current hostname
+function getApiUrl(): string {
+  if (typeof window === "undefined") {
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
 
-export const authClient = createAuthClient({
-  baseURL: `${API_URL}/api/auth`,
-});
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+  }
+
+  return `${protocol}//store.${hostname}`;
+}
+
+// Create auth client lazily - memoized per base URL
+let cachedAuthClient: ReturnType<typeof createAuthClient> | null = null;
+let cachedBaseUrl: string | null = null;
+
+function getAuthClient() {
+  const baseUrl = getApiUrl();
+  if (!cachedAuthClient || cachedBaseUrl !== baseUrl) {
+    cachedAuthClient = createAuthClient({
+      baseURL: `${baseUrl}/api/auth`,
+    });
+    cachedBaseUrl = baseUrl;
+  }
+  return cachedAuthClient;
+}
 
 export interface User {
   id: string;
@@ -41,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const authClient = useMemo(() => getAuthClient(), []);
+
   const checkAuth = useCallback(async () => {
     try {
       const session = await authClient.getSession();
@@ -54,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [authClient]);
 
   const login = async (email: string, password: string) => {
     const result = await authClient.signIn.email({
