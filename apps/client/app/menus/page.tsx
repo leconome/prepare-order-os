@@ -1,37 +1,13 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { createMenuSchema } from "@prepareos/data";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -40,14 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  type CreateMenu,
-  createMenu,
-  fetchMenus,
-  fetchProducts,
-  type Menu,
-} from "@/lib/api";
+import { fetchMenus, type Menu } from "@/lib/api";
 
 function MenusTable({ menus }: { menus: Menu[] }) {
   if (menus.length === 0) {
@@ -121,200 +90,6 @@ function MenusTableSkeleton() {
   );
 }
 
-function CreateMenuDialog() {
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { data: productsData } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => fetchProducts({ limit: 100, isActive: true }),
-  });
-
-  const form = useForm({
-    resolver: zodResolver(createMenuSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      isActive: true,
-      sortOrder: 0,
-      productIds: [] as string[],
-    },
-  });
-
-  const createMenuMutation = useMutation({
-    mutationFn: (data: CreateMenu) => createMenu(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["menus"] });
-      setOpen(false);
-      form.reset();
-    },
-  });
-
-  const onSubmit = form.handleSubmit((data) => {
-    createMenuMutation.mutate(data as CreateMenu);
-  });
-
-  const selectedProductIds = form.watch("productIds") || [];
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
-          <Plus className="mr-2 h-4 w-4" />
-          Nouveau menu
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Nouveau menu</DialogTitle>
-          <DialogDescription>
-            Créez un nouveau menu avec une sélection de produits.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nom du menu" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Description du menu..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="sortOrder"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ordre d'affichage</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="productIds"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Produits</FormLabel>
-                  <div className="max-h-[200px] overflow-y-auto rounded-lg border p-3">
-                    {productsData?.data.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Aucun produit disponible
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {productsData?.data.map((product) => (
-                          <div
-                            key={product.id}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={product.id}
-                              checked={selectedProductIds.includes(product.id)}
-                              onCheckedChange={(checked) => {
-                                const current =
-                                  form.getValues("productIds") || [];
-                                if (checked) {
-                                  form.setValue("productIds", [
-                                    ...current,
-                                    product.id,
-                                  ]);
-                                } else {
-                                  form.setValue(
-                                    "productIds",
-                                    current.filter((id) => id !== product.id)
-                                  );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={product.id}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {product.name}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Actif</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Le menu sera visible pour les clients
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" disabled={createMenuMutation.isPending}>
-                {createMenuMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Créer
-              </Button>
-            </DialogFooter>
-            {createMenuMutation.isError && (
-              <p className="text-sm text-destructive">
-                Erreur: {(createMenuMutation.error as Error).message}
-              </p>
-            )}
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function MenusPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["menus"],
@@ -342,7 +117,12 @@ export default function MenusPage() {
               />
               Actualiser
             </Button>
-            <CreateMenuDialog />
+            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+              <Link href="/menus/create">
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau menu
+              </Link>
+            </Button>
           </div>
         </div>
 

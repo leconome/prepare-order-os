@@ -1,0 +1,302 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createCategorySchema, updateCategorySchema } from "@prepareos/data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Save, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { ColorPicker } from "@/components/color-picker";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  type Category,
+  type CreateCategory,
+  type UpdateCategory,
+  createCategory,
+  deleteCategory,
+  fetchCategories,
+  updateCategory,
+} from "@/lib/api";
+
+interface CategoryFormProps {
+  initialData?: Category;
+}
+
+export function CategoryForm({ initialData }: CategoryFormProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const isEditMode = !!initialData;
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => fetchCategories({ limit: 100 }),
+  });
+
+  const form = useForm({
+    resolver: zodResolver(isEditMode ? updateCategorySchema : createCategorySchema),
+    defaultValues: {
+      name: initialData?.name ?? "",
+      description: initialData?.description ?? "",
+      parentId: initialData?.parentId ?? undefined,
+      color: initialData?.color ?? undefined,
+      isActive: initialData?.isActive ?? true,
+      sortOrder: initialData?.sortOrder ?? 0,
+    },
+  });
+
+  // Reset form when initialData changes (for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        description: initialData.description ?? "",
+        parentId: initialData.parentId ?? undefined,
+        color: initialData.color ?? undefined,
+        isActive: initialData.isActive,
+        sortOrder: initialData.sortOrder,
+      });
+    }
+  }, [initialData, form]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: CreateCategory) => createCategory(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      router.push("/categories");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: UpdateCategory) => updateCategory(initialData!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["category", initialData!.id] });
+      router.push("/categories");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCategory(initialData!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      router.push("/categories");
+    },
+  });
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const error = createMutation.error || updateMutation.error;
+
+  const onSubmit = form.handleSubmit((data) => {
+    if (isEditMode) {
+      updateMutation.mutate(data as UpdateCategory);
+    } else {
+      createMutation.mutate(data as CreateCategory);
+    }
+  });
+
+  // Filter out current category from parent options (for edit mode)
+  const availableParents = categoriesData?.data.filter(
+    (c) => !initialData || c.id !== initialData.id
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          {isEditMode ? "Modifier la catégorie" : "Nouvelle catégorie"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nom</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nom de la catégorie" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Description de la catégorie..."
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="parentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Catégorie parente</FormLabel>
+                    <Select
+                      onValueChange={(value) =>
+                        field.onChange(value === "none" ? undefined : value)
+                      }
+                      value={field.value || "none"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Aucune" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Aucune</SelectItem>
+                        {availableParents?.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sortOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ordre d'affichage</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="color"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Couleur</FormLabel>
+                  <FormControl>
+                    <ColorPicker
+                      value={field.value}
+                      onChange={(color) => field.onChange(color ?? undefined)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="isActive"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Active</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      La catégorie sera visible dans le catalogue
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex items-center justify-between pt-4">
+              {isEditMode ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    if (
+                      confirm("Êtes-vous sûr de vouloir supprimer cette catégorie ?")
+                    ) {
+                      deleteMutation.mutate();
+                    }
+                  }}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Supprimer
+                </Button>
+              ) : (
+                <div />
+              )}
+
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {isEditMode ? "Enregistrer" : "Créer"}
+              </Button>
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive">
+                Erreur: {(error as Error).message}
+              </p>
+            )}
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}

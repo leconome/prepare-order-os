@@ -1,43 +1,13 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { createCategorySchema } from "@prepareos/data";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -46,14 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { ColorBadge, ColorPicker } from "@/components/color-picker";
-import {
-  type Category,
-  type CreateCategory,
-  createCategory,
-  fetchCategories,
-} from "@/lib/api";
+import { ColorBadge } from "@/components/color-picker";
+import { type Category, fetchCategories } from "@/lib/api";
 
 function CategoriesTable({ categories }: { categories: Category[] }) {
   if (categories.length === 0) {
@@ -140,198 +104,6 @@ function CategoriesTableSkeleton() {
   );
 }
 
-function CreateCategoryDialog() {
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { data: categoriesData } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => fetchCategories({ limit: 100 }),
-  });
-
-  const form = useForm({
-    resolver: zodResolver(createCategorySchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      parentId: undefined,
-      color: undefined as string | undefined,
-      isActive: true,
-      sortOrder: 0,
-    },
-  });
-
-  const createCategoryMutation = useMutation({
-    mutationFn: (data: CreateCategory) => createCategory(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      setOpen(false);
-      form.reset();
-    },
-  });
-
-  const onSubmit = form.handleSubmit((data) => {
-    createCategoryMutation.mutate(data as CreateCategory);
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
-          <Plus className="mr-2 h-4 w-4" />
-          Nouvelle catégorie
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Nouvelle catégorie</DialogTitle>
-          <DialogDescription>
-            Créez une nouvelle catégorie pour organiser vos produits.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nom de la catégorie" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Description de la catégorie..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Catégorie parente</FormLabel>
-                    <Select
-                      onValueChange={(value) =>
-                        field.onChange(value === "none" ? undefined : value)
-                      }
-                      value={field.value || "none"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Aucune" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Aucune</SelectItem>
-                        {categoriesData?.data.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="sortOrder"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ordre d'affichage</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="color"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Couleur</FormLabel>
-                  <FormControl>
-                    <ColorPicker
-                      value={field.value}
-                      onChange={(color) => field.onChange(color ?? undefined)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Active</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      La catégorie sera visible dans le catalogue
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" disabled={createCategoryMutation.isPending}>
-                {createCategoryMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Créer
-              </Button>
-            </DialogFooter>
-            {createCategoryMutation.isError && (
-              <p className="text-sm text-destructive">
-                Erreur: {(createCategoryMutation.error as Error).message}
-              </p>
-            )}
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function CategoriesPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["categories"],
@@ -362,7 +134,12 @@ export default function CategoriesPage() {
               />
               Actualiser
             </Button>
-            <CreateCategoryDialog />
+            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+              <Link href="/categories/create">
+                <Plus className="mr-2 h-4 w-4" />
+                Nouvelle catégorie
+              </Link>
+            </Button>
           </div>
         </div>
 
