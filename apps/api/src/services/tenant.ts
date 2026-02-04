@@ -999,6 +999,59 @@ export async function upgradeClientVersion(
 	}
 }
 
+// Run store database migrations manually
+export async function runTenantMigrations(tenantId: string): Promise<void> {
+	const tenant = await getTenant(tenantId);
+	if (!tenant) throw new Error("Tenant not found");
+
+	if (tenant.status !== "running" && tenant.status !== "stopped") {
+		throw new Error(`Cannot run migrations for tenant in status: ${tenant.status}`);
+	}
+
+	// Find postgres resource
+	const postgresResource = tenant.resources.find(
+		(r) => r.resourceType === "postgres",
+	);
+
+	if (!postgresResource?.containerId) {
+		throw new Error("PostgreSQL container not found");
+	}
+
+	// Verify postgres container exists
+	const postgresExists = await containerExists(postgresResource.containerId);
+	if (!postgresExists) {
+		throw new Error("PostgreSQL container is missing. Please restart the tenant first.");
+	}
+
+	const networkName = `tenant_${tenant.slug}_network`;
+
+	await logEvent(tenantId, "migrations_running", "Manually running database migrations");
+
+	try {
+		await dockerService.runStoreMigrations(
+			tenant,
+			networkName,
+			{
+				containerId: postgresResource.containerId,
+				containerName: postgresResource.containerName || "",
+				status: "running",
+				port: postgresResource.port || undefined,
+			},
+			tenant.imageTag || undefined,
+		);
+
+		await logEvent(tenantId, "migrations_complete", "Database migrations completed successfully");
+	} catch (error) {
+		await logEvent(
+			tenantId,
+			"failed",
+			`Migration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+			{ error: String(error) },
+		);
+		throw error;
+	}
+}
+
 // Delete tenant (terminate and cleanup)
 export async function deleteTenant(tenantId: string): Promise<void> {
 	const tenant = await getTenant(tenantId);

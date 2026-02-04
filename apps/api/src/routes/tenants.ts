@@ -275,6 +275,24 @@ tenants.post(
 	},
 );
 
+// POST /tenants/:id/run-migrations - Run store database migrations
+tenants.post("/:id/run-migrations", async (c) => {
+	try {
+		const id = c.req.param("id");
+		await tenantService.runTenantMigrations(id);
+		return c.json({ success: true, message: "Migrations completed successfully" });
+	} catch (error) {
+		console.error("Error running migrations:", error);
+		return c.json(
+			{
+				error:
+					error instanceof Error ? error.message : "Failed to run migrations",
+			},
+			500,
+		);
+	}
+});
+
 // DELETE /tenants/:id - Delete tenant
 tenants.delete("/:id", async (c) => {
 	try {

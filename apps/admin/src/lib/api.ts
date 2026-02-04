@@ -241,6 +241,13 @@ class ApiClient {
 		});
 	}
 
+	async runMigrations(id: string): Promise<{ success: boolean; message: string }> {
+		return this.request(`/tenants/${id}/run-migrations`, {
+			method: "POST",
+			body: JSON.stringify({}),
+		});
+	}
+
 	// Store Images
 	async listImages(): Promise<{ images: PlatformImage[] }> {
 		return this.request("/images");

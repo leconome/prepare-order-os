@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Rocket, RotateCcw, Square, Trash2 } from "lucide-react";
+import { Database, Play, Rocket, RotateCcw, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api, type Tenant } from "@/lib/api";
@@ -90,6 +90,20 @@ export function TenantActions({
 						Restart
 					</Button>
 				</>
+			)}
+
+			{(tenant.status === "running" || tenant.status === "stopped") && (
+				<Button
+					size={buttonSize}
+					variant="outline"
+					onClick={() =>
+						handleAction("migrations", () => api.runMigrations(tenant.id))
+					}
+					loading={loading === "migrations"}
+				>
+					<Database className={`${iconSize} mr-1`} />
+					Run Migrations
+				</Button>
 			)}
 
 			{(tenant.status === "stopped" || tenant.status === "failed") && (
