@@ -1,0 +1,150 @@
+name: Build Store API Image
+
+on:
+  push:
+    tags:
+      - 'store-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., 1.0.0)'
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: leconome/store
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux, x64, econome]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      image_tag: ${{ steps.version.outputs.image_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF#refs/tags/store-v}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.version.outputs.version }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/store/Dockerfile.prod
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  migrate:
+    needs: build
+    runs-on: [self-hosted, linux, x64, econome]
+    steps:
+      - name: Check if migration should run
+        id: check
+        run: |
+          if [ -n "${{ secrets.STORE_DATABASE_URL }}" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "STORE_DATABASE_URL secret not configured, skipping migrations"
+          fi
+
+      - name: Checkout repository
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.check.outputs.should_run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        if: steps.check.outputs.should_run == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.3
+
+      - name: Install dependencies
+        if: steps.check.outputs.should_run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build store-types
+        if: steps.check.outputs.should_run == 'true'
+        run: pnpm --filter @repo/store-types build
+
+      - name: Run database migrations
+        if: steps.check.outputs.should_run == 'true'
+        working-directory: apps/store
+        env:
+          DATABASE_URL: ${{ secrets.STORE_DATABASE_URL }}
+        run: pnpm db:push
+
+  register:
+    needs: [build, migrate]
+    runs-on: [self-hosted, linux, x64, econome]
+    if: ${{ always() && needs.build.result == 'success' && vars.PLATFORM_API_URL != '' }}
+    steps:
+      - name: Register image in platform
+        run: |
+          # Only attempt registration if the API URL is configured
+          if [ -n "${{ vars.PLATFORM_API_URL }}" ]; then
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "${{ vars.PLATFORM_API_URL }}/images/store" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.PLATFORM_API_KEY }}" \
+              -d '{
+                "version": "${{ needs.build.outputs.version }}",
+                "imageTag": "${{ needs.build.outputs.image_tag }}",
+                "commitSha": "${{ github.sha }}",
+                "isLatest": true
+              }')
+
+            echo "API responded with status: $HTTP_STATUS"
+
+            # Accept 201 (created) or 409 (already exists) as success
+            if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "409" ]; then
+              echo "Warning: Failed to register image with platform API"
+              # Don't fail the workflow, just warn
+            fi
+          else
+            echo "PLATFORM_API_URL not configured, skipping registration"
+          fi

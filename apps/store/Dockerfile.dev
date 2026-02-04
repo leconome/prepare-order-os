@@ -1,29 +1,25 @@
-# Development Dockerfile for Medusa (simpler, faster builds)
-FROM node:20-alpine
+# Development Dockerfile for Hono Store API
+FROM node:22-alpine
 
-# Install dependencies
+# Install dependencies for native modules
 RUN apk add --no-cache libc6-compat curl
 
 WORKDIR /app
 
-# Install pnpm globally
-RUN npm install -g pnpm
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@10.6.3 --activate
 
-# Copy pnpm config and package files
-COPY .npmrc package.json pnpm-lock.yaml* ./
+# Copy package files
+COPY package.json pnpm-lock.yaml* ./
 
-# Install all dependencies
+# Install dependencies
 RUN pnpm install
 
-# Copy source code
+# Copy source (will be overridden by volume in dev)
 COPY . .
 
-# Expose ports
-EXPOSE 9000 5173
+# Expose port
+EXPOSE 9000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:9000/health || exit 1
-
-# Start with migrations
-ENTRYPOINT ["/bin/sh", "./start.sh"]
+# Run dev server
+CMD ["pnpm", "dev"]
