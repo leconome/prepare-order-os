@@ -99,7 +99,7 @@ jobs:
           set -e
           cd /opt/econome
           echo "=== Rebuilding API ==="
-          docker compose -f docker-compose.prod.yml --env-file .env.production build api
+          docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache api
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d api
           ENDSSH
 
@@ -110,7 +110,7 @@ jobs:
           set -e
           cd /opt/econome
           echo "=== Rebuilding Admin ==="
-          docker compose -f docker-compose.prod.yml --env-file .env.production build admin
+          docker compose -f docker-compose.prod.yml --env-file .env.production build --no-cache admin
           docker compose -f docker-compose.prod.yml --env-file .env.production up -d admin
           ENDSSH
 
