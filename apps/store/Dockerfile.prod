@@ -32,7 +32,7 @@ RUN pnpm --filter @repo/store-types build
 RUN pnpm --filter store build
 
 # Use pnpm deploy to create a self-contained production bundle
-RUN pnpm --filter store deploy --prod /app/deploy
+RUN pnpm --filter store deploy --prod --legacy /app/deploy
 
 # ==========================================
 # Stage 2: Production Runner

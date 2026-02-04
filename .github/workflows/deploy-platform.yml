@@ -95,10 +95,7 @@ jobs:
 
       - name: Login to GHCR on VPS
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << ENDSSH
-          echo "=== Logging into GHCR ==="
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          ENDSSH
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin"
 
       - name: Rebuild API
         if: steps.changes.outputs.api == 'true'
