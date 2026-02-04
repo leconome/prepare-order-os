@@ -82,7 +82,11 @@ jobs:
         run: |
           # Only attempt registration if the API URL is configured
           if [ -n "${{ vars.PLATFORM_API_URL }}" ]; then
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            echo "Registering to: ${{ vars.PLATFORM_API_URL }}/images"
+            echo "Version: ${{ needs.build.outputs.version }}"
+            echo "Image tag: ${{ needs.build.outputs.image_tag }}"
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
               -X POST "${{ vars.PLATFORM_API_URL }}/images" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${{ secrets.PLATFORM_API_KEY }}" \
@@ -93,7 +97,11 @@ jobs:
                 "isLatest": true
               }')
 
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+
             echo "API responded with status: $HTTP_STATUS"
+            echo "Response body: $BODY"
 
             # Accept 201 (created) or 409 (already exists) as success
             if [ "$HTTP_STATUS" != "201" ] && [ "$HTTP_STATUS" != "409" ]; then
