@@ -1,12 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import classnames from "classnames";
+import classNames from "classnames";
 import {
   ArrowLeft,
   ArrowRight,
-  ChefHat,
   Clock,
-  Loader2,
   RefreshCw,
   UserRound,
 } from "lucide-react";
@@ -14,11 +14,13 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  type OrderWithItems,
   fetchOrders,
   formatCurrency,
+  type OrderWithItems,
+  type UpdateOrderStatus,
   updateOrderStatus,
 } from "@/lib/api";
 
@@ -74,13 +76,6 @@ const COLUMNS: {
   },
 ];
 
-const PAYMENT_COLORS: Record<string, string> = {
-  pending: "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400",
-  paid: "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400",
-  partially_paid: "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
-  refunded: "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-900/30 dark:text-gray-400",
-};
-
 const PAYMENT_LABELS: Record<string, string> = {
   pending: "Impayé",
   paid: "Payé",
@@ -100,8 +95,7 @@ function OrderCard({
   const queryClient = useQueryClient();
 
   const statusMutation = useMutation({
-    mutationFn: (data: { preparationStatus?: string; paymentStatus?: string }) =>
-      updateOrderStatus(order.id, data),
+    mutationFn: (data: UpdateOrderStatus) => updateOrderStatus(order.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
     },
@@ -112,6 +106,8 @@ function OrderCard({
     statusMutation.mutate({ paymentStatus: next });
   };
 
+  const isPending = statusMutation.isPending;
+
   const pickupTime =
     order.pickupTimeStart && order.pickupTimeEnd
       ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
@@ -121,7 +117,9 @@ function OrderCard({
     <Card className={`border-l-4 ${column.cardBorder} p-3 space-y-2`}>
       {/* Header: ticket + client */}
       <div className="flex items-center justify-between">
-        <span className="font-mono font-bold text-sm">#{order.ticketNumber}</span>
+        <span className="font-mono font-bold text-sm">
+          #{order.ticketNumber}
+        </span>
         {order.client?.name && (
           <span className="text-xs text-muted-foreground flex items-center gap-1 truncate max-w-[120px]">
             <UserRound className="h-3 w-3 shrink-0" />
@@ -134,7 +132,10 @@ function OrderCard({
       {order.items && order.items.length > 0 && (
         <div className="space-y-0.5">
           {order.items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between text-xs">
+            <div
+              key={item.id}
+              className="flex items-center justify-between text-xs"
+            >
               <span className="truncate">
                 <span className="font-medium">{item.quantity}x</span>{" "}
                 {item.productName}
@@ -160,49 +161,58 @@ function OrderCard({
         </div>
       )}
 
-      {/* Payment toggle + movement buttons */}
-      <div className="flex items-center justify-between pt-1">
-        <button
-          type="button"
-          onClick={togglePayment}
-          disabled={statusMutation.isPending}
-          className={`text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer transition-colors ${PAYMENT_COLORS[order.paymentStatus] || ""}`}
-        >
-          {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-        </button>
-
-        <div className="flex items-center gap-1.5">
+      {/* Actions: ← | Payé | → */}
+      <div className="grid grid-cols-[40px_1fr_40px] items-center gap-2">
+        <div>
           {column.prevStatus && (
             <Button
+              size="icon"
               variant="outline"
-              size="sm"
-              className="h-8 w-8"
-              disabled={statusMutation.isPending}
+              className="h-10 w-10"
+              disabled={isPending}
               onClick={() =>
                 statusMutation.mutate({ preparationStatus: column.prevStatus })
               }
             >
-              {statusMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowLeft className="h-4 w-4" />
-              )}
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
+        </div>
+
+        <label
+          className={classNames(
+            "flex items-center justify-between gap-2 cursor-pointer transition-all animate-in select-none rounded-md h-full border px-3 py-2",
+            {
+              "bg-green-50": order.paymentStatus === "paid",
+              "bg-background": order.paymentStatus !== "paid",
+            },
+          )}
+        >
+          <Checkbox
+            checked={order.paymentStatus === "paid"}
+            onCheckedChange={() => togglePayment()}
+            disabled={isPending}
+            className="h-5 w-5 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+          />
+          <span
+            className={`text-sm font-medium ${order.paymentStatus === "paid" ? "text-green-700 dark:text-green-400" : "text-gray-700 dark:text-gray-400"}`}
+          >
+            {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+          </span>
+        </label>
+
+        <div className="flex justify-end">
           {column.nextStatus && (
             <Button
-              size="sm"
-              className={`h-8 w-8 text-white ${COLUMNS.find((c) => c.key === column.nextStatus)?.color || ""}`}
-              disabled={statusMutation.isPending}
+              size="icon"
+              variant="outline"
+              className="h-10 w-10"
+              disabled={isPending}
               onClick={() =>
                 statusMutation.mutate({ preparationStatus: column.nextStatus })
               }
             >
-              {statusMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowRight className="h-4 w-4" />
-              )}
+              <ArrowRight className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -247,10 +257,16 @@ export default function PreparationPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => queryClient.invalidateQueries({ queryKey: ["preparation-orders"] })}
+            onClick={() =>
+              queryClient.invalidateQueries({
+                queryKey: ["preparation-orders"],
+              })
+            }
             disabled={isFetching}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+            />
             Actualiser
           </Button>
         </div>
@@ -273,7 +289,10 @@ export default function PreparationPage() {
                 <div className="flex items-center gap-2 pb-1">
                   <div className={`h-2.5 w-2.5 rounded-full ${col.color}`} />
                   <span className="text-sm font-medium">{col.label}</span>
-                  <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
+                  <Badge
+                    variant="secondary"
+                    className="ml-auto text-xs h-5 px-1.5"
+                  >
                     {col.orders.length}
                   </Badge>
                 </div>

@@ -26,6 +26,9 @@
     "enabled": true,
     "rules": {
       "recommended": true,
+      "a11y": {
+        "noLabelWithoutControl": "off"
+      },
       "correctness": {
         "useExhaustiveDependencies": {
           "level": "warn",
