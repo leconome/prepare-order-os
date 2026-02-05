@@ -24,18 +24,7 @@ const DEFAULT_CREDENTIALS = {
 
 // Lazily get API URL based on current hostname
 function getApiUrl(): string {
-  if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-  }
-
-  const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
-
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-  }
-
-  return `${protocol}//store.${hostname}`;
+  return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
 }
 
 export default function LoginPage() {
