@@ -17,6 +17,8 @@ const connectionString =
   process.env.DATABASE_URL ||
   "postgres://postgres:postgres@localhost:5432/store";
 
+console.log("Connecting to database with connection string:", connectionString);
+
 const client = postgres(connectionString);
 const db = drizzle(client, { schema });
 
