@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { zValidator } from "@hono/zod-validator";
 import {
   createStaffSchema,
@@ -6,9 +5,10 @@ import {
   staffFiltersSchema,
   updateStaffSchema,
 } from "@prepareos/data";
-import { sessions, users } from "@prepareos/data/schema";
+import { users } from "@prepareos/data/schema";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { setSignedCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../db/index.js";
@@ -151,33 +151,31 @@ usersRoutes.post(
     // Reset attempts on success
     pinAttempts.delete(userId);
 
-    // Create session (same structure better-auth uses)
-    const sessionToken = crypto.randomBytes(32).toString("hex");
-    const sessionId = nanoid();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Create session using better-auth's internal adapter
+    const authCtx = await auth.$context;
+    const session = await authCtx.internalAdapter.createSession(
+      user.id,
+      false, // dontRememberMe
+      {
+        ipAddress: c.req.header("x-forwarded-for") || "",
+        userAgent: c.req.header("user-agent") || "",
+      },
+    );
 
-    await db.insert(sessions).values({
-      id: sessionId,
-      userId: user.id,
-      token: sessionToken,
-      expiresAt,
-      ipAddress: c.req.header("x-forwarded-for") || null,
-      userAgent: c.req.header("user-agent") || null,
-    });
+    console.log("[login-pin] Session created:", { id: session.id, tokenPrefix: session.token.slice(0, 8) + "..." });
 
-    console.log("[login-pin] Session created:", { sessionId, tokenPrefix: sessionToken.slice(0, 8) + "...", expiresAt });
-
-    // Verify session was actually saved
-    const savedSession = await db.query.sessions.findFirst({
-      where: eq(sessions.id, sessionId),
-    });
-    console.log("[login-pin] Session verified in DB:", savedSession ? { id: savedSession.id, tokenPrefix: savedSession.token.slice(0, 8) + "..." } : "NOT FOUND IN DB!");
-
-    // Set session cookie (same name better-auth uses)
+    // Set signed cookie (same way better-auth does internally)
+    const cookieName = authCtx.authCookies.sessionToken.name;
     const isSecure = process.env.NODE_ENV === "production";
-    const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${isSecure ? "; Secure" : ""}`;
-    c.header("Set-Cookie", cookieValue);
-    console.log("[login-pin] Cookie set:", cookieValue.slice(0, 60) + "...");
+    await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+      maxAge: 7 * 24 * 60 * 60,
+      secure: isSecure,
+    });
+
+    console.log("[login-pin] Signed cookie set for:", cookieName);
 
     return c.json({
       user: {
