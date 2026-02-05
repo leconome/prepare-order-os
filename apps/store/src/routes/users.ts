@@ -1,25 +1,27 @@
-import { Hono } from "hono";
-import { eq, and, sql } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { users } from "@prepareos/data/schema";
+import { zValidator } from "@hono/zod-validator";
 import {
-  staffFiltersSchema,
   createStaffSchema,
+  staffFiltersSchema,
   updateStaffSchema,
 } from "@prepareos/data";
-import { auth } from "../lib/auth.js";
+import { users } from "@prepareos/data/schema";
+import { and, eq, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { nanoid } from "nanoid";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { db } from "../db/index.js";
+import { auth } from "../lib/auth.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { ownerOrAdmin } from "../middleware/role-guard.js";
-import { nanoid } from "nanoid";
 
 const usersRoutes = new Hono();
 
 // Check if a user exists by email (for dev mode only - no auth required)
 usersRoutes.get("/check/:email", async (c) => {
   // Only allow in dev stage
-  if (process.env.STAGE !== "dev") {
+  const stage = process.env.STAGE;
+
+  if (stage !== "dev") {
     return c.json({ error: "Not available in production" }, 403);
   }
 
@@ -55,10 +57,7 @@ usersRoutes.post("/dev-signup", async (c) => {
   }
 
   if (role && role !== "staff") {
-    await db
-      .update(users)
-      .set({ role })
-      .where(eq(users.id, result.user.id));
+    await db.update(users).set({ role }).where(eq(users.id, result.user.id));
   }
 
   return c.json({ user: { ...result.user, role: role || "staff" } }, 201);
@@ -103,8 +102,7 @@ usersRoutes.get(
       conditions.push(eq(users.isActive, isActive));
     }
 
-    const whereClause =
-      conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [data, countResult] = await Promise.all([
       db.query.users.findMany({
@@ -122,7 +120,10 @@ usersRoutes.get(
         },
         orderBy: (users, { asc }) => [asc(users.name)],
       }),
-      db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(whereClause),
     ]);
 
     const total = Number(countResult[0]?.count ?? 0);

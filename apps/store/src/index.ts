@@ -1,15 +1,16 @@
+import "dotenv/config";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import health from "./routes/health.js";
 import authRoutes from "./routes/auth.js";
+import categories from "./routes/categories.js";
+import clientsRoutes from "./routes/clients.js";
+import health from "./routes/health.js";
+import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
 import products from "./routes/products.js";
-import categories from "./routes/categories.js";
-import menus from "./routes/menus.js";
 import usersRoutes from "./routes/users.js";
-import clientsRoutes from "./routes/clients.js";
 
 const app = new Hono();
 
