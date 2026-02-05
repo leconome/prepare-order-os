@@ -18,8 +18,8 @@ const usersRoutes = new Hono();
 
 // Check if a user exists by email (for dev mode only - no auth required)
 usersRoutes.get("/check/:email", async (c) => {
-  // Only allow in development
-  if (process.env.NODE_ENV === "production") {
+  // Only allow in dev stage
+  if (process.env.STAGE !== "dev") {
     return c.json({ error: "Not available in production" }, 403);
   }
 
@@ -36,6 +36,32 @@ usersRoutes.get("/check/:email", async (c) => {
   });
 
   return c.json({ exists: !!user, user: user ?? null });
+});
+
+// Create dev user with role (dev mode only - no auth required)
+usersRoutes.post("/dev-signup", async (c) => {
+  if (process.env.STAGE !== "dev") {
+    return c.json({ error: "Not available in production" }, 403);
+  }
+
+  const { email, password, name, role } = await c.req.json();
+
+  const result = await auth.api.signUpEmail({
+    body: { email, password, name },
+  });
+
+  if (!result.user) {
+    return c.json({ error: "Failed to create user" }, 500);
+  }
+
+  if (role && role !== "staff") {
+    await db
+      .update(users)
+      .set({ role })
+      .where(eq(users.id, result.user.id));
+  }
+
+  return c.json({ user: { ...result.user, role: role || "staff" } }, 201);
 });
 
 // Require authentication for all other routes

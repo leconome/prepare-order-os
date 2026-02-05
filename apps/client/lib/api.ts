@@ -364,6 +364,29 @@ export async function deleteClient(clientId: string): Promise<void> {
   });
 }
 
+// ============ AUTH (DEV) ============
+
+export async function checkUserExists(
+  email: string,
+): Promise<{
+  exists: boolean;
+  user: { id: string; email: string; name: string; role: string } | null;
+}> {
+  return fetchApi(`/users/check/${encodeURIComponent(email)}`);
+}
+
+export async function signUpDevUser(data: {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+}): Promise<unknown> {
+  return fetchApi("/users/dev-signup", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(

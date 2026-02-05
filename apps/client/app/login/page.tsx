@@ -1,5 +1,6 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { checkUserExists, signUpDevUser } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 const DEFAULT_CREDENTIALS = {
@@ -22,41 +24,47 @@ const DEFAULT_CREDENTIALS = {
   password: "admin123",
 };
 
-// Lazily get API URL based on current hostname
-function getApiUrl(): string {
-  return process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-}
+const IS_DEV_STAGE = process.env.NEXT_PUBLIC_STAGE === "dev";
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [userExists, setUserExists] = useState<boolean | null>(null);
-  const [checkingUser, setCheckingUser] = useState(true);
-  const [creatingUser, setCreatingUser] = useState(false);
 
-  // Check if default user exists on mount
-  useEffect(() => {
-    async function checkDefaultUser() {
-      try {
-        const response = await fetch(
-          `${getApiUrl()}/api/users/check/${encodeURIComponent(DEFAULT_CREDENTIALS.email)}`,
-          { credentials: "include" },
-        );
-        const data = await response.json();
-        setUserExists(data.exists);
-      } catch (err) {
-        console.error("Failed to check user:", err);
-        setUserExists(null);
-      } finally {
-        setCheckingUser(false);
-      }
-    }
-    checkDefaultUser();
-  }, []);
+  const { data: userCheck, isLoading: checkingUser } = useQuery({
+    queryKey: ["devUserCheck", DEFAULT_CREDENTIALS.email],
+    queryFn: () => checkUserExists(DEFAULT_CREDENTIALS.email),
+    enabled: IS_DEV_STAGE,
+  });
+
+  const loginMutation = useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) =>
+      login(email, password),
+    onSuccess: () => router.push("/"),
+    onError: () => setError("Email ou mot de passe incorrect"),
+  });
+
+  const createDevUserMutation = useMutation({
+    mutationFn: () =>
+      signUpDevUser({
+        email: DEFAULT_CREDENTIALS.email,
+        password: DEFAULT_CREDENTIALS.password,
+        name: "Admin",
+        role: "admin",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devUserCheck"] });
+      fillDefaultCredentials();
+    },
+    onError: (err) => {
+      setError(
+        err instanceof Error ? err.message : "Échec de la création du compte",
+      );
+    },
+  });
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -64,55 +72,15 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setIsLoading(true);
-
-    try {
-      await login(email, password);
-      router.push("/");
-    } catch (err) {
-      setError("Email ou mot de passe incorrect");
-      console.error("Login failed:", err);
-    } finally {
-      setIsLoading(false);
-    }
+    loginMutation.mutate({ email, password });
   };
 
   const fillDefaultCredentials = () => {
     setEmail(DEFAULT_CREDENTIALS.email);
     setPassword(DEFAULT_CREDENTIALS.password);
-  };
-
-  const createDevUser = async () => {
-    setCreatingUser(true);
-    setError("");
-    try {
-      const response = await fetch(`${getApiUrl()}/api/auth/sign-up/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          email: DEFAULT_CREDENTIALS.email,
-          password: DEFAULT_CREDENTIALS.password,
-          name: "Admin",
-        }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Échec de la création");
-      }
-      setUserExists(true);
-      fillDefaultCredentials();
-    } catch (err) {
-      console.error("Failed to create user:", err);
-      setError(
-        err instanceof Error ? err.message : "Échec de la création du compte",
-      );
-    } finally {
-      setCreatingUser(false);
-    }
   };
 
   if (authLoading) {
@@ -122,6 +90,8 @@ export default function LoginPage() {
       </div>
     );
   }
+
+  const userExists = userCheck?.exists ?? null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
@@ -134,7 +104,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Dev credentials section */}
-          {process.env.NODE_ENV !== "production" && (
+          {IS_DEV_STAGE && (
             <div className="rounded-lg border border-dashed p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">
@@ -184,10 +154,10 @@ export default function LoginPage() {
                   variant="destructive"
                   size="sm"
                   className="w-full"
-                  onClick={createDevUser}
-                  disabled={creatingUser}
+                  onClick={() => createDevUserMutation.mutate()}
+                  disabled={createDevUserMutation.isPending}
                 >
-                  {creatingUser ? (
+                  {createDevUserMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Création...
@@ -215,7 +185,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={loginMutation.isPending}
               />
             </div>
             <div className="space-y-2">
@@ -226,11 +196,15 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={loginMutation.isPending}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loginMutation.isPending}
+            >
+              {loginMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Connexion...
