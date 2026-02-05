@@ -68,6 +68,7 @@ pnpm db:studio
 | `CORS_ORIGINS`       | `http://localhost:3000,http://localhost:3002`       | Allowed CORS origins |
 | `BETTER_AUTH_SECRET`  | —                                                  | Auth secret key      |
 | `BETTER_AUTH_URL`     | —                                                  | Auth base URL        |
+| `STAGE`              | —                                                  | Set to `dev` to enable dev-only routes (user check, dev signup) |
 
 ## Build & Start
 

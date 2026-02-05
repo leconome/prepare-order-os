@@ -58,14 +58,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const result = await authClient.signIn.email({
-      email,
-      password,
-    });
-    if (result.error) {
-      throw new Error(result.error.message || "Login failed");
+    try {
+      const result = await authClient.signIn.email({
+        email,
+        password,
+      });
+      if (result.error) {
+        const status = result.error.status;
+        const message =
+          result.error.message ||
+          (status === 429
+            ? "Trop de tentatives, veuillez réessayer plus tard"
+            : "Échec de la connexion");
+        throw new Error(message);
+      }
+      await checkAuth();
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error("Échec de la connexion");
     }
-    await checkAuth();
   };
 
   const logout = async () => {

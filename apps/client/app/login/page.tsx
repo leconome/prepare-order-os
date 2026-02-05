@@ -44,7 +44,8 @@ export default function LoginPage() {
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       login(email, password),
     onSuccess: () => router.push("/"),
-    onError: () => setError("Email ou mot de passe incorrect"),
+    onError: (err) =>
+      setError(err instanceof Error ? err.message : "Email ou mot de passe incorrect"),
   });
 
   const createDevUserMutation = useMutation({
