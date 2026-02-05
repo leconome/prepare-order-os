@@ -8,6 +8,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { loginWithPin as loginWithPinApi } from "./api";
 
 const API_URL =
   process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
@@ -32,6 +33,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithPin: (userId: string, pin: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -79,6 +81,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithPin = async (userId: string, pin: string) => {
+    try {
+      await loginWithPinApi(userId, pin);
+      await checkAuth();
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error("PIN incorrect");
+    }
+  };
+
   const logout = async () => {
     await authClient.signOut();
     setUser(null);
@@ -95,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        loginWithPin,
         logout,
         checkAuth,
       }}

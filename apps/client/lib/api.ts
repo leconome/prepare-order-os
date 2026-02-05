@@ -274,10 +274,9 @@ export async function deleteMenu(menuId: string): Promise<void> {
 
 // ============ STAFF (USERS) ============
 
-// Staff user type for listings (excludes sensitive fields like pin)
 export type StaffUser = Pick<
   User,
-  "id" | "name" | "email" | "role" | "isActive" | "createdAt" | "updatedAt"
+  "id" | "name" | "email" | "pin" | "role" | "isActive" | "createdAt" | "updatedAt"
 >;
 
 export type StaffResponse = PaginatedResponse<StaffUser>;
@@ -361,6 +360,32 @@ export async function updateClient(
 export async function deleteClient(clientId: string): Promise<void> {
   await fetchApi<{ success: boolean }>(`/clients/${clientId}`, {
     method: "DELETE",
+  });
+}
+
+// ============ PIN AUTH ============
+
+export type LoginStaffMember = {
+  id: string;
+  name: string | null;
+  image: string | null;
+};
+
+export async function fetchLoginStaff(): Promise<{
+  staff: LoginStaffMember[];
+}> {
+  return fetchApi<{ staff: LoginStaffMember[] }>("/users/login-staff");
+}
+
+export async function loginWithPin(
+  userId: string,
+  pin: string,
+): Promise<{
+  user: { id: string; name: string | null; email: string; role: string };
+}> {
+  return fetchApi("/users/login-pin", {
+    method: "POST",
+    body: JSON.stringify({ userId, pin }),
   });
 }
 

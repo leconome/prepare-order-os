@@ -1,11 +1,13 @@
+import crypto from "crypto";
 import { zValidator } from "@hono/zod-validator";
 import {
   createStaffSchema,
+  pinLoginSchema,
   staffFiltersSchema,
   updateStaffSchema,
 } from "@prepareos/data";
-import { users } from "@prepareos/data/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { sessions, users } from "@prepareos/data/schema";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -63,6 +65,132 @@ usersRoutes.post("/dev-signup", async (c) => {
   return c.json({ user: { ...result.user, role: role || "staff" } }, 201);
 });
 
+// Public: List active staff for login screen (minimal info only)
+usersRoutes.get("/login-staff", async (c) => {
+  const staffList = await db.query.users.findMany({
+    where: and(eq(users.isActive, true), isNotNull(users.pin)),
+    columns: {
+      id: true,
+      name: true,
+      image: true,
+    },
+    orderBy: (users, { asc }) => [asc(users.name)],
+  });
+
+  return c.json({ staff: staffList });
+});
+
+// Public: PIN login — creates a full better-auth session
+const pinAttempts = new Map<
+  string,
+  { count: number; lastAttempt: number }
+>();
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+usersRoutes.post(
+  "/login-pin",
+  zValidator("json", pinLoginSchema),
+  async (c) => {
+    const { userId, pin } = c.req.valid("json");
+
+    console.log(`Login attempt for userId: ${userId}`);
+    console.log("Current pinAttempts state:", Array.from(pinAttempts.entries()));
+    console.log("Pin::", pin);
+
+    // Rate limiting per userId
+    const attempt = pinAttempts.get(userId);
+    if (attempt) {
+      if (
+        attempt.count >= MAX_PIN_ATTEMPTS &&
+        Date.now() - attempt.lastAttempt < PIN_LOCKOUT_MS
+      ) {
+        return c.json(
+          { error: "Trop de tentatives, réessayez dans 5 minutes" },
+          429,
+        );
+      }
+      if (Date.now() - attempt.lastAttempt >= PIN_LOCKOUT_MS) {
+        pinAttempts.delete(userId);
+      }
+    }
+
+    // Find user by ID and verify PIN
+    // First, look up user by ID only to debug
+    const userById = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { id: true, pin: true, isActive: true, name: true },
+    });
+    console.log("[login-pin] User lookup by ID:", userById ? { id: userById.id, name: userById.name, hasPin: !!userById.pin, pinInDb: userById.pin, pinSent: pin, pinMatch: userById.pin === pin, isActive: userById.isActive } : "NOT FOUND");
+
+    const user = await db.query.users.findFirst({
+      where: and(
+        eq(users.id, userId),
+        eq(users.pin, pin),
+        eq(users.isActive, true),
+        isNotNull(users.pin),
+      ),
+    });
+
+    if (!user) {
+      console.log("[login-pin] FAILED - no user matched all conditions");
+      // Track failed attempt
+      const current = pinAttempts.get(userId) || {
+        count: 0,
+        lastAttempt: 0,
+      };
+      pinAttempts.set(userId, {
+        count: current.count + 1,
+        lastAttempt: Date.now(),
+      });
+      return c.json({ error: "PIN incorrect" }, 401);
+    }
+
+    console.log("[login-pin] SUCCESS - user matched:", user.id, user.name);
+
+    // Reset attempts on success
+    pinAttempts.delete(userId);
+
+    // Create session (same structure better-auth uses)
+    const sessionToken = crypto.randomBytes(32).toString("hex");
+    const sessionId = nanoid();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await db.insert(sessions).values({
+      id: sessionId,
+      userId: user.id,
+      token: sessionToken,
+      expiresAt,
+      ipAddress: c.req.header("x-forwarded-for") || null,
+      userAgent: c.req.header("user-agent") || null,
+    });
+
+    console.log("[login-pin] Session created:", { sessionId, tokenPrefix: sessionToken.slice(0, 8) + "...", expiresAt });
+
+    // Verify session was actually saved
+    const savedSession = await db.query.sessions.findFirst({
+      where: eq(sessions.id, sessionId),
+    });
+    console.log("[login-pin] Session verified in DB:", savedSession ? { id: savedSession.id, tokenPrefix: savedSession.token.slice(0, 8) + "..." } : "NOT FOUND IN DB!");
+
+    // Set session cookie (same name better-auth uses)
+    const isSecure = process.env.NODE_ENV === "production";
+    const cookieValue = `better-auth.session_token=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${isSecure ? "; Secure" : ""}`;
+    c.header("Set-Cookie", cookieValue);
+    console.log("[login-pin] Cookie set:", cookieValue.slice(0, 60) + "...");
+
+    return c.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+      },
+    });
+  },
+);
+
 // Require authentication for all other routes
 usersRoutes.use("*", authMiddleware);
 
@@ -113,6 +241,7 @@ usersRoutes.get(
           id: true,
           name: true,
           email: true,
+          pin: true,
           role: true,
           isActive: true,
           createdAt: true,

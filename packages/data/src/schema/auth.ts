@@ -112,6 +112,13 @@ export const pinAuthSchema = z.object({
 });
 export type PinAuth = z.infer<typeof pinAuthSchema>;
 
+// PIN login schema (for staff login endpoint)
+export const pinLoginSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
+});
+export type PinLogin = z.infer<typeof pinLoginSchema>;
+
 // User reference type for relations (used in orders)
 export type UserRef = {
   id: string;

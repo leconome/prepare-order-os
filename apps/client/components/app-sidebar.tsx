@@ -1,8 +1,9 @@
 "use client";
 
 import {
+  BarChart3,
+  ChefHat,
   FolderTree,
-  Home,
   LogOut,
   Menu,
   Package,
@@ -45,9 +46,9 @@ const ROLE_COLORS: Record<string, string> = {
 
 const navigation = [
   {
-    title: "Tableau de bord",
-    url: "/",
-    icon: Home,
+    title: "Préparation",
+    url: "/preparation",
+    icon: ChefHat,
   },
   {
     title: "Commandes",
@@ -58,6 +59,11 @@ const navigation = [
     title: "Clients",
     url: "/clients",
     icon: UserRound,
+  },
+  {
+    title: "Statistiques",
+    url: "/stats",
+    icon: BarChart3,
   },
 ];
 
