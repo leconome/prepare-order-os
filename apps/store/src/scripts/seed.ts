@@ -4,6 +4,7 @@ import {
   menuProducts,
   menus,
   orderItems,
+  orderMenuItems,
   orders,
   products,
   tenants,
@@ -515,8 +516,122 @@ const MENUS: Array<{
   },
 ];
 
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+// Menu orders — orders that include at least one menu
+type MenuOrderItem = { menuName: string; quantity: number };
+type ProductOrderItem = { productName: string; price: string; quantity: number };
+type SampleOrderItem = ProductOrderItem | MenuOrderItem;
+function isMenuOrderItem(item: SampleOrderItem): item is MenuOrderItem {
+  return "menuName" in item;
+}
+
+type SeedOrder = {
+  items: SampleOrderItem[];
+  paymentStatus: "pending" | "paid" | "partially_paid" | "refunded";
+  preparationStatus: "pending" | "in_preparation" | "ready" | "picked_up";
+  clientNote?: string;
+  pickupTimeStart?: string;
+  pickupTimeEnd?: string;
+  pickupDate?: Date;
+};
+
+const MENU_ORDERS: SeedOrder[] = [
+  {
+    items: [
+      { menuName: "Plateau Découverte", quantity: 1 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "pending",
+    clientNote: "Plateau pour 4 personnes ce soir",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
+  },
+  {
+    items: [
+      { menuName: "Plateau Dégustation Premium", quantity: 1 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "in_preparation",
+    clientNote: "Commande VIP - soirée dégustation",
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
+  },
+  {
+    items: [
+      { menuName: "Plateau Chèvre", quantity: 2 },
+    ],
+    paymentStatus: "pending",
+    preparationStatus: "pending",
+    clientNote: "2 plateaux chèvre pour buffet",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
+  },
+  {
+    items: [
+      { menuName: "Plateau Montagne", quantity: 1 },
+      { menuName: "Apéro Fromager", quantity: 1 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "in_preparation",
+    clientNote: "Pour soirée entre amis",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
+  },
+  {
+    items: [
+      { menuName: "Plateau Bleus", quantity: 1 },
+      { productName: "Confiture de figues", price: "6.50", quantity: 2 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "ready",
+    clientNote: "Amateur de bleus - accompagnement supplémentaire",
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
+  },
+  {
+    items: [
+      { menuName: "Apéro Fromager", quantity: 3 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "picked_up",
+    clientNote: "3 plateaux apéro pour événement d'entreprise",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
+  },
+  {
+    items: [
+      { menuName: "Plateau Découverte", quantity: 1 },
+      { menuName: "Plateau Bleus", quantity: 1 },
+      { productName: "Crackers aux graines", price: "3.90", quantity: 2 },
+    ],
+    paymentStatus: "paid",
+    preparationStatus: "ready",
+    clientNote: "2 plateaux différents pour soirée découverte",
+  },
+  {
+    items: [
+      { menuName: "Plateau Dégustation Premium", quantity: 2 },
+    ],
+    paymentStatus: "pending",
+    preparationStatus: "pending",
+    clientNote: "Commande traiteur - 2 plateaux premium",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
+  },
+];
+
 // Sample orders data
-const SAMPLE_ORDERS = [
+const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
@@ -526,6 +641,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
     clientNote: "Pour un plateau apéritif",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -536,6 +654,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
     clientNote: "Amateur de bleus",
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
   },
   {
     items: [
@@ -546,6 +667,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "pending" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Prévoir cuillère pour le Mont d'Or",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -560,6 +684,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Soirée chèvre entre amis",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -571,6 +698,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
     clientNote: "Commande premium - cadeau d'affaires",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -581,6 +711,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
     clientNote: "Desserts pour repas de famille",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -599,6 +732,9 @@ const SAMPLE_ORDERS = [
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
   },
   // ---- Extra orders for pagination testing ----
   {
@@ -627,6 +763,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Retrait prévu vendredi matin",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -646,6 +785,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Chèvres assortis pour apéro",
+    pickupDate: today,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -674,6 +816,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Dégustation de bleus",
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
   },
   {
     items: [
@@ -691,6 +836,9 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Cadeau client VIP",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -1047,6 +1195,7 @@ async function seedTenant(): Promise<string> {
 
 async function clearDatabase() {
   console.log("🗑️  Clearing existing data...");
+  await db.delete(orderMenuItems);
   await db.delete(orderItems);
   await db.delete(orders);
   await db.delete(ticketCounters);
@@ -1140,14 +1289,30 @@ async function seedMenus(tenantId: string, productList: (typeof products.$inferS
   return insertedMenus;
 }
 
-async function seedOrders(tenantId: string, productList: (typeof products.$inferSelect)[]) {
+async function seedOrders(
+  tenantId: string,
+  productList: (typeof products.$inferSelect)[],
+  menuList: (typeof menus.$inferSelect)[],
+) {
   console.log("🧾 Seeding orders...");
 
   const productMap = new Map(productList.map((p) => [p.name, p]));
+  // Build menu map: name → { menu, products }
+  const menuMap = new Map<string, { menu: typeof menus.$inferSelect; products: typeof productList }>();
+  for (const menu of menuList) {
+    // Get menu products from DB
+    const mps = await db.query.menuProducts.findMany({
+      where: eq(menuProducts.menuId, menu.id),
+    });
+    const menuProds = mps
+      .map((mp) => productList.find((p) => p.id === mp.productId))
+      .filter((p): p is NonNullable<typeof p> => p !== null && p !== undefined);
+    menuMap.set(menu.name, { menu, products: menuProds });
+  }
+
   let orderCount = 0;
 
-  for (const orderData of SAMPLE_ORDERS) {
-    // Generate ticket number
+  async function createSeedOrder(orderData: SeedOrder) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1158,7 +1323,6 @@ async function seedOrders(tenantId: string, productList: (typeof products.$infer
       })
       .returning({ counter: ticketCounters.counter });
 
-    // Increment counter for next order
     await db
       .update(ticketCounters)
       .set({ counter: (ticketResult[0]?.counter ?? 0) + 1 })
@@ -1167,27 +1331,70 @@ async function seedOrders(tenantId: string, productList: (typeof products.$infer
     const counter = ticketResult[0]?.counter ?? 1;
     const ticketNumber = `${dateKey}:${counter.toString().padStart(3, "0")}`;
 
-    // Calculate totals
     let subtotal = 0;
-    const itemsToInsert = orderData.items.map((item) => {
+
+    // Separate regular items and menu items
+    const regularItems = orderData.items.filter((i) => !isMenuOrderItem(i)) as ProductOrderItem[];
+    const menuItems = orderData.items.filter(isMenuOrderItem);
+
+    // Regular items
+    const regularItemsToInsert = regularItems.map((item) => {
       const product = productMap.get(item.productName);
-      const unitPrice = item.price;
-      const totalPrice = Number(unitPrice) * item.quantity;
+      const totalPrice = Number(item.price) * item.quantity;
       subtotal += totalPrice;
       return {
         productId: product?.id ?? crypto.randomUUID(),
         productName: item.productName,
         quantity: item.quantity,
-        unitPrice,
+        unitPrice: item.price,
         totalPrice: totalPrice.toFixed(2),
+        isMenu: false,
       };
     });
+
+    // Menu items
+    const menuItemsToInsert: Array<{
+      productId: string;
+      productName: string;
+      quantity: number;
+      unitPrice: string;
+      totalPrice: string;
+      isMenu: boolean;
+      menuProducts: Array<{ productId: string; productName: string; quantity: number }>;
+    }> = [];
+
+    for (const menuItem of menuItems) {
+      const menuData = menuMap.get(menuItem.menuName);
+      if (!menuData) {
+        console.warn(`⚠️  Menu not found: ${menuItem.menuName}`);
+        continue;
+      }
+      // Calculate price as sum of products if menu has no price
+      const menuPrice = menuData.menu.price
+        ? Number(menuData.menu.price)
+        : menuData.products.reduce((sum, p) => sum + Number(p.price), 0);
+      const totalPrice = menuPrice * menuItem.quantity;
+      subtotal += totalPrice;
+
+      menuItemsToInsert.push({
+        productId: menuData.menu.id,
+        productName: menuData.menu.name,
+        quantity: menuItem.quantity,
+        unitPrice: menuPrice.toFixed(2),
+        totalPrice: totalPrice.toFixed(2),
+        isMenu: true,
+        menuProducts: menuData.products.map((p) => ({
+          productId: p.id,
+          productName: p.name,
+          quantity: 1,
+        })),
+      });
+    }
 
     const taxRate = 0.2;
     const taxTotal = subtotal * taxRate;
     const total = subtotal + taxTotal;
 
-    // Create order
     const [order] = await db
       .insert(orders)
       .values({
@@ -1195,6 +1402,9 @@ async function seedOrders(tenantId: string, productList: (typeof products.$infer
         paymentStatus: orderData.paymentStatus,
         preparationStatus: orderData.preparationStatus,
         clientNote: orderData.clientNote ?? null,
+        pickupDate: orderData.pickupDate ?? null,
+        pickupTimeStart: orderData.pickupTimeStart ?? null,
+        pickupTimeEnd: orderData.pickupTimeEnd ?? null,
         subtotal: subtotal.toFixed(2),
         taxTotal: taxTotal.toFixed(2),
         total: total.toFixed(2),
@@ -1202,18 +1412,57 @@ async function seedOrders(tenantId: string, productList: (typeof products.$infer
       })
       .returning();
 
-    // Add order items
-    await db.insert(orderItems).values(
-      itemsToInsert.map((item) => ({
-        ...item,
-        orderId: order.id,
-      })),
-    );
+    // Insert regular items
+    if (regularItemsToInsert.length > 0) {
+      await db.insert(orderItems).values(
+        regularItemsToInsert.map((item) => ({
+          ...item,
+          orderId: order.id,
+        })),
+      );
+    }
+
+    // Insert menu items + their sub-items
+    for (const menuItem of menuItemsToInsert) {
+      const [insertedItem] = await db
+        .insert(orderItems)
+        .values({
+          orderId: order.id,
+          productId: menuItem.productId,
+          productName: menuItem.productName,
+          quantity: menuItem.quantity,
+          unitPrice: menuItem.unitPrice,
+          totalPrice: menuItem.totalPrice,
+          isMenu: true,
+        })
+        .returning();
+
+      if (menuItem.menuProducts.length > 0) {
+        await db.insert(orderMenuItems).values(
+          menuItem.menuProducts.map((mp) => ({
+            orderItemId: insertedItem.id,
+            productId: mp.productId,
+            productName: mp.productName,
+            quantity: mp.quantity,
+          })),
+        );
+      }
+    }
 
     orderCount++;
   }
 
-  console.log(`✅ Created ${orderCount} orders`);
+  // Seed regular orders
+  for (const orderData of SAMPLE_ORDERS) {
+    await createSeedOrder(orderData);
+  }
+
+  // Seed menu orders
+  for (const orderData of MENU_ORDERS) {
+    await createSeedOrder(orderData);
+  }
+
+  console.log(`✅ Created ${orderCount} orders (including ${MENU_ORDERS.length} with menus)`);
 }
 
 function getDateKey(): string {
@@ -1296,8 +1545,8 @@ async function main() {
     const clientList = await seedClients(tenantId);
     const categoryList = await seedCategories(tenantId);
     const productList = await seedProducts(tenantId, categoryList);
-    await seedMenus(tenantId, productList);
-    await seedOrders(tenantId, productList);
+    const menuList = await seedMenus(tenantId, productList);
+    await seedOrders(tenantId, productList, menuList);
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("\nSummary:");
