@@ -1,3 +1,4 @@
+export * from "./tenants.js";
 export * from "./auth.js";
 export * from "./categories.js";
 export * from "./products.js";

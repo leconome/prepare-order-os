@@ -7,21 +7,24 @@ import {
   orderFiltersSchema,
 } from "@prepareos/data";
 import * as orderService from "../services/order.service.js";
-import { authMiddleware, type AuthUser, type AuthVariables } from "../middleware/auth.js";
+import { authMiddleware } from "../middleware/auth.js";
+import type { AppEnv } from "../types.js";
 
-const orders = new Hono<{ Variables: AuthVariables }>();
+const orders = new Hono<AppEnv>();
 
 orders.use("*", authMiddleware);
 
 orders.get("/", zValidator("query", orderFiltersSchema), async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const filters = c.req.valid("query");
-  const result = await orderService.listOrders(filters);
+  const result = await orderService.listOrders(tenantId, filters);
   return c.json(result);
 });
 
 orders.get("/:id", async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
-  const order = await orderService.getOrderById(id);
+  const order = await orderService.getOrderById(tenantId, id);
 
   if (!order) {
     return c.json({ error: "Order not found" }, 404);
@@ -31,6 +34,7 @@ orders.get("/:id", async (c) => {
 });
 
 orders.post("/", zValidator("json", createOrderSchema), async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const data = c.req.valid("json");
   // Auto-fill createdById from logged-in user
   const user = c.get("user");
@@ -40,20 +44,21 @@ orders.post("/", zValidator("json", createOrderSchema), async (c) => {
     createdById: data.createdById ?? user.id,
   };
 
-  const order = await orderService.createOrder(orderData);
+  const order = await orderService.createOrder(tenantId, orderData);
   return c.json(order, 201);
 });
 
 orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
   const data = c.req.valid("json");
 
-  const existing = await orderService.getOrderById(id);
+  const existing = await orderService.getOrderById(tenantId, id);
   if (!existing) {
     return c.json({ error: "Order not found" }, 404);
   }
 
-  const order = await orderService.updateOrder(id, data);
+  const order = await orderService.updateOrder(tenantId, id, data);
   return c.json(order);
 });
 
@@ -61,28 +66,30 @@ orders.patch(
   "/:id/status",
   zValidator("json", updateOrderStatusSchema),
   async (c) => {
+    const tenantId = c.get("tenantId") as string;
     const id = c.req.param("id");
     const data = c.req.valid("json");
 
-    const existing = await orderService.getOrderById(id);
+    const existing = await orderService.getOrderById(tenantId, id);
     if (!existing) {
       return c.json({ error: "Order not found" }, 404);
     }
 
-    const order = await orderService.updateOrderStatus(id, data);
+    const order = await orderService.updateOrderStatus(tenantId, id, data);
     return c.json(order);
   },
 );
 
 orders.delete("/:id", async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
 
-  const existing = await orderService.getOrderById(id);
+  const existing = await orderService.getOrderById(tenantId, id);
   if (!existing) {
     return c.json({ error: "Order not found" }, 404);
   }
 
-  await orderService.deleteOrder(id);
+  await orderService.deleteOrder(tenantId, id);
   return c.json({ success: true });
 });
 

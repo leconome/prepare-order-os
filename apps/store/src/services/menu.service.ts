@@ -9,17 +9,17 @@ import {
   type MenuFilters,
 } from "@prepareos/data";
 
-export async function listMenus(filters: MenuFilters) {
+export async function listMenus(tenantId: string, filters: MenuFilters) {
   const { isActive, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(menus.tenantId, tenantId)];
 
   if (isActive !== undefined) {
     conditions.push(eq(menus.isActive, isActive));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [data, countResult] = await Promise.all([
     db.query.menus.findMany({
@@ -44,9 +44,9 @@ export async function listMenus(filters: MenuFilters) {
   };
 }
 
-export async function getMenuById(id: string) {
+export async function getMenuById(tenantId: string, id: string) {
   const menu = await db.query.menus.findFirst({
-    where: eq(menus.id, id),
+    where: and(eq(menus.id, id), eq(menus.tenantId, tenantId)),
   });
 
   if (!menu) return null;
@@ -72,7 +72,7 @@ export async function getMenuById(id: string) {
   return { ...menu, products: sortedProducts };
 }
 
-export async function createMenu(data: CreateMenu) {
+export async function createMenu(tenantId: string, data: CreateMenu) {
   const [menu] = await db
     .insert(menus)
     .values({
@@ -80,6 +80,7 @@ export async function createMenu(data: CreateMenu) {
       description: data.description ?? null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
+      tenantId,
     })
     .returning();
 
@@ -93,10 +94,10 @@ export async function createMenu(data: CreateMenu) {
     );
   }
 
-  return getMenuById(menu.id);
+  return getMenuById(tenantId, menu.id);
 }
 
-export async function updateMenu(id: string, data: UpdateMenu) {
+export async function updateMenu(tenantId: string, id: string, data: UpdateMenu) {
   const updateData: Partial<typeof menus.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -106,7 +107,10 @@ export async function updateMenu(id: string, data: UpdateMenu) {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
-  await db.update(menus).set(updateData).where(eq(menus.id, id));
+  await db
+    .update(menus)
+    .set(updateData)
+    .where(and(eq(menus.id, id), eq(menus.tenantId, tenantId)));
 
   if (data.productIds !== undefined) {
     await db.delete(menuProducts).where(eq(menuProducts.menuId, id));
@@ -122,13 +126,13 @@ export async function updateMenu(id: string, data: UpdateMenu) {
     }
   }
 
-  return getMenuById(id);
+  return getMenuById(tenantId, id);
 }
 
-export async function deleteMenu(id: string) {
+export async function deleteMenu(tenantId: string, id: string) {
   const [deleted] = await db
     .delete(menus)
-    .where(eq(menus.id, id))
+    .where(and(eq(menus.id, id), eq(menus.tenantId, tenantId)))
     .returning({ id: menus.id });
 
   return deleted;

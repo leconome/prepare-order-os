@@ -11,12 +11,14 @@ import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
 import products from "./routes/products.js";
 import usersRoutes from "./routes/users.js";
+import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
 
 // Middleware
 app.use("*", logger());
 
+const baseDomain = process.env.BASE_DOMAIN;
 const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
   "http://localhost:3000",
   "http://localhost:3002",
@@ -25,15 +27,33 @@ const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
 app.use(
   "*",
   cors({
-    origin: corsOrigins,
+    origin: (origin) => {
+      // Allow explicit origins
+      if (corsOrigins.includes(origin)) return origin;
+      // Allow wildcard subdomains of baseDomain (e.g. *.prepareos.com)
+      if (baseDomain) {
+        try {
+          const url = new URL(origin);
+          if (url.hostname.endsWith(`.${baseDomain}`)) return origin;
+        } catch {
+          // invalid origin, ignore
+        }
+      }
+      return corsOrigins[0];
+    },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN"],
   }),
 );
 
-// Routes
+// Health route — no tenant middleware needed
 app.route("/api/health", health);
+
+// Tenant middleware — all routes below are tenant-scoped
+app.use("/api/*", tenantMiddleware);
+
+// Routes
 app.route("/api/auth", authRoutes);
 app.route("/api/orders", orders);
 app.route("/api/products", products);

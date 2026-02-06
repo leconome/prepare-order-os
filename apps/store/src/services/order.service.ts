@@ -10,7 +10,7 @@ import {
 } from "@prepareos/data";
 import { generateTicketNumber } from "./ticket.service.js";
 
-export async function listOrders(filters: OrderFilters) {
+export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
     clientId,
     paymentStatus,
@@ -25,7 +25,7 @@ export async function listOrders(filters: OrderFilters) {
   } = filters;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(orders.tenantId, tenantId)];
 
   if (clientId) {
     conditions.push(eq(orders.clientId, clientId));
@@ -64,7 +64,7 @@ export async function listOrders(filters: OrderFilters) {
     conditions.push(lte(orders.createdAt, toDate));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [data, countResult] = await Promise.all([
     db.query.orders.findMany({
@@ -112,9 +112,9 @@ export async function listOrders(filters: OrderFilters) {
   };
 }
 
-export async function getOrderById(id: string) {
+export async function getOrderById(tenantId: string, id: string) {
   return db.query.orders.findFirst({
-    where: eq(orders.id, id),
+    where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
     with: {
       items: true,
       client: {
@@ -141,8 +141,8 @@ export async function getOrderById(id: string) {
   });
 }
 
-export async function createOrder(data: CreateOrder) {
-  const ticketNumber = await generateTicketNumber();
+export async function createOrder(tenantId: string, data: CreateOrder) {
+  const ticketNumber = await generateTicketNumber(tenantId);
 
   let subtotal = 0;
   const itemsToInsert = data.items.map((item) => {
@@ -177,6 +177,7 @@ export async function createOrder(data: CreateOrder) {
       subtotal: subtotal.toFixed(2),
       taxTotal: taxTotal.toFixed(2),
       total: total.toFixed(2),
+      tenantId,
     })
     .returning();
 
@@ -189,10 +190,10 @@ export async function createOrder(data: CreateOrder) {
     );
   }
 
-  return getOrderById(order.id);
+  return getOrderById(tenantId, order.id);
 }
 
-export async function updateOrder(id: string, data: UpdateOrder) {
+export async function updateOrder(tenantId: string, id: string, data: UpdateOrder) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -213,12 +214,15 @@ export async function updateOrder(id: string, data: UpdateOrder) {
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
 
-  await db.update(orders).set(updateData).where(eq(orders.id, id));
+  await db
+    .update(orders)
+    .set(updateData)
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
-  return getOrderById(id);
+  return getOrderById(tenantId, id);
 }
 
-export async function updateOrderStatus(id: string, data: UpdateOrderStatus) {
+export async function updateOrderStatus(tenantId: string, id: string, data: UpdateOrderStatus) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -228,15 +232,18 @@ export async function updateOrderStatus(id: string, data: UpdateOrderStatus) {
   if (data.preparationStatus !== undefined)
     updateData.preparationStatus = data.preparationStatus;
 
-  await db.update(orders).set(updateData).where(eq(orders.id, id));
+  await db
+    .update(orders)
+    .set(updateData)
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
-  return getOrderById(id);
+  return getOrderById(tenantId, id);
 }
 
-export async function deleteOrder(id: string) {
+export async function deleteOrder(tenantId: string, id: string) {
   const [deleted] = await db
     .delete(orders)
-    .where(eq(orders.id, id))
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)))
     .returning({ id: orders.id });
 
   return deleted;

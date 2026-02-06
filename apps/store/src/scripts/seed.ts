@@ -6,10 +6,12 @@ import {
   orderItems,
   orders,
   products,
+  tenants,
   ticketCounters,
   users,
 } from "@prepareos/data";
 import * as schema from "@prepareos/data/schema";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -572,6 +574,24 @@ const SAMPLE_ORDERS = [
 
 // ============ SEED FUNCTIONS ============
 
+async function seedTenant(): Promise<string> {
+  console.log("🏢 Seeding tenant...");
+  const [tenant] = await db
+    .insert(tenants)
+    .values({
+      name: "Fromagerie du Quartier",
+      slug: "fromagerie",
+    })
+    .onConflictDoUpdate({
+      target: tenants.slug,
+      set: { name: "Fromagerie du Quartier" },
+    })
+    .returning();
+
+  console.log(`✅ Tenant: ${tenant.name} (${tenant.slug})`);
+  return tenant.id;
+}
+
 async function clearDatabase() {
   console.log("🗑️  Clearing existing data...");
   await db.delete(orderItems);
@@ -587,14 +607,17 @@ async function clearDatabase() {
   console.log("✅ Database cleared");
 }
 
-async function seedCategories() {
+async function seedCategories(tenantId: string) {
   console.log("📁 Seeding categories...");
-  const inserted = await db.insert(categories).values(CATEGORIES).returning();
+  const inserted = await db
+    .insert(categories)
+    .values(CATEGORIES.map((c) => ({ ...c, tenantId })))
+    .returning();
   console.log(`✅ Created ${inserted.length} categories`);
   return inserted;
 }
 
-async function seedProducts(categoryList: (typeof categories.$inferSelect)[]) {
+async function seedProducts(tenantId: string, categoryList: (typeof categories.$inferSelect)[]) {
   console.log("🧀 Seeding products...");
   const productsToInsert = PRODUCTS.map((p) => ({
     name: p.name,
@@ -603,6 +626,7 @@ async function seedProducts(categoryList: (typeof categories.$inferSelect)[]) {
     categoryId: categoryList[p.categoryIndex]?.id ?? null,
     sortOrder: p.sortOrder,
     isActive: true,
+    tenantId,
   }));
 
   const inserted = await db
@@ -613,7 +637,7 @@ async function seedProducts(categoryList: (typeof categories.$inferSelect)[]) {
   return inserted;
 }
 
-async function seedMenus(productList: (typeof products.$inferSelect)[]) {
+async function seedMenus(tenantId: string, productList: (typeof products.$inferSelect)[]) {
   console.log("📋 Seeding menus...");
 
   const productMap = new Map(productList.map((p) => [p.name, p.id]));
@@ -627,6 +651,7 @@ async function seedMenus(productList: (typeof products.$inferSelect)[]) {
         description: menuData.description,
         sortOrder: menuData.sortOrder,
         isActive: true,
+        tenantId,
       })
       .returning();
 
@@ -661,7 +686,7 @@ async function seedMenus(productList: (typeof products.$inferSelect)[]) {
   return insertedMenus;
 }
 
-async function seedOrders(productList: (typeof products.$inferSelect)[]) {
+async function seedOrders(tenantId: string, productList: (typeof products.$inferSelect)[]) {
   console.log("🧾 Seeding orders...");
 
   const productMap = new Map(productList.map((p) => [p.name, p]));
@@ -672,9 +697,9 @@ async function seedOrders(productList: (typeof products.$inferSelect)[]) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
-      .values({ dateKey, counter: 1 })
+      .values({ tenantId, dateKey, counter: 1 })
       .onConflictDoUpdate({
-        target: ticketCounters.dateKey,
+        target: [ticketCounters.tenantId, ticketCounters.dateKey],
         set: { counter: ticketCounters.counter },
       })
       .returning({ counter: ticketCounters.counter });
@@ -683,7 +708,7 @@ async function seedOrders(productList: (typeof products.$inferSelect)[]) {
     await db
       .update(ticketCounters)
       .set({ counter: (ticketResult[0]?.counter ?? 0) + 1 })
-      .where((await import("drizzle-orm")).eq(ticketCounters.dateKey, dateKey));
+      .where(eq(ticketCounters.dateKey, dateKey));
 
     const counter = ticketResult[0]?.counter ?? 1;
     const ticketNumber = `${dateKey}:${counter.toString().padStart(3, "0")}`;
@@ -719,6 +744,7 @@ async function seedOrders(productList: (typeof products.$inferSelect)[]) {
         subtotal: subtotal.toFixed(2),
         taxTotal: taxTotal.toFixed(2),
         total: total.toFixed(2),
+        tenantId,
       })
       .returning();
 
@@ -744,7 +770,7 @@ function getDateKey(): string {
   return `${year}${month}${day}`;
 }
 
-async function seedStaff() {
+async function seedStaff(tenantId: string) {
   console.log("👥 Seeding staff members...");
 
   const inserted = [];
@@ -760,6 +786,7 @@ async function seedStaff() {
           role: staff.role,
           isActive: staff.isActive,
           emailVerified: false,
+          tenantId,
         })
         .onConflictDoUpdate({
           target: users.id,
@@ -768,6 +795,7 @@ async function seedStaff() {
             pin: staff.pin,
             role: staff.role,
             isActive: staff.isActive,
+            tenantId,
           },
         })
         .returning();
@@ -781,7 +809,7 @@ async function seedStaff() {
   return inserted;
 }
 
-async function seedClients() {
+async function seedClients(tenantId: string) {
   console.log("👤 Seeding clients...");
 
   const clientsToInsert = CLIENTS.map((c) => ({
@@ -789,6 +817,7 @@ async function seedClients() {
     phone: c.phone ?? null,
     email: c.email ?? null,
     notes: c.notes ?? null,
+    tenantId,
   }));
 
   const inserted = await db.insert(clients).values(clientsToInsert).returning();
@@ -802,18 +831,23 @@ async function main() {
   console.log("🌱 Starting seed for Fromagerie...\n");
 
   try {
+    // Seed tenant first — everything depends on it
+    const tenantId = await seedTenant();
+    console.log("");
+
     await clearDatabase();
     console.log("");
 
-    const staffList = await seedStaff();
-    const clientList = await seedClients();
-    const categoryList = await seedCategories();
-    const productList = await seedProducts(categoryList);
-    await seedMenus(productList);
-    await seedOrders(productList);
+    const staffList = await seedStaff(tenantId);
+    const clientList = await seedClients(tenantId);
+    const categoryList = await seedCategories(tenantId);
+    const productList = await seedProducts(tenantId, categoryList);
+    await seedMenus(tenantId, productList);
+    await seedOrders(tenantId, productList);
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("\nSummary:");
+    console.log(`  - Tenant: fromagerie (${tenantId})`);
     console.log(`  - ${staffList.length} staff members`);
     console.log(`  - ${clientList.length} clients`);
     console.log(`  - ${categoryList.length} categories`);

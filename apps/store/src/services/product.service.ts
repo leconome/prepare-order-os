@@ -7,11 +7,11 @@ import {
   type ProductFilters,
 } from "@prepareos/data";
 
-export async function listProducts(filters: ProductFilters) {
+export async function listProducts(tenantId: string, filters: ProductFilters) {
   const { categoryId, isActive, search, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(products.tenantId, tenantId)];
 
   if (categoryId) {
     conditions.push(eq(products.categoryId, categoryId));
@@ -25,7 +25,7 @@ export async function listProducts(filters: ProductFilters) {
     conditions.push(ilike(products.name, `%${search}%`));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [data, countResult] = await Promise.all([
     db.query.products.findMany({
@@ -61,9 +61,9 @@ export async function listProducts(filters: ProductFilters) {
   };
 }
 
-export async function getProductById(id: string) {
+export async function getProductById(tenantId: string, id: string) {
   return db.query.products.findFirst({
-    where: eq(products.id, id),
+    where: and(eq(products.id, id), eq(products.tenantId, tenantId)),
     with: {
       category: {
         columns: {
@@ -75,7 +75,7 @@ export async function getProductById(id: string) {
   });
 }
 
-export async function createProduct(data: CreateProduct) {
+export async function createProduct(tenantId: string, data: CreateProduct) {
   const [product] = await db
     .insert(products)
     .values({
@@ -86,13 +86,14 @@ export async function createProduct(data: CreateProduct) {
       imageUrl: data.imageUrl ?? null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
+      tenantId,
     })
     .returning();
 
-  return getProductById(product.id);
+  return getProductById(tenantId, product.id);
 }
 
-export async function updateProduct(id: string, data: UpdateProduct) {
+export async function updateProduct(tenantId: string, id: string, data: UpdateProduct) {
   const updateData: Partial<typeof products.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -105,15 +106,18 @@ export async function updateProduct(id: string, data: UpdateProduct) {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
-  await db.update(products).set(updateData).where(eq(products.id, id));
+  await db
+    .update(products)
+    .set(updateData)
+    .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
 
-  return getProductById(id);
+  return getProductById(tenantId, id);
 }
 
-export async function deleteProduct(id: string) {
+export async function deleteProduct(tenantId: string, id: string) {
   const [deleted] = await db
     .delete(products)
-    .where(eq(products.id, id))
+    .where(and(eq(products.id, id), eq(products.tenantId, tenantId)))
     .returning({ id: products.id });
 
   return deleted;

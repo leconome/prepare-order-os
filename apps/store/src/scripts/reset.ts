@@ -14,7 +14,7 @@ async function reset() {
   console.log("Truncating all tables...");
 
   await db.execute(
-    sql`TRUNCATE TABLE order_items, orders, ticket_counters, menu_products, menus, products, categories, clients, accounts, sessions, verifications, users CASCADE`,
+    sql`TRUNCATE TABLE order_items, orders, ticket_counters, menu_products, menus, products, categories, clients, accounts, sessions, verifications, users, tenants CASCADE`,
   );
 
   console.log("All tables emptied.");

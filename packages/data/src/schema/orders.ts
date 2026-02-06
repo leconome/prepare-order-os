@@ -7,12 +7,14 @@ import {
   decimal,
   pgEnum,
   integer,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
 import { clients, type Client } from "./clients.js";
+import { tenants } from "./tenants.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
@@ -28,41 +30,48 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
   "picked_up",
 ]);
 
-export const orders = pgTable("orders", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
-  // Reference to client
-  clientId: uuid("client_id").references(() => clients.id),
-  paymentStatus: paymentStatusEnum("payment_status")
-    .notNull()
-    .default("pending"),
-  preparationStatus: preparationStatusEnum("preparation_status")
-    .notNull()
-    .default("pending"),
-  pickupDate: timestamp("pickup_date", { withTimezone: true }),
-  pickupTimeStart: varchar("pickup_time_start", { length: 5 }),
-  pickupTimeEnd: varchar("pickup_time_end", { length: 5 }),
-  clientNote: text("client_note"),
-  internalNote: text("internal_note"),
-  // References to users table (text ID from better-auth)
-  createdById: text("created_by_id").references(() => users.id),
-  assignedToId: text("assigned_to_id").references(() => users.id),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  total: decimal("total", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
+    // Reference to client
+    clientId: uuid("client_id").references(() => clients.id),
+    paymentStatus: paymentStatusEnum("payment_status")
+      .notNull()
+      .default("pending"),
+    preparationStatus: preparationStatusEnum("preparation_status")
+      .notNull()
+      .default("pending"),
+    pickupDate: timestamp("pickup_date", { withTimezone: true }),
+    pickupTimeStart: varchar("pickup_time_start", { length: 5 }),
+    pickupTimeEnd: varchar("pickup_time_end", { length: 5 }),
+    clientNote: text("client_note"),
+    internalNote: text("internal_note"),
+    // References to users table (text ID from better-auth)
+    createdById: text("created_by_id").references(() => users.id),
+    assignedToId: text("assigned_to_id").references(() => users.id),
+    subtotal: decimal("subtotal", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    total: decimal("total", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("orders_tenant_id_idx").on(table.tenantId)],
+);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),

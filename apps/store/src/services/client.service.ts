@@ -1,4 +1,4 @@
-import { eq, sql, ilike, or, desc } from "drizzle-orm";
+import { eq, and, sql, ilike, or, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   clients,
@@ -7,17 +7,22 @@ import {
   type ClientFilters,
 } from "@prepareos/data";
 
-export async function listClients(filters: ClientFilters) {
+export async function listClients(tenantId: string, filters: ClientFilters) {
   const { search, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
+  const tenantCondition = eq(clients.tenantId, tenantId);
+
   const whereClause = search
-    ? or(
-        ilike(clients.name, `%${search}%`),
-        ilike(clients.phone, `%${search}%`),
-        ilike(clients.email, `%${search}%`)
+    ? and(
+        tenantCondition,
+        or(
+          ilike(clients.name, `%${search}%`),
+          ilike(clients.phone, `%${search}%`),
+          ilike(clients.email, `%${search}%`)
+        )
       )
-    : undefined;
+    : tenantCondition;
 
   const [data, countResult] = await Promise.all([
     db.query.clients.findMany({
@@ -45,13 +50,13 @@ export async function listClients(filters: ClientFilters) {
   };
 }
 
-export async function getClientById(id: string) {
+export async function getClientById(tenantId: string, id: string) {
   return db.query.clients.findFirst({
-    where: eq(clients.id, id),
+    where: and(eq(clients.id, id), eq(clients.tenantId, tenantId)),
   });
 }
 
-export async function createClient(data: CreateClient) {
+export async function createClient(tenantId: string, data: CreateClient) {
   const [client] = await db
     .insert(clients)
     .values({
@@ -59,13 +64,14 @@ export async function createClient(data: CreateClient) {
       phone: data.phone ?? null,
       email: data.email ?? null,
       notes: data.notes ?? null,
+      tenantId,
     })
     .returning();
 
   return client;
 }
 
-export async function updateClient(id: string, data: UpdateClient) {
+export async function updateClient(tenantId: string, id: string, data: UpdateClient) {
   const updateData: Partial<typeof clients.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -78,16 +84,16 @@ export async function updateClient(id: string, data: UpdateClient) {
   const [client] = await db
     .update(clients)
     .set(updateData)
-    .where(eq(clients.id, id))
+    .where(and(eq(clients.id, id), eq(clients.tenantId, tenantId)))
     .returning();
 
   return client;
 }
 
-export async function deleteClient(id: string) {
+export async function deleteClient(tenantId: string, id: string) {
   const [deleted] = await db
     .delete(clients)
-    .where(eq(clients.id, id))
+    .where(and(eq(clients.id, id), eq(clients.tenantId, tenantId)))
     .returning({ id: clients.id });
 
   return deleted;

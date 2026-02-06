@@ -32,6 +32,10 @@ export const auth = betterAuth({
         required: false,
         defaultValue: "staff",
       },
+      tenantId: {
+        type: "string",
+        required: false,
+      },
     },
   },
 });

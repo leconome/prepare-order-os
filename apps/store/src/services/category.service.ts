@@ -7,11 +7,11 @@ import {
   type CategoryFilters,
 } from "@prepareos/data";
 
-export async function listCategories(filters: CategoryFilters) {
+export async function listCategories(tenantId: string, filters: CategoryFilters) {
   const { parentId, isActive, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(categories.tenantId, tenantId)];
 
   if (parentId === null) {
     conditions.push(isNull(categories.parentId));
@@ -23,7 +23,7 @@ export async function listCategories(filters: CategoryFilters) {
     conditions.push(eq(categories.isActive, isActive));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [data, countResult] = await Promise.all([
     db.query.categories.findMany({
@@ -56,9 +56,9 @@ export async function listCategories(filters: CategoryFilters) {
   };
 }
 
-export async function getCategoryById(id: string) {
+export async function getCategoryById(tenantId: string, id: string) {
   return db.query.categories.findFirst({
-    where: eq(categories.id, id),
+    where: and(eq(categories.id, id), eq(categories.tenantId, tenantId)),
     with: {
       parent: {
         columns: {
@@ -73,7 +73,7 @@ export async function getCategoryById(id: string) {
   });
 }
 
-export async function createCategory(data: CreateCategory) {
+export async function createCategory(tenantId: string, data: CreateCategory) {
   const [category] = await db
     .insert(categories)
     .values({
@@ -84,13 +84,14 @@ export async function createCategory(data: CreateCategory) {
       color: data.color ?? null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
+      tenantId,
     })
     .returning();
 
-  return getCategoryById(category.id);
+  return getCategoryById(tenantId, category.id);
 }
 
-export async function updateCategory(id: string, data: UpdateCategory) {
+export async function updateCategory(tenantId: string, id: string, data: UpdateCategory) {
   const updateData: Partial<typeof categories.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -103,23 +104,26 @@ export async function updateCategory(id: string, data: UpdateCategory) {
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
-  await db.update(categories).set(updateData).where(eq(categories.id, id));
+  await db
+    .update(categories)
+    .set(updateData)
+    .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)));
 
-  return getCategoryById(id);
+  return getCategoryById(tenantId, id);
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(tenantId: string, id: string) {
   const [deleted] = await db
     .delete(categories)
-    .where(eq(categories.id, id))
+    .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)))
     .returning({ id: categories.id });
 
   return deleted;
 }
 
-export async function getCategoryTree() {
+export async function getCategoryTree(tenantId: string) {
   const rootCategories = await db.query.categories.findMany({
-    where: isNull(categories.parentId),
+    where: and(isNull(categories.parentId), eq(categories.tenantId, tenantId)),
     orderBy: [asc(categories.sortOrder), asc(categories.name)],
     with: {
       children: {
