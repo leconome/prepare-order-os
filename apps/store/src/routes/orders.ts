@@ -5,6 +5,7 @@ import {
   updateOrderSchema,
   updateOrderStatusSchema,
   orderFiltersSchema,
+  toggleItemPreparedSchema,
 } from "@prepareos/data";
 import * as orderService from "../services/order.service.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -76,6 +77,30 @@ orders.patch(
     }
 
     const order = await orderService.updateOrderStatus(tenantId, id, data);
+    return c.json(order);
+  },
+);
+
+orders.patch(
+  "/:id/items/:itemId/prepared",
+  zValidator("json", toggleItemPreparedSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const id = c.req.param("id");
+    const itemId = c.req.param("itemId");
+    const { isPrepared } = c.req.valid("json");
+
+    const order = await orderService.toggleItemPrepared(
+      tenantId,
+      id,
+      itemId,
+      isPrepared,
+    );
+
+    if (!order) {
+      return c.json({ error: "Order or item not found" }, 404);
+    }
+
     return c.json(order);
   },
 );

@@ -7,6 +7,7 @@ import {
   decimal,
   pgEnum,
   integer,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -83,6 +84,7 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  isPrepared: boolean("is_prepared").notNull().default(false),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -213,3 +215,8 @@ export type CreateOrder = z.infer<typeof createOrderSchema>;
 export type UpdateOrder = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type OrderFilters = z.infer<typeof orderFiltersSchema>;
+
+export const toggleItemPreparedSchema = z.object({
+  isPrepared: z.boolean(),
+});
+export type ToggleItemPrepared = z.infer<typeof toggleItemPreparedSchema>;

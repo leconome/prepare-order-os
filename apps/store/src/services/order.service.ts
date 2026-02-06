@@ -258,6 +258,36 @@ export async function updateOrderStatus(tenantId: string, id: string, data: Upda
   return getOrderById(tenantId, id);
 }
 
+export async function toggleItemPrepared(
+  tenantId: string,
+  orderId: string,
+  itemId: string,
+  isPrepared: boolean,
+) {
+  // Verify order belongs to tenant
+  const order = await getOrderById(tenantId, orderId);
+  if (!order) return null;
+
+  // Update the item
+  const [updated] = await db
+    .update(orderItems)
+    .set({ isPrepared, updatedAt: new Date() })
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
+    .returning();
+
+  if (!updated) return null;
+
+  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
+  if (isPrepared && order.preparationStatus === "pending") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  }
+
+  return getOrderById(tenantId, orderId);
+}
+
 export async function deleteOrder(tenantId: string, id: string) {
   // Restore stock before deleting order items (cascade will remove them)
   const items = await db.query.orderItems.findMany({

@@ -136,6 +136,20 @@ export async function deleteOrder(orderId: string): Promise<void> {
   });
 }
 
+export async function toggleOrderItemPrepared(
+  orderId: string,
+  itemId: string,
+  isPrepared: boolean,
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(
+    `/orders/${orderId}/items/${itemId}/prepared`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isPrepared }),
+    },
+  );
+}
+
 // ============ PRODUCTS ============
 
 export type ProductsResponse = PaginatedResponse<Product>;
