@@ -105,6 +105,30 @@ orders.patch(
   },
 );
 
+orders.patch(
+  "/:id/menu-items/:menuItemId/prepared",
+  zValidator("json", toggleItemPreparedSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const id = c.req.param("id");
+    const menuItemId = c.req.param("menuItemId");
+    const { isPrepared } = c.req.valid("json");
+
+    const order = await orderService.toggleMenuItemPrepared(
+      tenantId,
+      id,
+      menuItemId,
+      isPrepared,
+    );
+
+    if (!order) {
+      return c.json({ error: "Order or menu item not found" }, 404);
+    }
+
+    return c.json(order);
+  },
+);
+
 orders.delete("/:id", async (c) => {
   const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");

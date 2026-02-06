@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   CalendarIcon,
   Check,
-  ChevronsUpDown,
   Coffee,
   Loader2,
   Minus,
@@ -62,6 +61,7 @@ import {
   createClient,
   createOrder,
   fetchClients,
+  fetchMenus,
   fetchStaff,
   fetchProducts,
   formatCurrency,
@@ -74,6 +74,7 @@ type OrderItem = {
   quantity: number;
   unitPrice: string;
   notes?: string;
+  menuId?: string;
 };
 
 type TimeInterval = {
@@ -133,6 +134,11 @@ export default function NewOrderPage() {
   const { data: staffData } = useQuery({
     queryKey: ["staff"],
     queryFn: () => fetchStaff({ limit: 100, isActive: true }),
+  });
+
+  const { data: menusData } = useQuery({
+    queryKey: ["menus-active"],
+    queryFn: () => fetchMenus({ isActive: true, limit: 50 }),
   });
 
   const { data: clientsData } = useQuery({
@@ -228,11 +234,41 @@ export default function NewOrderPage() {
     }
   };
 
-  const updateItemQuantity = (productId: string, delta: number) => {
+  const addMenuToOrder = (menu: { id: string; name: string; price: string | null }) => {
+    // Use a stable key for cart: "menu-{menuId}"
+    const cartKey = `menu-${menu.id}`;
+    const existingItem = orderItems.find((item) => item.menuId === menu.id);
+    // Calculate menu price: use explicit price or "0" (backend resolves from products)
+    const menuPrice = menu.price || "0";
+    if (existingItem) {
+      setOrderItems(
+        orderItems.map((item) =>
+          item.menuId === menu.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        ),
+      );
+    } else {
+      setOrderItems([
+        ...orderItems,
+        {
+          productId: menu.id,
+          productName: menu.name,
+          quantity: 1,
+          unitPrice: menuPrice,
+          menuId: menu.id,
+        },
+      ]);
+    }
+  };
+
+  const getItemKey = (item: OrderItem) => item.menuId ? `menu-${item.menuId}` : item.productId;
+
+  const updateItemQuantity = (key: string, delta: number) => {
     setOrderItems(
       orderItems
         .map((item) =>
-          item.productId === productId
+          getItemKey(item) === key
             ? { ...item, quantity: Math.max(0, item.quantity + delta) }
             : item
         )
@@ -240,14 +276,14 @@ export default function NewOrderPage() {
     );
   };
 
-  const removeItem = (productId: string) => {
-    setOrderItems(orderItems.filter((item) => item.productId !== productId));
+  const removeItem = (key: string) => {
+    setOrderItems(orderItems.filter((item) => getItemKey(item) !== key));
   };
 
-  const updateItemNotes = (productId: string, notes: string) => {
+  const updateItemNotes = (key: string, notes: string) => {
     setOrderItems(
       orderItems.map((item) =>
-        item.productId === productId ? { ...item, notes } : item
+        getItemKey(item) === key ? { ...item, notes } : item
       )
     );
   };
@@ -295,13 +331,60 @@ export default function NewOrderPage() {
         </Button>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {/* Product Selection */}
+          {/* Product & Menu Selection */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Menu Selection */}
+            {menusData?.data && menusData.data.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Menus</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {menusData.data.map((menu) => {
+                      const inCart = orderItems.find((item) => item.menuId === menu.id);
+                      return (
+                        <button
+                          key={menu.id}
+                          type="button"
+                          onClick={() => addMenuToOrder(menu)}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                            inCart && "border-primary bg-primary/5"
+                          )}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate flex items-center gap-2">
+                              {menu.name}
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                Menu
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {menu.price
+                                ? formatCurrency(menu.price)
+                                : "Prix variable"}
+                            </div>
+                          </div>
+                          {inCart && (
+                            <Badge variant="default" className="ml-2 shrink-0">
+                              {inCart.quantity}
+                            </Badge>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Product Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="h-5 w-5" />
-                  Sélectionner des produits
+                  Produits
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -338,24 +421,41 @@ export default function NewOrderPage() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       {productsData?.data.map((product) => {
                         const inCart = orderItems.find(
-                          (item) => item.productId === product.id
+                          (item) => item.productId === product.id && !item.menuId
                         );
+                        const cartQty = inCart?.quantity ?? 0;
+                        const hasStock = product.stock !== null;
+                        const remaining = hasStock ? product.stock! - cartQty : null;
+                        const isOutOfStock = remaining !== null && remaining <= 0 && !inCart;
                         return (
                           <button
                             key={product.id}
                             type="button"
                             onClick={() => addProductToOrder(product)}
+                            disabled={isOutOfStock}
                             className={cn(
                               "flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
-                              inCart && "border-primary bg-primary/5"
+                              inCart && "border-primary bg-primary/5",
+                              isOutOfStock && "opacity-50 cursor-not-allowed hover:bg-transparent"
                             )}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">
                                 {product.name}
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatCurrency(product.price)}
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>{formatCurrency(product.price)}</span>
+                                {hasStock && (
+                                  <span className={cn(
+                                    "text-xs",
+                                    remaining !== null && remaining <= 0 && "text-destructive font-medium",
+                                    remaining !== null && remaining > 0 && remaining <= 3 && "text-amber-600 font-medium",
+                                  )}>
+                                    {remaining !== null && remaining <= 0
+                                      ? "Rupture"
+                                      : `Stock: ${remaining}`}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {inCart && (
@@ -744,74 +844,76 @@ export default function NewOrderPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                      {orderItems.map((item) => (
-                        <div
-                          key={item.productId}
-                          className="rounded-lg border p-3 space-y-2"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">
-                                {item.productName}
+                      {orderItems.map((item) => {
+                        const key = getItemKey(item);
+                        return (
+                          <div
+                            key={key}
+                            className="rounded-lg border p-3 space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate flex items-center gap-2">
+                                  {item.productName}
+                                  {item.menuId && (
+                                    <Badge variant="outline" className="text-xs shrink-0">
+                                      Menu
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {formatCurrency(item.unitPrice)} x {item.quantity}
+                                </div>
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {formatCurrency(item.unitPrice)} x {item.quantity}
+                              <div className="text-right font-medium">
+                                {formatCurrency(
+                                  parseFloat(item.unitPrice) * item.quantity
+                                )}
                               </div>
                             </div>
-                            <div className="text-right font-medium">
-                              {formatCurrency(
-                                parseFloat(item.unitPrice) * item.quantity
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateItemQuantity(key, -1)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center text-sm font-medium">
+                                  {item.quantity}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateItemQuantity(key, 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
-                                onClick={() =>
-                                  updateItemQuantity(item.productId, -1)
-                                }
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => removeItem(key)}
                               >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <span className="w-8 text-center text-sm font-medium">
-                                {item.quantity}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() =>
-                                  updateItemQuantity(item.productId, 1)
-                                }
-                              >
-                                <Plus className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => removeItem(item.productId)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <Input
+                              placeholder={item.menuId ? "Notes pour ce menu..." : "Notes pour ce produit..."}
+                              value={item.notes || ""}
+                              onChange={(e) => updateItemNotes(key, e.target.value)}
+                              className="h-8 text-sm"
+                            />
                           </div>
-                          <Input
-                            placeholder="Notes pour ce produit..."
-                            value={item.notes || ""}
-                            onChange={(e) =>
-                              updateItemNotes(item.productId, e.target.value)
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Selected client in summary */}

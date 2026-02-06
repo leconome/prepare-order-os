@@ -65,9 +65,13 @@ export async function getMenuById(tenantId: string, id: string) {
     where: inArray(products.id, productIds),
   });
 
-  const sortedProducts = productIds
-    .map((pid) => menuProductsList.find((p) => p.id === pid))
-    .filter(Boolean);
+  const sortedProducts = menuProductEntries
+    .map((mp) => {
+      const product = menuProductsList.find((p) => p.id === mp.productId);
+      if (!product) return null;
+      return { product, quantity: mp.quantity };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   return { ...menu, products: sortedProducts };
 }
@@ -78,17 +82,19 @@ export async function createMenu(tenantId: string, data: CreateMenu) {
     .values({
       name: data.name,
       description: data.description ?? null,
+      price: data.price ?? null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
       tenantId,
     })
     .returning();
 
-  if (data.productIds && data.productIds.length > 0) {
+  if (data.products && data.products.length > 0) {
     await db.insert(menuProducts).values(
-      data.productIds.map((productId, index) => ({
+      data.products.map((p, index) => ({
         menuId: menu.id,
-        productId,
+        productId: p.productId,
+        quantity: p.quantity,
         sortOrder: index,
       })),
     );
@@ -104,6 +110,7 @@ export async function updateMenu(tenantId: string, id: string, data: UpdateMenu)
 
   if (data.name !== undefined) updateData.name = data.name;
   if (data.description !== undefined) updateData.description = data.description;
+  if (data.price !== undefined) updateData.price = data.price;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
@@ -112,14 +119,15 @@ export async function updateMenu(tenantId: string, id: string, data: UpdateMenu)
     .set(updateData)
     .where(and(eq(menus.id, id), eq(menus.tenantId, tenantId)));
 
-  if (data.productIds !== undefined) {
+  if (data.products !== undefined) {
     await db.delete(menuProducts).where(eq(menuProducts.menuId, id));
 
-    if (data.productIds.length > 0) {
+    if (data.products.length > 0) {
       await db.insert(menuProducts).values(
-        data.productIds.map((productId, index) => ({
+        data.products.map((p, index) => ({
           menuId: id,
-          productId,
+          productId: p.productId,
+          quantity: p.quantity,
           sortOrder: index,
         })),
       );

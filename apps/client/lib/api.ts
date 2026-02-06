@@ -14,6 +14,8 @@ import type {
   MenuWithProducts,
   Order,
   OrderFilters,
+  OrderItemWithMenuItems,
+  OrderMenuItem,
   OrderWithItems,
   Product,
   ProductFilters,
@@ -143,6 +145,20 @@ export async function toggleOrderItemPrepared(
 ): Promise<OrderWithItems> {
   return fetchApi<OrderWithItems>(
     `/orders/${orderId}/items/${itemId}/prepared`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isPrepared }),
+    },
+  );
+}
+
+export async function toggleMenuItemPrepared(
+  orderId: string,
+  menuItemId: string,
+  isPrepared: boolean,
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(
+    `/orders/${orderId}/menu-items/${menuItemId}/prepared`,
     {
       method: "PATCH",
       body: JSON.stringify({ isPrepared }),
@@ -443,6 +459,14 @@ export async function updateTenantSettings(
   });
 }
 
+// ============ ADMIN ============
+
+export async function fetchAllTenants(): Promise<{
+  data: Tenant[];
+}> {
+  return fetchApi<{ data: Tenant[] }>("/admin/tenants");
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -467,6 +491,8 @@ export function formatDate(date: string | Date): string {
 export type {
   Order,
   OrderWithItems,
+  OrderItemWithMenuItems,
+  OrderMenuItem,
   OrderFilters,
   CreateOrder,
   UpdateOrder,

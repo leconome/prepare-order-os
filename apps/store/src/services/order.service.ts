@@ -3,13 +3,17 @@ import { db } from "../db/index.js";
 import {
   orders,
   orderItems,
+  orderMenuItems,
   products,
+  menus,
+  menuProducts,
   type CreateOrder,
   type UpdateOrder,
   type UpdateOrderStatus,
   type OrderFilters,
 } from "@prepareos/data";
 import { generateTicketNumber } from "./ticket.service.js";
+import { getMenuById } from "./menu.service.js";
 
 export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
@@ -74,7 +78,11 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
       offset,
       orderBy: desc(orders.createdAt),
       with: {
-        items: true,
+        items: {
+          with: {
+            menuItems: true,
+          },
+        },
         client: {
           columns: {
             id: true,
@@ -117,7 +125,11 @@ export async function getOrderById(tenantId: string, id: string) {
   return db.query.orders.findFirst({
     where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
     with: {
-      items: true,
+      items: {
+        with: {
+          menuItems: true,
+        },
+      },
       client: {
         columns: {
           id: true,
@@ -146,7 +158,13 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
   const ticketNumber = await generateTicketNumber(tenantId);
 
   let subtotal = 0;
-  const itemsToInsert = data.items.map((item) => {
+
+  // Separate regular items and menu items
+  const regularItems = data.items.filter((item) => !item.menuId);
+  const menuItemRequests = data.items.filter((item) => item.menuId);
+
+  // Process regular items
+  const regularItemsToInsert = regularItems.map((item) => {
     const totalPrice = Number(item.unitPrice) * item.quantity;
     subtotal += totalPrice;
     return {
@@ -155,9 +173,45 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
+      isMenu: false,
       notes: item.notes ?? null,
     };
   });
+
+  // Process menu items — look up each menu to get its products
+  const menuItemsToInsert: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+    isMenu: boolean;
+    notes: string | null;
+    menuProducts: { productId: string; productName: string; quantity: number }[];
+  }[] = [];
+
+  for (const menuReq of menuItemRequests) {
+    const menu = await getMenuById(tenantId, menuReq.menuId!);
+    if (!menu) continue;
+
+    const menuPrice = Number(menuReq.unitPrice) * menuReq.quantity;
+    subtotal += menuPrice;
+
+    menuItemsToInsert.push({
+      productId: menuReq.productId,
+      productName: menuReq.productName,
+      quantity: menuReq.quantity,
+      unitPrice: menuReq.unitPrice,
+      totalPrice: menuPrice.toFixed(2),
+      isMenu: true,
+      notes: menuReq.notes ?? null,
+      menuProducts: menu.products.map((mp) => ({
+        productId: mp.product.id,
+        productName: mp.product.name,
+        quantity: mp.quantity * menuReq.quantity,
+      })),
+    });
+  }
 
   const taxRate = 0.2; // 20% VAT
   const taxTotal = subtotal * taxRate;
@@ -182,16 +236,17 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
     })
     .returning();
 
-  if (itemsToInsert.length > 0) {
+  // Insert regular items
+  if (regularItemsToInsert.length > 0) {
     await db.insert(orderItems).values(
-      itemsToInsert.map((item) => ({
+      regularItemsToInsert.map((item) => ({
         ...item,
         orderId: order.id,
       })),
     );
 
-    // Decrement stock for products that track inventory
-    for (const item of itemsToInsert) {
+    // Decrement stock for regular product items
+    for (const item of regularItemsToInsert) {
       await db
         .update(products)
         .set({
@@ -205,6 +260,43 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
             isNotNull(products.stock),
           ),
         );
+    }
+  }
+
+  // Insert menu items + their sub-items
+  for (const menuItem of menuItemsToInsert) {
+    const { menuProducts: menuProds, ...itemData } = menuItem;
+    const [insertedItem] = await db
+      .insert(orderItems)
+      .values({ ...itemData, orderId: order.id })
+      .returning();
+
+    if (menuProds.length > 0) {
+      await db.insert(orderMenuItems).values(
+        menuProds.map((mp) => ({
+          orderItemId: insertedItem.id,
+          productId: mp.productId,
+          productName: mp.productName,
+          quantity: mp.quantity,
+        })),
+      );
+
+      // Decrement stock for each product in the menu
+      for (const mp of menuProds) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${mp.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
     }
   }
 
@@ -288,26 +380,91 @@ export async function toggleItemPrepared(
   return getOrderById(tenantId, orderId);
 }
 
+export async function toggleMenuItemPrepared(
+  tenantId: string,
+  orderId: string,
+  menuItemId: string,
+  isPrepared: boolean,
+) {
+  // Verify order belongs to tenant
+  const order = await getOrderById(tenantId, orderId);
+  if (!order) return null;
+
+  // Update the menu item
+  const [updated] = await db
+    .update(orderMenuItems)
+    .set({ isPrepared })
+    .where(eq(orderMenuItems.id, menuItemId))
+    .returning();
+
+  if (!updated) return null;
+
+  // Check if all menu items for the parent order item are prepared
+  const parentItemId = updated.orderItemId;
+  const allMenuItems = await db.query.orderMenuItems.findMany({
+    where: eq(orderMenuItems.orderItemId, parentItemId),
+  });
+
+  const allPrepared = allMenuItems.every((mi) => mi.isPrepared);
+  await db
+    .update(orderItems)
+    .set({ isPrepared: allPrepared, updatedAt: new Date() })
+    .where(eq(orderItems.id, parentItemId));
+
+  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
+  if (isPrepared && order.preparationStatus === "pending") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  }
+
+  return getOrderById(tenantId, orderId);
+}
+
 export async function deleteOrder(tenantId: string, id: string) {
   // Restore stock before deleting order items (cascade will remove them)
   const items = await db.query.orderItems.findMany({
     where: eq(orderItems.orderId, id),
+    with: {
+      menuItems: true,
+    },
   });
 
   for (const item of items) {
-    await db
-      .update(products)
-      .set({
-        stock: sql`${products.stock} + ${item.quantity}`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(products.id, item.productId),
-          eq(products.tenantId, tenantId),
-          isNotNull(products.stock),
-        ),
-      );
+    if (item.isMenu && item.menuItems) {
+      // Restore stock for each product in the menu
+      for (const menuItem of item.menuItems) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} + ${menuItem.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, menuItem.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    } else {
+      // Regular item — restore stock directly
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
   }
 
   const [deleted] = await db

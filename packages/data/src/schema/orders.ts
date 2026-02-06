@@ -84,6 +84,7 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  isMenu: boolean("is_menu").notNull().default(false),
   isPrepared: boolean("is_prepared").notNull().default(false),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -92,6 +93,17 @@ export const orderItems = pgTable("order_items", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+export const orderMenuItems = pgTable("order_menu_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderItemId: uuid("order_item_id")
+    .notNull()
+    .references(() => orderItems.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull(),
+  productName: varchar("product_name", { length: 200 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  isPrepared: boolean("is_prepared").notNull().default(false),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -112,10 +124,18 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   items: many(orderItems),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
+  }),
+  menuItems: many(orderMenuItems),
+}));
+
+export const orderMenuItemsRelations = relations(orderMenuItems, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderMenuItems.orderItemId],
+    references: [orderItems.id],
   }),
 }));
 
@@ -124,6 +144,8 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
+export type OrderMenuItem = typeof orderMenuItems.$inferSelect;
+export type NewOrderMenuItem = typeof orderMenuItems.$inferInsert;
 
 // Zod schemas from drizzle-zod
 export const insertOrderSchema = createInsertSchema(orders);
@@ -153,6 +175,7 @@ export const createOrderItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.string(),
   notes: z.string().optional(),
+  menuId: z.string().uuid().optional(),
 });
 
 export const createOrderSchema = z.object({
@@ -202,8 +225,11 @@ export const orderFiltersSchema = z.object({
 export type ClientRef = Pick<Client, "id" | "name" | "phone" | "email">;
 
 // Types
+export type OrderItemWithMenuItems = OrderItem & {
+  menuItems?: OrderMenuItem[];
+};
 export type OrderWithItems = Order & {
-  items: OrderItem[];
+  items: OrderItemWithMenuItems[];
   client?: ClientRef | null;
   createdBy?: UserRef;
   assignedTo?: UserRef;
