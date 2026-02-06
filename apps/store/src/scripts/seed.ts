@@ -600,6 +600,429 @@ const SAMPLE_ORDERS = [
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
   },
+  // ---- Extra orders for pagination testing ----
+  {
+    items: [
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Commande régulière du mardi",
+  },
+  {
+    items: [
+      { productName: "Roquefort AOP", price: "26.90", quantity: 2 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Pour le restaurant - table 12",
+  },
+  {
+    items: [
+      { productName: "Époisses AOP", price: "14.50", quantity: 1 },
+      { productName: "Brie de Meaux AOP", price: "12.90", quantity: 2 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Retrait prévu vendredi matin",
+  },
+  {
+    items: [
+      { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
+      { productName: "Cantal Entre-Deux AOP", price: "14.90", quantity: 1 },
+      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Plateau pour soirée vin-fromage",
+  },
+  {
+    items: [
+      { productName: "Valençay AOP", price: "9.50", quantity: 2 },
+      { productName: "Rocamadour AOP", price: "3.90", quantity: 4 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Chèvres assortis pour apéro",
+  },
+  {
+    items: [
+      { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
+      { productName: "Tomme de Savoie IGP", price: "16.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Cadeau anniversaire",
+  },
+  {
+    items: [
+      { productName: "Cervelle de Canut", price: "5.90", quantity: 3 },
+      { productName: "Crackers aux graines", price: "3.90", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Entrée pour dîner lyonnais",
+  },
+  {
+    items: [
+      { productName: "Fourme d'Ambert AOP", price: "16.90", quantity: 1 },
+      { productName: "Bleu de Gex AOP", price: "19.50", quantity: 1 },
+      { productName: "Confiture de figues", price: "6.50", quantity: 2 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Dégustation de bleus",
+  },
+  {
+    items: [
+      { productName: "Reblochon de Savoie AOP", price: "9.80", quantity: 4 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Pour tartiflette de 8 personnes",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 36 mois", price: "38.50", quantity: 1 },
+      { productName: "Fruits secs assortis", price: "7.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Cadeau client VIP",
+  },
+  {
+    items: [
+      { productName: "Faisselle fermière", price: "4.50", quantity: 3 },
+      { productName: "Fontainebleau", price: "5.50", quantity: 3 },
+      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Desserts brunch du dimanche",
+  },
+  {
+    items: [
+      { productName: "Picodon AOP", price: "4.20", quantity: 6 },
+      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Chèvres pour salade composée",
+  },
+  {
+    items: [
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 3 },
+      { productName: "Brie de Meaux AOP", price: "12.90", quantity: 1 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Pâtes molles pour buffet",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 2 },
+      { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Commande mensuelle M. Laurent",
+  },
+  {
+    items: [
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 8 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Crottins chauds pour salade",
+  },
+  {
+    items: [
+      { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
+      { productName: "Bleu d'Auvergne AOP", price: "18.50", quantity: 1 },
+      { productName: "Fourme d'Ambert AOP", price: "16.90", quantity: 1 },
+      { productName: "Bleu de Gex AOP", price: "19.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Plateau tout-bleu pour anniversaire",
+  },
+  {
+    items: [
+      { productName: "Brousse du Rove", price: "6.90", quantity: 2 },
+      { productName: "Faisselle fermière", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Frais du jour",
+  },
+  {
+    items: [
+      { productName: "Mont d'Or AOP", price: "18.90", quantity: 2 },
+      { productName: "Reblochon de Savoie AOP", price: "9.80", quantity: 2 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Soirée raclette / fondue entre amis",
+  },
+  {
+    items: [
+      { productName: "Tomme de Savoie IGP", price: "16.50", quantity: 2 },
+      { productName: "Cantal Entre-Deux AOP", price: "14.90", quantity: 2 },
+      { productName: "Crackers aux graines", price: "3.90", quantity: 3 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Plateau montagne pour randonnée",
+  },
+  {
+    items: [
+      { productName: "Époisses AOP", price: "14.50", quantity: 2 },
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Croûtes lavées pour dégustation",
+  },
+  {
+    items: [
+      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 3 },
+      { productName: "Valençay AOP", price: "9.50", quantity: 2 },
+      { productName: "Picodon AOP", price: "4.20", quantity: 3 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Tour de Loire en fromages de chèvre",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+      { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
+      { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Plateau prestige 5 familles",
+  },
+  {
+    items: [
+      { productName: "Fontainebleau", price: "5.50", quantity: 4 },
+      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Desserts pour garden party",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 36 mois", price: "38.50", quantity: 2 },
+      { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
+      { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Sélection pâtes pressées haut de gamme",
+  },
+  {
+    items: [
+      { productName: "Rocamadour AOP", price: "3.90", quantity: 10 },
+      { productName: "Miel de montagne", price: "8.90", quantity: 2 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Rocamadour au miel pour cocktail",
+  },
+  {
+    items: [
+      { productName: "Brie de Meaux AOP", price: "12.90", quantity: 2 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 3 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Brie entier pour mariage",
+  },
+  {
+    items: [
+      { productName: "Cervelle de Canut", price: "5.90", quantity: 2 },
+      { productName: "Brousse du Rove", price: "6.90", quantity: 1 },
+      { productName: "Faisselle fermière", price: "4.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Fromages frais pour terrasse",
+  },
+  {
+    items: [
+      { productName: "Bleu d'Auvergne AOP", price: "18.50", quantity: 2 },
+      { productName: "Fourme d'Ambert AOP", price: "16.90", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Bleus d'Auvergne pour le restaurant",
+  },
+  {
+    items: [
+      { productName: "Cantal Entre-Deux AOP", price: "14.90", quantity: 3 },
+      { productName: "Tomme de Savoie IGP", price: "16.50", quantity: 1 },
+      { productName: "Fruits secs assortis", price: "7.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Panier cadeau entreprise",
+  },
+  {
+    items: [
+      { productName: "Époisses AOP", price: "14.50", quantity: 1 },
+      { productName: "Mont d'Or AOP", price: "18.90", quantity: 1 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Fromages forts pour amateur averti",
+  },
+  {
+    items: [
+      { productName: "Reblochon de Savoie AOP", price: "9.80", quantity: 6 },
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Tartiflette géante - fête des voisins",
+  },
+  {
+    items: [
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 3 },
+      { productName: "Rocamadour AOP", price: "3.90", quantity: 3 },
+      { productName: "Picodon AOP", price: "4.20", quantity: 3 },
+      { productName: "Crackers aux graines", price: "3.90", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Mini chèvres variés pour buffet",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+      { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Les classiques de la semaine",
+  },
+  {
+    items: [
+      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 1 },
+      { productName: "Valençay AOP", price: "9.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Loire duo",
+  },
+  {
+    items: [
+      { productName: "Beaufort d'été AOP", price: "32.00", quantity: 2 },
+      { productName: "Comté AOP 36 mois", price: "38.50", quantity: 1 },
+      { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
+      { productName: "Fruits secs assortis", price: "7.50", quantity: 3 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Grosse commande traiteur - 50 couverts",
+  },
+  {
+    items: [
+      { productName: "Fontainebleau", price: "5.50", quantity: 2 },
+      { productName: "Brousse du Rove", price: "6.90", quantity: 2 },
+      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Frais et léger pour l'été",
+  },
+  {
+    items: [
+      { productName: "Brie de Meaux AOP", price: "12.90", quantity: 1 },
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
+      { productName: "Reblochon de Savoie AOP", price: "9.80", quantity: 1 },
+      { productName: "Époisses AOP", price: "14.50", quantity: 1 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Sélection pâtes molles complète",
+  },
+  {
+    items: [
+      { productName: "Bleu de Gex AOP", price: "19.50", quantity: 2 },
+      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Bleu du Jura et accompagnements",
+  },
+  {
+    items: [
+      { productName: "Cervelle de Canut", price: "5.90", quantity: 4 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Spécialité Lyon pour bouchon",
+  },
+  {
+    items: [
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 3 },
+      { productName: "Tomme de Savoie IGP", price: "16.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Réassort cave à fromages",
+  },
+  {
+    items: [
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 6 },
+      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "picked_up" as const,
+    clientNote: "Crottins mi-secs au miel",
+  },
+  {
+    items: [
+      { productName: "Mont d'Or AOP", price: "18.90", quantity: 3 },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Mont d'Or au four pour groupe",
+  },
+  {
+    items: [
+      { productName: "Picodon AOP", price: "4.20", quantity: 5 },
+      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 1 },
+      { productName: "Valençay AOP", price: "9.50", quantity: 1 },
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Grand plateau chèvre pour 12 personnes",
+  },
+  {
+    items: [
+      { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+      { productName: "Brie de Meaux AOP", price: "12.90", quantity: 1 },
+      { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 2 },
+      { productName: "Crackers aux graines", price: "3.90", quantity: 1 },
+      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Plateau complet 5 familles + accompagnements",
+  },
 ];
 
 // ============ SEED FUNCTIONS ============
