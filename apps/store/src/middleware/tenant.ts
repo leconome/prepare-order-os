@@ -8,21 +8,29 @@ export type TenantVariables = {
   tenantId: string;
 };
 
+const baseDomain = process.env.BASE_DOMAIN; // e.g. "up.railway.app" or "localhost"
+const baseParts = baseDomain ? baseDomain.split(".").length : 0;
+
 export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
-  // 1. Try subdomain extraction from Host header
-  const host = c.req.header("host") ?? "";
-  const hostname = host.split(":")[0]; // strip port
-  const parts = hostname.split(".");
   let slug: string | undefined;
 
-  if (parts.length >= 3) {
-    // e.g. fromagerie.prepareos.com → slug = "fromagerie"
-    slug = parts[0];
-  }
-
-  // 2. Fallback to DEV_TENANT_SLUG for local development
-  if (!slug) {
+  // In dev stage, use DEV_TENANT_SLUG directly (local + deployed dev)
+  if (process.env.STAGE === "dev" && process.env.DEV_TENANT_SLUG) {
     slug = process.env.DEV_TENANT_SLUG;
+  } else {
+    // Production: extract subdomain from Host header
+    const host = c.req.header("host") ?? "";
+    const hostname = host.split(":")[0]; // strip port
+    const parts = hostname.split(".");
+
+    // If BASE_DOMAIN is set, extract slug when hostname has more parts than the base
+    // e.g. "fromagerie.up.railway.app" (4 parts) vs "up.railway.app" (3 parts)
+    if (baseParts > 0 && parts.length > baseParts) {
+      slug = parts[0];
+    } else if (parts.length >= 3) {
+      // Standard subdomain (e.g. fromagerie.prepareos.com)
+      slug = parts[0];
+    }
   }
 
   if (!slug) {
