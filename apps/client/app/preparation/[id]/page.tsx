@@ -5,27 +5,41 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
-  CreditCard,
   Undo2,
   UserRound,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchOrder,
+  fetchStaff,
   formatCurrency,
+  toggleMenuItemPrepared,
   toggleOrderItemPrepared,
+  updateOrder,
   updateOrderStatus,
+  type OrderMenuItem,
   type OrderWithItems,
   type UpdateOrderStatus,
 } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 // ============ CONSTANTS ============
 
@@ -36,7 +50,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   refunded: "Remboursé",
 };
 
-// ============ ITEM CARD ============
+// ============ REGULAR ITEM CARD ============
 
 function ItemCard({
   item,
@@ -115,13 +129,182 @@ function ItemCard({
   );
 }
 
+// ============ MENU SUB-ITEM ============
+
+function MenuSubItem({
+  menuItem,
+  orderId,
+}: {
+  menuItem: OrderMenuItem;
+  orderId: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      toggleMenuItemPrepared(orderId, menuItem.id, !menuItem.isPrepared),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["order", orderId] });
+      const previous = queryClient.getQueryData<OrderWithItems>(["order", orderId]);
+
+      queryClient.setQueryData<OrderWithItems>(["order", orderId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((item) => ({
+            ...item,
+            menuItems: item.menuItems?.map((mi) =>
+              mi.id === menuItem.id
+                ? { ...mi, isPrepared: !menuItem.isPrepared }
+                : mi,
+            ),
+          })),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["order", orderId], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
+    },
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      className={`w-full text-left rounded-md border p-2 transition-all text-sm ${
+        menuItem.isPrepared
+          ? "bg-green-50 border-green-200 hover:bg-green-100"
+          : "bg-card hover:bg-accent/50"
+      } ${mutation.isPending ? "opacity-60" : ""}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-semibold shrink-0">{menuItem.quantity}x</span>
+          <span className="truncate">{menuItem.productName}</span>
+        </div>
+        {menuItem.isPrepared && (
+          <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0 ml-2" />
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ============ MENU ITEM CARD ============
+
+function MenuItemCard({
+  item,
+  orderId,
+}: {
+  item: OrderWithItems["items"][number];
+  orderId: string;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const menuItems = item.menuItems ?? [];
+  const preparedCount = menuItems.filter((mi) => mi.isPrepared).length;
+  const totalCount = menuItems.length;
+  const allPrepared = totalCount > 0 && preparedCount === totalCount;
+
+  return (
+    <div
+      className={`rounded-lg border transition-all ${
+        allPrepared ? "bg-green-50 border-green-200" : "bg-card"
+      }`}
+    >
+      {/* Menu header */}
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full text-left p-3 flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          )}
+          <span className="text-sm font-semibold shrink-0">
+            {item.quantity}x
+          </span>
+          <span className="text-sm font-medium truncate">
+            {item.productName}
+          </span>
+          <Badge variant="outline" className="text-xs shrink-0">
+            Menu
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <span className="text-xs text-muted-foreground">
+            {preparedCount}/{totalCount}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatCurrency(item.totalPrice)}
+          </span>
+          {allPrepared && (
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          )}
+        </div>
+      </button>
+
+      {/* Expanded sub-items */}
+      {expanded && menuItems.length > 0 && (
+        <div className="px-3 pb-3 space-y-1.5 border-t pt-2">
+          {menuItems.map((mi) => (
+            <MenuSubItem key={mi.id} menuItem={mi} orderId={orderId} />
+          ))}
+        </div>
+      )}
+
+      {item.notes && (
+        <p className="text-xs text-muted-foreground px-3 pb-2 italic">
+          {item.notes}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ============ PROGRESS HELPERS ============
+
+function computeProgress(items: OrderWithItems["items"]) {
+  let totalUnits = 0;
+  let preparedUnits = 0;
+
+  for (const item of items) {
+    if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
+      // Menu: count each sub-item individually
+      for (const mi of item.menuItems) {
+        totalUnits += mi.quantity;
+        if (mi.isPrepared) preparedUnits += mi.quantity;
+      }
+    } else {
+      // Regular item
+      totalUnits += 1;
+      if (item.isPrepared) preparedUnits += 1;
+    }
+  }
+
+  return { totalUnits, preparedUnits };
+}
+
 // ============ MAIN PAGE ============
 
 export default function PreparationDetailPage() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const orderId = params.id as string;
+  const isOwner = user?.role === "owner" || user?.role === "admin";
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -129,8 +312,23 @@ export default function PreparationDetailPage() {
     refetchInterval: 15000,
   });
 
+  const { data: staffData } = useQuery({
+    queryKey: ["staff"],
+    queryFn: () => fetchStaff({ limit: 100 }),
+    enabled: isOwner,
+  });
+
   const statusMutation = useMutation({
     mutationFn: (data: UpdateOrderStatus) => updateOrderStatus(orderId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
+    },
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (assignedToId: string | null) =>
+      updateOrder(orderId, { assignedToId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
@@ -174,8 +372,9 @@ export default function PreparationDetailPage() {
   const items = order.items ?? [];
   const toPrepare = items.filter((i) => !i.isPrepared);
   const prepared = items.filter((i) => i.isPrepared);
-  const progressPercent = items.length > 0 ? (prepared.length / items.length) * 100 : 0;
-  const allPrepared = items.length > 0 && prepared.length === items.length;
+  const { totalUnits, preparedUnits } = computeProgress(items);
+  const progressPercent = totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
+  const allPrepared = totalUnits > 0 && preparedUnits === totalUnits;
 
   const pickupTime =
     order.pickupTimeStart && order.pickupTimeEnd
@@ -247,6 +446,32 @@ export default function PreparationDetailPage() {
                 {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
               </span>
             </label>
+
+            {/* Assigned to — owner only */}
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                <UserRound className="h-4 w-4 text-muted-foreground" />
+                <Select
+                  value={order.assignedToId ?? "unassigned"}
+                  onValueChange={(value) =>
+                    assignMutation.mutate(value === "unassigned" ? null : value)
+                  }
+                  disabled={assignMutation.isPending}
+                >
+                  <SelectTrigger className="h-8 w-[180px] text-sm">
+                    <SelectValue placeholder="Assigner à..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Non assigné</SelectItem>
+                    {staffData?.data?.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name || member.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           {/* Progress bar */}
@@ -254,7 +479,7 @@ export default function PreparationDetailPage() {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progression</span>
               <span className="font-medium">
-                {prepared.length} / {items.length} articles préparés
+                {preparedUnits} / {totalUnits} éléments préparés
               </span>
             </div>
             <Progress value={progressPercent} className="h-3" />
@@ -285,25 +510,24 @@ export default function PreparationDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 pb-1">
               <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="text-sm font-medium">À préparer</span>
+              <span className="text-sm font-medium">A preparer</span>
               <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                 {toPrepare.length}
               </Badge>
             </div>
-            <div className="space-y-2 min-h-[100px]">
+            <div className="space-y-2 min-h-25">
               {toPrepare.length === 0 ? (
                 <div className="flex items-center justify-center h-24 rounded-lg border border-dashed text-xs text-muted-foreground">
-                  Tous les articles sont préparés
+                  Tous les articles sont prepares
                 </div>
               ) : (
-                toPrepare.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    orderId={orderId}
-                    isPreparedSide={false}
-                  />
-                ))
+                toPrepare.map((item) =>
+                  item.isMenu ? (
+                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                  ) : (
+                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={false} />
+                  ),
+                )
               )}
             </div>
           </div>
@@ -312,25 +536,24 @@ export default function PreparationDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 pb-1">
               <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">Préparé</span>
+              <span className="text-sm font-medium">Prepare</span>
               <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                 {prepared.length}
               </Badge>
             </div>
-            <div className="space-y-2 min-h-[100px]">
+            <div className="space-y-2 min-h-25">
               {prepared.length === 0 ? (
                 <div className="flex items-center justify-center h-24 rounded-lg border border-dashed text-xs text-muted-foreground">
-                  Aucun article préparé
+                  Aucun article prepare
                 </div>
               ) : (
-                prepared.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    orderId={orderId}
-                    isPreparedSide={true}
-                  />
-                ))
+                prepared.map((item) =>
+                  item.isMenu ? (
+                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                  ) : (
+                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={true} />
+                  ),
+                )
               )}
             </div>
           </div>
