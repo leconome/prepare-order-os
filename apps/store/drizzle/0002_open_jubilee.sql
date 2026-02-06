@@ -7,8 +7,6 @@ CREATE TABLE "tenants" (
 	CONSTRAINT "tenants_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
-ALTER TABLE "ticket_counters" DROP CONSTRAINT "ticket_counters_date_key_pk";--> statement-breakpoint
-ALTER TABLE "ticket_counters" ADD CONSTRAINT "ticket_counters_tenant_id_date_key_pk" PRIMARY KEY("tenant_id","date_key");--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "categories" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "products" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
@@ -16,6 +14,8 @@ ALTER TABLE "menus" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoin
 ALTER TABLE "orders" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "clients" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
 ALTER TABLE "ticket_counters" ADD COLUMN "tenant_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "ticket_counters" DROP CONSTRAINT "ticket_counters_date_key_pk";--> statement-breakpoint
+ALTER TABLE "ticket_counters" ADD CONSTRAINT "ticket_counters_tenant_id_date_key_pk" PRIMARY KEY("tenant_id","date_key");--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "categories" ADD CONSTRAINT "categories_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "products" ADD CONSTRAINT "products_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
