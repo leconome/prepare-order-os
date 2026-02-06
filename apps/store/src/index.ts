@@ -10,6 +10,7 @@ import health from "./routes/health.js";
 import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
 import products from "./routes/products.js";
+import tenantsRoutes from "./routes/tenants.js";
 import usersRoutes from "./routes/users.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 
@@ -61,6 +62,7 @@ app.route("/api/categories", categories);
 app.route("/api/menus", menus);
 app.route("/api/users", usersRoutes);
 app.route("/api/clients", clientsRoutes);
+app.route("/api/tenants", tenantsRoutes);
 
 // Root route
 app.get("/", (c) => {

@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import {
   checkUserExists,
   fetchLoginStaff,
+  fetchTenantSettings,
   type LoginStaffMember,
   signUpDevUser,
 } from "@/lib/api";
@@ -400,6 +401,11 @@ export default function LoginPage() {
     queryFn: fetchLoginStaff,
   });
 
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
   const pinMutation = useMutation({
     mutationFn: ({ userId, pin }: { userId: string; pin: string }) =>
       loginWithPin(userId, pin),
@@ -440,7 +446,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Caisse</CardTitle>
+          <CardTitle className="text-2xl">{tenant?.name ?? "Caisse"}</CardTitle>
           <CardDescription>
             {mode === "staff"
               ? selectedStaff

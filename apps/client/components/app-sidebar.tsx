@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   ChefHat,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+import { fetchTenantSettings } from "@/lib/api";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -107,6 +109,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter();
   const { user, logout } = useAuth();
 
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
+  const shopName = tenant?.name ?? "PrepareOS";
+
   const handleLogout = async () => {
     await logout();
     router.push("/login");
@@ -124,7 +133,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Store className="h-4 w-4" />
           </div>
           <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
-            Fromagerie
+            {shopName}
           </span>
         </div>
       </SidebarHeader>

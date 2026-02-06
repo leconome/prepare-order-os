@@ -3,8 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,10 +177,14 @@ function OrdersTableSkeleton() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function OrdersPage() {
+  const [page, setPage] = useState(1);
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => fetchOrders({ limit: 50 }),
+    queryKey: ["orders", page],
+    queryFn: () => fetchOrders({ page, limit: PAGE_SIZE }),
   });
 
   return (
@@ -236,7 +242,15 @@ export default function OrdersPage() {
                 </Button>
               </div>
             ) : (
-              <OrdersTable orders={data?.data ?? []} />
+              <>
+                <OrdersTable orders={data?.data ?? []} />
+                <TablePagination
+                  page={data?.pagination.page ?? 1}
+                  totalPages={data?.pagination.totalPages ?? 1}
+                  total={data?.pagination.total ?? 0}
+                  onPageChange={setPage}
+                />
+              </>
             )}
           </CardContent>
         </Card>

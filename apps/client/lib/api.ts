@@ -18,6 +18,7 @@ import type {
   Product,
   ProductFilters,
   StaffFilters,
+  Tenant,
   UpdateCategory,
   UpdateClient,
   UpdateMenu,
@@ -25,6 +26,7 @@ import type {
   UpdateOrderStatus,
   UpdateProduct,
   UpdateStaff,
+  UpdateTenantSettings,
   User,
 } from "@prepareos/data";
 
@@ -412,6 +414,21 @@ export async function signUpDevUser(data: {
   });
 }
 
+// ============ TENANTS ============
+
+export async function fetchTenantSettings(): Promise<Tenant> {
+  return fetchApi<Tenant>("/tenants");
+}
+
+export async function updateTenantSettings(
+  data: UpdateTenantSettings,
+): Promise<Tenant> {
+  return fetchApi<Tenant>("/tenants/settings", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -461,4 +478,6 @@ export type {
   CreateClient,
   UpdateClient,
   ClientFilters,
+  Tenant,
+  UpdateTenantSettings,
 };

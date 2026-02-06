@@ -24,6 +24,7 @@ export const products = pgTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     categoryId: uuid("category_id").references(() => categories.id),
     imageUrl: text("image_url"),
+    stock: integer("stock"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     tenantId: uuid("tenant_id")
@@ -61,6 +62,7 @@ export const createProductSchema = z.object({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().optional(),
+  stock: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -74,6 +76,7 @@ export const updateProductSchema = z.object({
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
+  stock: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });

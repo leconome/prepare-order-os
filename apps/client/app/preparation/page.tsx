@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchOrders,
+  fetchTenantSettings,
   formatCurrency,
   type OrderWithItems,
   type UpdateOrderStatus,
@@ -226,14 +227,25 @@ function OrderCard({
 export default function PreparationPage() {
   const queryClient = useQueryClient();
 
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
+  const filterDays = tenant?.preparationFilterDays ?? 0;
+
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["preparation-orders"],
-    queryFn: () =>
-      fetchOrders({
-        limit: 100,
-        fromDate: new Date(new Date().setHours(0, 0, 0, 0)),
+    queryKey: ["preparation-orders", filterDays],
+    queryFn: () => {
+      const fromDate = new Date();
+      fromDate.setDate(fromDate.getDate() - filterDays);
+      fromDate.setHours(0, 0, 0, 0);
+      return fetchOrders({
+        limit: 200,
+        fromDate,
         toDate: new Date(new Date().setHours(23, 59, 59, 999)),
-      }),
+      });
+    },
     refetchInterval: 30000,
   });
 

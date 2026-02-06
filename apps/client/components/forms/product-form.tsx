@@ -59,6 +59,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
+      stock: initialData?.stock ?? undefined,
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -73,6 +74,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
+        stock: initialData.stock ?? undefined,
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -157,7 +159,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="price"
@@ -166,6 +168,29 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     <FormLabel>Prix (€)</FormLabel>
                     <FormControl>
                       <Input placeholder="10.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="stock"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Stock</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="Non suivi"
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === "" ? null : Number(val));
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

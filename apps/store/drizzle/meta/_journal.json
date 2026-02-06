@@ -22,6 +22,13 @@
       "when": 1770338238041,
       "tag": "0002_open_jubilee",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770375306579,
+      "tag": "0003_living_jocasta",
+      "breakpoints": true
     }
   ]
 }

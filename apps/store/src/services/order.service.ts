@@ -1,8 +1,9 @@
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, isNotNull } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   orders,
   orderItems,
+  products,
   type CreateOrder,
   type UpdateOrder,
   type UpdateOrderStatus,
@@ -188,6 +189,23 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
         orderId: order.id,
       })),
     );
+
+    // Decrement stock for products that track inventory
+    for (const item of itemsToInsert) {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
   }
 
   return getOrderById(tenantId, order.id);
@@ -241,6 +259,27 @@ export async function updateOrderStatus(tenantId: string, id: string, data: Upda
 }
 
 export async function deleteOrder(tenantId: string, id: string) {
+  // Restore stock before deleting order items (cascade will remove them)
+  const items = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, id),
+  });
+
+  for (const item of items) {
+    await db
+      .update(products)
+      .set({
+        stock: sql`${products.stock} + ${item.quantity}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(products.id, item.productId),
+          eq(products.tenantId, tenantId),
+          isNotNull(products.stock),
+        ),
+      );
+  }
+
   const [deleted] = await db
     .delete(orders)
     .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)))
