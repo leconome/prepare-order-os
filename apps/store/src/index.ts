@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
 import categories from "./routes/categories.js";
 import clientsRoutes from "./routes/clients.js";
@@ -50,6 +51,9 @@ app.use(
 
 // Health route — no tenant middleware needed
 app.route("/api/health", health);
+
+// Admin routes — no tenant middleware (cross-tenant)
+app.route("/api/admin", adminRoutes);
 
 // Tenant middleware — all routes below are tenant-scoped
 app.use("/api/*", tenantMiddleware);
