@@ -1,7 +1,7 @@
-import type { MiddlewareHandler } from "hono";
+import { type Tenant, tenants } from "@prepareos/data";
 import { eq } from "drizzle-orm";
+import type { MiddlewareHandler } from "hono";
 import { db } from "../db/index.js";
-import { tenants, type Tenant } from "@prepareos/data";
 
 export type TenantVariables = {
   tenant: Tenant;
@@ -35,7 +35,10 @@ export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
 
   if (!slug) {
     return c.json(
-      { error: "Unable to determine tenant. Set DEV_TENANT_SLUG for local development." },
+      {
+        error:
+          "Unable to determine tenant. Set DEV_TENANT_SLUG for local development.",
+      },
       400,
     );
   }
@@ -44,6 +47,10 @@ export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
   const tenant = await db.query.tenants.findFirst({
     where: eq(tenants.slug, slug),
   });
+
+  console.log(
+    `Tenant middleware: slug=${slug}, tenant=${tenant ? tenant.name : "not found"}`,
+  );
 
   if (!tenant) {
     return c.json({ error: `Tenant not found: ${slug}` }, 404);
