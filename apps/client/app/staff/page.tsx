@@ -202,7 +202,6 @@ function CreateStaffDialog() {
                     <SelectContent>
                       <SelectItem value="staff">Employé</SelectItem>
                       <SelectItem value="owner">Propriétaire</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -382,7 +381,6 @@ function EditStaffDialog({
                     <SelectContent>
                       <SelectItem value="staff">Employé</SelectItem>
                       <SelectItem value="owner">Propriétaire</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
