@@ -162,6 +162,7 @@ const PRODUCTS: Array<{
   price: string;
   categoryIndex: number;
   sortOrder: number;
+  stock: number | null;
 }> = [
   // Pâte molle (index 0)
   {
@@ -171,6 +172,7 @@ const PRODUCTS: Array<{
     price: "8.50",
     categoryIndex: 0,
     sortOrder: 1,
+    stock: 12,
   },
   {
     name: "Brie de Meaux AOP",
@@ -179,6 +181,7 @@ const PRODUCTS: Array<{
     price: "12.90",
     categoryIndex: 0,
     sortOrder: 2,
+    stock: 5,
   },
   {
     name: "Époisses AOP",
@@ -187,6 +190,7 @@ const PRODUCTS: Array<{
     price: "14.50",
     categoryIndex: 0,
     sortOrder: 3,
+    stock: 3,
   },
   {
     name: "Mont d'Or AOP",
@@ -195,6 +199,7 @@ const PRODUCTS: Array<{
     price: "18.90",
     categoryIndex: 0,
     sortOrder: 4,
+    stock: 0,
   },
   {
     name: "Reblochon de Savoie AOP",
@@ -203,6 +208,7 @@ const PRODUCTS: Array<{
     price: "9.80",
     categoryIndex: 0,
     sortOrder: 5,
+    stock: 8,
   },
 
   // Pâte pressée (index 1)
@@ -213,6 +219,7 @@ const PRODUCTS: Array<{
     price: "24.90",
     categoryIndex: 1,
     sortOrder: 1,
+    stock: 15,
   },
   {
     name: "Comté AOP 36 mois",
@@ -221,6 +228,7 @@ const PRODUCTS: Array<{
     price: "38.50",
     categoryIndex: 1,
     sortOrder: 2,
+    stock: 2,
   },
   {
     name: "Beaufort d'été AOP",
@@ -229,6 +237,7 @@ const PRODUCTS: Array<{
     price: "32.00",
     categoryIndex: 1,
     sortOrder: 3,
+    stock: 4,
   },
   {
     name: "Tomme de Savoie IGP",
@@ -237,6 +246,7 @@ const PRODUCTS: Array<{
     price: "16.50",
     categoryIndex: 1,
     sortOrder: 4,
+    stock: 10,
   },
   {
     name: "Cantal Entre-Deux AOP",
@@ -245,6 +255,7 @@ const PRODUCTS: Array<{
     price: "14.90",
     categoryIndex: 1,
     sortOrder: 5,
+    stock: 7,
   },
   {
     name: "Ossau-Iraty AOP",
@@ -253,6 +264,7 @@ const PRODUCTS: Array<{
     price: "22.50",
     categoryIndex: 1,
     sortOrder: 6,
+    stock: 6,
   },
 
   // Pâte persillée (index 2)
@@ -263,6 +275,7 @@ const PRODUCTS: Array<{
     price: "26.90",
     categoryIndex: 2,
     sortOrder: 1,
+    stock: 9,
   },
   {
     name: "Bleu d'Auvergne AOP",
@@ -270,6 +283,7 @@ const PRODUCTS: Array<{
     price: "18.50",
     categoryIndex: 2,
     sortOrder: 2,
+    stock: 0,
   },
   {
     name: "Fourme d'Ambert AOP",
@@ -278,6 +292,7 @@ const PRODUCTS: Array<{
     price: "16.90",
     categoryIndex: 2,
     sortOrder: 3,
+    stock: 4,
   },
   {
     name: "Bleu de Gex AOP",
@@ -285,6 +300,7 @@ const PRODUCTS: Array<{
     price: "19.50",
     categoryIndex: 2,
     sortOrder: 4,
+    stock: 1,
   },
 
   // Chèvre (index 3)
@@ -294,6 +310,7 @@ const PRODUCTS: Array<{
     price: "4.50",
     categoryIndex: 3,
     sortOrder: 1,
+    stock: 20,
   },
   {
     name: "Sainte-Maure de Touraine AOP",
@@ -302,6 +319,7 @@ const PRODUCTS: Array<{
     price: "8.90",
     categoryIndex: 3,
     sortOrder: 2,
+    stock: 8,
   },
   {
     name: "Valençay AOP",
@@ -310,6 +328,7 @@ const PRODUCTS: Array<{
     price: "9.50",
     categoryIndex: 3,
     sortOrder: 3,
+    stock: 5,
   },
   {
     name: "Rocamadour AOP",
@@ -317,6 +336,7 @@ const PRODUCTS: Array<{
     price: "3.90",
     categoryIndex: 3,
     sortOrder: 4,
+    stock: 15,
   },
   {
     name: "Picodon AOP",
@@ -324,6 +344,7 @@ const PRODUCTS: Array<{
     price: "4.20",
     categoryIndex: 3,
     sortOrder: 5,
+    stock: 10,
   },
 
   // Fromages frais (index 4)
@@ -334,6 +355,7 @@ const PRODUCTS: Array<{
     price: "4.50",
     categoryIndex: 4,
     sortOrder: 1,
+    stock: 6,
   },
   {
     name: "Brousse du Rove",
@@ -341,6 +363,7 @@ const PRODUCTS: Array<{
     price: "6.90",
     categoryIndex: 4,
     sortOrder: 2,
+    stock: 3,
   },
   {
     name: "Fontainebleau",
@@ -349,6 +372,7 @@ const PRODUCTS: Array<{
     price: "5.50",
     categoryIndex: 4,
     sortOrder: 3,
+    stock: 8,
   },
   {
     name: "Cervelle de Canut",
@@ -356,15 +380,17 @@ const PRODUCTS: Array<{
     price: "5.90",
     categoryIndex: 4,
     sortOrder: 4,
+    stock: 4,
   },
 
-  // Accompagnements (index 5)
+  // Accompagnements (index 5) — stock not tracked for these
   {
     name: "Pain aux noix artisanal",
     description: "Pain rustique aux noix, parfait avec les fromages.",
     price: "4.50",
     categoryIndex: 5,
     sortOrder: 1,
+    stock: null,
   },
   {
     name: "Crackers aux graines",
@@ -372,6 +398,7 @@ const PRODUCTS: Array<{
     price: "3.90",
     categoryIndex: 5,
     sortOrder: 2,
+    stock: null,
   },
   {
     name: "Confiture de figues",
@@ -379,6 +406,7 @@ const PRODUCTS: Array<{
     price: "6.50",
     categoryIndex: 5,
     sortOrder: 3,
+    stock: null,
   },
   {
     name: "Miel de montagne",
@@ -386,6 +414,7 @@ const PRODUCTS: Array<{
     price: "8.90",
     categoryIndex: 5,
     sortOrder: 4,
+    stock: null,
   },
   {
     name: "Fruits secs assortis",
@@ -393,6 +422,7 @@ const PRODUCTS: Array<{
     price: "7.50",
     categoryIndex: 5,
     sortOrder: 5,
+    stock: null,
   },
 ];
 
@@ -625,6 +655,7 @@ async function seedProducts(tenantId: string, categoryList: (typeof categories.$
     price: p.price,
     categoryId: categoryList[p.categoryIndex]?.id ?? null,
     sortOrder: p.sortOrder,
+    stock: p.stock,
     isActive: true,
     tenantId,
   }));

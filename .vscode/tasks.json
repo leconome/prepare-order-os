@@ -32,8 +32,23 @@
       }
     },
     {
+      "label": "Data (Watch)",
+      "type": "shell",
+      "command": "pnpm tsc --watch --preserveWatchOutput",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/data"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "dev",
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
       "label": "Dev (Store + Client)",
-      "dependsOn": ["Store (API)", "Client (Next.js)"],
+      "dependsOn": ["Data (Watch)", "Store (API)", "Client (Next.js)"],
       "dependsOrder": "parallel",
       "problemMatcher": [],
       "presentation": {
