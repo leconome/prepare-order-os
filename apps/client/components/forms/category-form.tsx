@@ -3,9 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCategorySchema, updateCategorySchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ColorPicker } from "@/components/color-picker";
 import { Button } from "@/components/ui/button";
@@ -29,12 +29,21 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   type Category,
   type CreateCategory,
   type UpdateCategory,
   createCategory,
   deleteCategory,
   fetchCategories,
+  fetchCategoryProductCount,
   updateCategory,
 } from "@/lib/api";
 
@@ -102,6 +111,25 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
       router.push("/categories");
     },
   });
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [productCount, setProductCount] = useState<number | null>(null);
+  const [loadingCount, setLoadingCount] = useState(false);
+
+  const handleDeleteClick = async () => {
+    if (!initialData) return;
+    setLoadingCount(true);
+    try {
+      const count = await fetchCategoryProductCount(initialData.id);
+      setProductCount(count);
+      setShowDeleteDialog(true);
+    } catch {
+      setProductCount(0);
+      setShowDeleteDialog(true);
+    } finally {
+      setLoadingCount(false);
+    }
+  };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const error = createMutation.error || updateMutation.error;
@@ -255,16 +283,10 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                 <Button
                   type="button"
                   variant="destructive"
-                  onClick={() => {
-                    if (
-                      confirm("Êtes-vous sûr de vouloir supprimer cette catégorie ?")
-                    ) {
-                      deleteMutation.mutate();
-                    }
-                  }}
-                  disabled={deleteMutation.isPending}
+                  onClick={handleDeleteClick}
+                  disabled={deleteMutation.isPending || loadingCount}
                 >
-                  {deleteMutation.isPending ? (
+                  {deleteMutation.isPending || loadingCount ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -296,6 +318,61 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
             )}
           </form>
         </Form>
+
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Supprimer la catégorie
+              </DialogTitle>
+              <DialogDescription asChild>
+                <div className="space-y-2 pt-2">
+                  {productCount && productCount > 0 ? (
+                    <>
+                      <p>
+                        Cette catégorie contient{" "}
+                        <strong>{productCount} produit{productCount > 1 ? "s" : ""}</strong>.
+                      </p>
+                      <p>
+                        En supprimant cette catégorie, ces produits se retrouveront
+                        <strong> sans catégorie</strong>. Vous devrez leur réattribuer
+                        une catégorie manuellement.
+                      </p>
+                    </>
+                  ) : (
+                    <p>
+                      Êtes-vous sûr de vouloir supprimer cette catégorie ?
+                    </p>
+                  )}
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  deleteMutation.mutate();
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Supprimer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

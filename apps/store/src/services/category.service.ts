@@ -2,6 +2,7 @@ import { eq, and, isNull, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   categories,
+  products,
   type CreateCategory,
   type UpdateCategory,
   type CategoryFilters,
@@ -112,7 +113,22 @@ export async function updateCategory(tenantId: string, id: string, data: UpdateC
   return getCategoryById(tenantId, id);
 }
 
+export async function countProductsByCategory(tenantId: string, categoryId: string) {
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(products)
+    .where(and(eq(products.categoryId, categoryId), eq(products.tenantId, tenantId)));
+
+  return Number(result[0]?.count ?? 0);
+}
+
 export async function deleteCategory(tenantId: string, id: string) {
+  // Detach products from this category before deleting
+  await db
+    .update(products)
+    .set({ categoryId: null })
+    .where(and(eq(products.categoryId, id), eq(products.tenantId, tenantId)));
+
   const [deleted] = await db
     .delete(categories)
     .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)))

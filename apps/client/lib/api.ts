@@ -253,6 +253,15 @@ export async function updateCategory(
   });
 }
 
+export async function fetchCategoryProductCount(
+  categoryId: string,
+): Promise<number> {
+  const result = await fetchApi<{ count: number }>(
+    `/categories/${categoryId}/product-count`,
+  );
+  return result.count;
+}
+
 export async function deleteCategory(categoryId: string): Promise<void> {
   await fetchApi<{ success: boolean }>(`/categories/${categoryId}`, {
     method: "DELETE",
