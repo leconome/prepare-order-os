@@ -70,6 +70,19 @@ categories.patch(
   },
 );
 
+categories.get("/:id/product-count", async (c) => {
+  const tenantId = c.get("tenantId") as string;
+  const id = c.req.param("id");
+
+  const existing = await categoryService.getCategoryById(tenantId, id);
+  if (!existing) {
+    return c.json({ error: "Category not found" }, 404);
+  }
+
+  const count = await categoryService.countProductsByCategory(tenantId, id);
+  return c.json({ count });
+});
+
 categories.delete("/:id", ownerOrAdmin, async (c) => {
   const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
@@ -79,8 +92,9 @@ categories.delete("/:id", ownerOrAdmin, async (c) => {
     return c.json({ error: "Category not found" }, 404);
   }
 
+  const detachedProducts = await categoryService.countProductsByCategory(tenantId, id);
   await categoryService.deleteCategory(tenantId, id);
-  return c.json({ success: true });
+  return c.json({ success: true, detachedProducts });
 });
 
 export default categories;
