@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -16,8 +17,8 @@ const s3 = new S3Client({
 });
 
 const BUCKET = process.env.S3_BUCKET_NAME || "prepareos";
-const PUBLIC_URL =
-  process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${BUCKET}`;
+const STORE_URL =
+  process.env.BETTER_AUTH_URL || "http://localhost:9000";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -68,14 +69,33 @@ export async function uploadProductImage(
     }),
   );
 
-  const url = `${PUBLIC_URL}/${key}`;
+  const url = `${STORE_URL}/api/images/${key}`;
   return { key, url };
 }
 
+export async function getImage(key: string) {
+  return s3.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    }),
+  );
+}
+
 export async function deleteImage(imageUrl: string): Promise<void> {
-  const key = imageUrl.replace(`${PUBLIC_URL}/`, "");
-  if (!key || key === imageUrl) {
-    return;
+  // Extract key from proxy URL: .../api/images/{key}
+  const proxyMarker = "/api/images/";
+  const idx = imageUrl.indexOf(proxyMarker);
+  let key: string;
+
+  if (idx !== -1) {
+    key = imageUrl.substring(idx + proxyMarker.length);
+  } else {
+    // Fallback: old direct S3 URL format
+    const publicUrl =
+      process.env.S3_PUBLIC_URL || `${process.env.S3_ENDPOINT}/${BUCKET}`;
+    key = imageUrl.replace(`${publicUrl}/`, "");
+    if (!key || key === imageUrl) return;
   }
 
   try {

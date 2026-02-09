@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.js";
 import categories from "./routes/categories.js";
 import clientsRoutes from "./routes/clients.js";
 import health from "./routes/health.js";
+import images from "./routes/images.js";
 import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
 import products from "./routes/products.js";
@@ -50,8 +51,9 @@ app.use(
   }),
 );
 
-// Health route — no tenant middleware needed
+// Public routes — no tenant middleware needed
 app.route("/api/health", health);
+app.route("/api/images", images);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);

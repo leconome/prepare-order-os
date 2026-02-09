@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
       {
         protocol: "http",
         hostname: "localhost",
-        port: "9002",
-        pathname: "/prepareos/**",
+        port: "9000",
+        pathname: "/api/images/**",
       },
       {
         protocol: "https",
