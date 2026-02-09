@@ -78,7 +78,7 @@ function ProductsTable({
                         src={product.imageUrl}
                         alt={product.name}
                         fill
-                        className="object-cover"
+                        className="object-contain"
                         sizes="40px"
                       />
                     </div>
