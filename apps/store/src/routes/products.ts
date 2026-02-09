@@ -5,9 +5,10 @@ import {
   updateProductSchema,
   productFiltersSchema,
 } from "@prepareos/data";
-import * as productService from "../services/product.service.js";
+import { deleteImage } from "../lib/storage.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { ownerOrAdmin } from "../middleware/role-guard.js";
+import * as productService from "../services/product.service.js";
 import type { AppEnv } from "../types.js";
 
 const products = new Hono<AppEnv>();
@@ -59,6 +60,14 @@ products.patch(
       return c.json({ error: "Product not found" }, 404);
     }
 
+    if (
+      data.imageUrl !== undefined &&
+      existing.imageUrl &&
+      data.imageUrl !== existing.imageUrl
+    ) {
+      await deleteImage(existing.imageUrl);
+    }
+
     const product = await productService.updateProduct(tenantId, id, data);
     return c.json(product);
   },
@@ -71,6 +80,10 @@ products.delete("/:id", ownerOrAdmin, async (c) => {
   const existing = await productService.getProductById(tenantId, id);
   if (!existing) {
     return c.json({ error: "Product not found" }, 404);
+  }
+
+  if (existing.imageUrl) {
+    await deleteImage(existing.imageUrl);
   }
 
   await productService.deleteProduct(tenantId, id);
