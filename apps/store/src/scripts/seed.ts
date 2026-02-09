@@ -164,6 +164,7 @@ const PRODUCTS: Array<{
   categoryIndex: number;
   sortOrder: number;
   stock: number | null;
+  imageUrl: string;
 }> = [
   // Pâte molle (index 0)
   {
@@ -174,6 +175,7 @@ const PRODUCTS: Array<{
     categoryIndex: 0,
     sortOrder: 1,
     stock: 12,
+    imageUrl: "https://picsum.photos/seed/camembert/400/300",
   },
   {
     name: "Brie de Meaux AOP",
@@ -183,6 +185,7 @@ const PRODUCTS: Array<{
     categoryIndex: 0,
     sortOrder: 2,
     stock: 5,
+    imageUrl: "https://picsum.photos/seed/brie/400/300",
   },
   {
     name: "Époisses AOP",
@@ -192,6 +195,7 @@ const PRODUCTS: Array<{
     categoryIndex: 0,
     sortOrder: 3,
     stock: 3,
+    imageUrl: "https://picsum.photos/seed/epoisses/400/300",
   },
   {
     name: "Mont d'Or AOP",
@@ -201,6 +205,7 @@ const PRODUCTS: Array<{
     categoryIndex: 0,
     sortOrder: 4,
     stock: 0,
+    imageUrl: "https://picsum.photos/seed/montdor/400/300",
   },
   {
     name: "Reblochon de Savoie AOP",
@@ -210,6 +215,7 @@ const PRODUCTS: Array<{
     categoryIndex: 0,
     sortOrder: 5,
     stock: 8,
+    imageUrl: "https://picsum.photos/seed/reblochon/400/300",
   },
 
   // Pâte pressée (index 1)
@@ -221,6 +227,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 1,
     stock: 15,
+    imageUrl: "https://picsum.photos/seed/comte18/400/300",
   },
   {
     name: "Comté AOP 36 mois",
@@ -230,6 +237,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 2,
     stock: 2,
+    imageUrl: "https://picsum.photos/seed/comte36/400/300",
   },
   {
     name: "Beaufort d'été AOP",
@@ -239,6 +247,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 3,
     stock: 4,
+    imageUrl: "https://picsum.photos/seed/beaufort/400/300",
   },
   {
     name: "Tomme de Savoie IGP",
@@ -248,6 +257,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 4,
     stock: 10,
+    imageUrl: "https://picsum.photos/seed/tomme/400/300",
   },
   {
     name: "Cantal Entre-Deux AOP",
@@ -257,6 +267,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 5,
     stock: 7,
+    imageUrl: "https://picsum.photos/seed/cantal/400/300",
   },
   {
     name: "Ossau-Iraty AOP",
@@ -266,6 +277,7 @@ const PRODUCTS: Array<{
     categoryIndex: 1,
     sortOrder: 6,
     stock: 6,
+    imageUrl: "https://picsum.photos/seed/ossau/400/300",
   },
 
   // Pâte persillée (index 2)
@@ -277,6 +289,7 @@ const PRODUCTS: Array<{
     categoryIndex: 2,
     sortOrder: 1,
     stock: 9,
+    imageUrl: "https://picsum.photos/seed/roquefort/400/300",
   },
   {
     name: "Bleu d'Auvergne AOP",
@@ -285,6 +298,7 @@ const PRODUCTS: Array<{
     categoryIndex: 2,
     sortOrder: 2,
     stock: 0,
+    imageUrl: "https://picsum.photos/seed/bleuauvergne/400/300",
   },
   {
     name: "Fourme d'Ambert AOP",
@@ -294,6 +308,7 @@ const PRODUCTS: Array<{
     categoryIndex: 2,
     sortOrder: 3,
     stock: 4,
+    imageUrl: "https://picsum.photos/seed/fourme/400/300",
   },
   {
     name: "Bleu de Gex AOP",
@@ -302,6 +317,7 @@ const PRODUCTS: Array<{
     categoryIndex: 2,
     sortOrder: 4,
     stock: 1,
+    imageUrl: "https://picsum.photos/seed/bleugex/400/300",
   },
 
   // Chèvre (index 3)
@@ -312,6 +328,7 @@ const PRODUCTS: Array<{
     categoryIndex: 3,
     sortOrder: 1,
     stock: 20,
+    imageUrl: "https://picsum.photos/seed/crottin/400/300",
   },
   {
     name: "Sainte-Maure de Touraine AOP",
@@ -321,6 +338,7 @@ const PRODUCTS: Array<{
     categoryIndex: 3,
     sortOrder: 2,
     stock: 8,
+    imageUrl: "https://picsum.photos/seed/saintemaure/400/300",
   },
   {
     name: "Valençay AOP",
@@ -330,6 +348,7 @@ const PRODUCTS: Array<{
     categoryIndex: 3,
     sortOrder: 3,
     stock: 5,
+    imageUrl: "https://picsum.photos/seed/valencay/400/300",
   },
   {
     name: "Rocamadour AOP",
@@ -338,6 +357,7 @@ const PRODUCTS: Array<{
     categoryIndex: 3,
     sortOrder: 4,
     stock: 15,
+    imageUrl: "https://picsum.photos/seed/rocamadour/400/300",
   },
   {
     name: "Picodon AOP",
@@ -346,6 +366,7 @@ const PRODUCTS: Array<{
     categoryIndex: 3,
     sortOrder: 5,
     stock: 10,
+    imageUrl: "https://picsum.photos/seed/camembert/400/300",
   },
 
   // Fromages frais (index 4)
@@ -357,6 +378,7 @@ const PRODUCTS: Array<{
     categoryIndex: 4,
     sortOrder: 1,
     stock: 6,
+    imageUrl: "https://picsum.photos/seed/faisselle/400/300",
   },
   {
     name: "Brousse du Rove",
@@ -365,6 +387,7 @@ const PRODUCTS: Array<{
     categoryIndex: 4,
     sortOrder: 2,
     stock: 3,
+    imageUrl: "https://picsum.photos/seed/brousse/400/300",
   },
   {
     name: "Fontainebleau",
@@ -374,6 +397,7 @@ const PRODUCTS: Array<{
     categoryIndex: 4,
     sortOrder: 3,
     stock: 8,
+    imageUrl: "https://picsum.photos/seed/fontainebleau/400/300",
   },
   {
     name: "Cervelle de Canut",
@@ -382,6 +406,7 @@ const PRODUCTS: Array<{
     categoryIndex: 4,
     sortOrder: 4,
     stock: 4,
+    imageUrl: "https://picsum.photos/seed/brie/400/300",
   },
 
   // Accompagnements (index 5) — stock not tracked for these
@@ -392,6 +417,7 @@ const PRODUCTS: Array<{
     categoryIndex: 5,
     sortOrder: 1,
     stock: null,
+    imageUrl: "https://picsum.photos/seed/painnoix/400/300",
   },
   {
     name: "Crackers aux graines",
@@ -400,6 +426,7 @@ const PRODUCTS: Array<{
     categoryIndex: 5,
     sortOrder: 2,
     stock: null,
+    imageUrl: "https://picsum.photos/seed/crackers/400/300",
   },
   {
     name: "Confiture de figues",
@@ -408,6 +435,7 @@ const PRODUCTS: Array<{
     categoryIndex: 5,
     sortOrder: 3,
     stock: null,
+    imageUrl: "https://picsum.photos/seed/confiture/400/300",
   },
   {
     name: "Miel de montagne",
@@ -416,6 +444,7 @@ const PRODUCTS: Array<{
     categoryIndex: 5,
     sortOrder: 4,
     stock: null,
+    imageUrl: "https://picsum.photos/seed/miel/400/300",
   },
   {
     name: "Fruits secs assortis",
@@ -424,6 +453,7 @@ const PRODUCTS: Array<{
     categoryIndex: 5,
     sortOrder: 5,
     stock: null,
+    imageUrl: "https://picsum.photos/seed/fruitssecs/400/300",
   },
 ];
 
@@ -1228,6 +1258,7 @@ async function seedProducts(tenantId: string, categoryList: (typeof categories.$
     categoryId: categoryList[p.categoryIndex]?.id ?? null,
     sortOrder: p.sortOrder,
     stock: p.stock,
+    imageUrl: p.imageUrl,
     isActive: true,
     tenantId,
   }));

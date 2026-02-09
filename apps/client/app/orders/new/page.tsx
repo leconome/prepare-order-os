@@ -22,6 +22,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -235,8 +236,6 @@ export default function NewOrderPage() {
   };
 
   const addMenuToOrder = (menu: { id: string; name: string; price: string | null }) => {
-    // Use a stable key for cart: "menu-{menuId}"
-    const cartKey = `menu-${menu.id}`;
     const existingItem = orderItems.find((item) => item.menuId === menu.id);
     // Calculate menu price: use explicit price or "0" (backend resolves from products)
     const menuPrice = menu.price || "0";
@@ -434,11 +433,22 @@ export default function NewOrderPage() {
                             onClick={() => addProductToOrder(product)}
                             disabled={isOutOfStock}
                             className={cn(
-                              "flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                              "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
                               inCart && "border-primary bg-primary/5",
                               isOutOfStock && "opacity-50 cursor-not-allowed hover:bg-transparent"
                             )}
                           >
+                            {product.imageUrl && (
+                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
+                                <Image
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="40px"
+                                />
+                              </div>
+                            )}
                             <div className="flex-1 min-w-0">
                               <div className="font-medium truncate">
                                 {product.name}

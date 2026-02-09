@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { ImageIcon, Plus, RefreshCw, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -50,6 +51,7 @@ function ProductsTable({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-15">Image</TableHead>
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
@@ -68,6 +70,25 @@ function ProductsTable({
               key={product.id}
               className="cursor-pointer hover:bg-muted/50 transition-colors"
             >
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block">
+                  {product.imageUrl ? (
+                    <div className="relative h-10 w-10 overflow-hidden rounded-md bg-muted">
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                    </div>
+                  )}
+                </Link>
+              </TableCell>
               <TableCell className="font-medium">
                 <Link
                   href={`/products/${product.id}`}
@@ -150,6 +171,7 @@ function ProductsTableSkeleton() {
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={`skeleton-${i}`} className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-md" />
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 flex-1" />
           <Skeleton className="h-4 w-20" />
