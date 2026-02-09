@@ -14,8 +14,9 @@ images.get("/*", async (c) => {
     if (!response.Body) return c.notFound();
 
     const bytes = await response.Body.transformToByteArray();
+    const buffer = new Uint8Array(bytes.buffer as ArrayBuffer);
 
-    return c.body(bytes, 200, {
+    return c.body(buffer, 200, {
       "Content-Type": response.ContentType || "application/octet-stream",
       "Cache-Control": "public, max-age=31536000, immutable",
     });
