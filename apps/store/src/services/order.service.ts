@@ -1,19 +1,17 @@
-import { eq, and, gte, lte, sql, desc, isNotNull } from "drizzle-orm";
-import { db } from "../db/index.js";
 import {
-  orders,
+  type CreateOrder,
+  type OrderFilters,
   orderItems,
   orderMenuItems,
+  orders,
   products,
-  menus,
-  menuProducts,
-  type CreateOrder,
   type UpdateOrder,
   type UpdateOrderStatus,
-  type OrderFilters,
 } from "@prepareos/data";
-import { generateTicketNumber } from "./ticket.service.js";
+import { and, asc, desc, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import { db } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
+import { generateTicketNumber } from "./ticket.service.js";
 
 export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
@@ -79,8 +77,11 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
       orderBy: desc(orders.createdAt),
       with: {
         items: {
+          orderBy: asc(orderItems.createdAt),
           with: {
-            menuItems: true,
+            menuItems: {
+              orderBy: asc(orderMenuItems.id),
+            },
           },
         },
         client: {
@@ -126,8 +127,11 @@ export async function getOrderById(tenantId: string, id: string) {
     where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
     with: {
       items: {
+        orderBy: asc(orderItems.createdAt),
         with: {
-          menuItems: true,
+          menuItems: {
+            orderBy: asc(orderMenuItems.id),
+          },
         },
       },
       client: {
@@ -187,7 +191,11 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
     totalPrice: string;
     isMenu: boolean;
     notes: string | null;
-    menuProducts: { productId: string; productName: string; quantity: number }[];
+    menuProducts: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
   }[] = [];
 
   for (const menuReq of menuItemRequests) {
@@ -306,7 +314,11 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
   return getOrderById(tenantId, order.id);
 }
 
-export async function updateOrder(tenantId: string, id: string, data: UpdateOrder) {
+export async function updateOrder(
+  tenantId: string,
+  id: string,
+  data: UpdateOrder,
+) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -335,7 +347,11 @@ export async function updateOrder(tenantId: string, id: string, data: UpdateOrde
   return getOrderById(tenantId, id);
 }
 
-export async function updateOrderStatus(tenantId: string, id: string, data: UpdateOrderStatus) {
+export async function updateOrderStatus(
+  tenantId: string,
+  id: string,
+  data: UpdateOrderStatus,
+) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
