@@ -5,14 +5,11 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Clock,
   Undo2,
   UserRound,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,272 +28,15 @@ import {
   fetchOrder,
   fetchStaff,
   formatCurrency,
-  toggleMenuItemPrepared,
-  toggleOrderItemPrepared,
+  type UpdateOrderStatus,
   updateOrder,
   updateOrderStatus,
-  type OrderMenuItem,
-  type OrderWithItems,
-  type UpdateOrderStatus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-
-// ============ CONSTANTS ============
-
-const PAYMENT_LABELS: Record<string, string> = {
-  pending: "Impayé",
-  paid: "Payé",
-  partially_paid: "Partiel",
-  refunded: "Remboursé",
-};
-
-// ============ REGULAR ITEM CARD ============
-
-function ItemCard({
-  item,
-  orderId,
-  isPreparedSide,
-}: {
-  item: OrderWithItems["items"][number];
-  orderId: string;
-  isPreparedSide: boolean;
-}) {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      toggleOrderItemPrepared(orderId, item.id, !isPreparedSide),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["order", orderId] });
-      const previous = queryClient.getQueryData<OrderWithItems>(["order", orderId]);
-
-      queryClient.setQueryData<OrderWithItems>(["order", orderId], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: old.items.map((i) =>
-            i.id === item.id ? { ...i, isPrepared: !isPreparedSide } : i,
-          ),
-        };
-      });
-
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["order", orderId], context.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
-    },
-  });
-
-  return (
-    <button
-      type="button"
-      onClick={() => mutation.mutate()}
-      disabled={mutation.isPending}
-      className={`w-full text-left rounded-lg border p-3 transition-all ${
-        isPreparedSide
-          ? "bg-green-50 border-green-200 hover:bg-green-100"
-          : "bg-card hover:bg-accent/50"
-      } ${mutation.isPending ? "opacity-60" : ""}`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-semibold shrink-0">
-            {item.quantity}x
-          </span>
-          <span className="text-sm truncate">{item.productName}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-xs text-muted-foreground">
-            {formatCurrency(item.totalPrice)}
-          </span>
-          {isPreparedSide && (
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          )}
-        </div>
-      </div>
-      {item.notes && (
-        <p className="text-xs text-muted-foreground mt-1 italic">
-          {item.notes}
-        </p>
-      )}
-    </button>
-  );
-}
-
-// ============ MENU SUB-ITEM ============
-
-function MenuSubItem({
-  menuItem,
-  orderId,
-}: {
-  menuItem: OrderMenuItem;
-  orderId: string;
-}) {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      toggleMenuItemPrepared(orderId, menuItem.id, !menuItem.isPrepared),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["order", orderId] });
-      const previous = queryClient.getQueryData<OrderWithItems>(["order", orderId]);
-
-      queryClient.setQueryData<OrderWithItems>(["order", orderId], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          items: old.items.map((item) => ({
-            ...item,
-            menuItems: item.menuItems?.map((mi) =>
-              mi.id === menuItem.id
-                ? { ...mi, isPrepared: !menuItem.isPrepared }
-                : mi,
-            ),
-          })),
-        };
-      });
-
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(["order", orderId], context.previous);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
-      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
-    },
-  });
-
-  return (
-    <button
-      type="button"
-      onClick={() => mutation.mutate()}
-      disabled={mutation.isPending}
-      className={`w-full text-left rounded-md border p-2 transition-all text-sm ${
-        menuItem.isPrepared
-          ? "bg-green-50 border-green-200 hover:bg-green-100"
-          : "bg-card hover:bg-accent/50"
-      } ${mutation.isPending ? "opacity-60" : ""}`}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold shrink-0">{menuItem.quantity}x</span>
-          <span className="truncate">{menuItem.productName}</span>
-        </div>
-        {menuItem.isPrepared && (
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0 ml-2" />
-        )}
-      </div>
-    </button>
-  );
-}
-
-// ============ MENU ITEM CARD ============
-
-function MenuItemCard({
-  item,
-  orderId,
-}: {
-  item: OrderWithItems["items"][number];
-  orderId: string;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  const menuItems = item.menuItems ?? [];
-  const preparedCount = menuItems.filter((mi) => mi.isPrepared).length;
-  const totalCount = menuItems.length;
-  const allPrepared = totalCount > 0 && preparedCount === totalCount;
-
-  return (
-    <div
-      className={`rounded-lg border transition-all ${
-        allPrepared ? "bg-green-50 border-green-200" : "bg-card"
-      }`}
-    >
-      {/* Menu header */}
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left p-3 flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="text-sm font-semibold shrink-0">
-            {item.quantity}x
-          </span>
-          <span className="text-sm font-medium truncate">
-            {item.productName}
-          </span>
-          <Badge variant="outline" className="text-xs shrink-0">
-            Menu
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-2">
-          <span className="text-xs text-muted-foreground">
-            {preparedCount}/{totalCount}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatCurrency(item.totalPrice)}
-          </span>
-          {allPrepared && (
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          )}
-        </div>
-      </button>
-
-      {/* Expanded sub-items */}
-      {expanded && menuItems.length > 0 && (
-        <div className="px-3 pb-3 space-y-1.5 border-t pt-2">
-          {menuItems.map((mi) => (
-            <MenuSubItem key={mi.id} menuItem={mi} orderId={orderId} />
-          ))}
-        </div>
-      )}
-
-      {item.notes && (
-        <p className="text-xs text-muted-foreground px-3 pb-2 italic">
-          {item.notes}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ============ PROGRESS HELPERS ============
-
-function computeProgress(items: OrderWithItems["items"]) {
-  let totalUnits = 0;
-  let preparedUnits = 0;
-
-  for (const item of items) {
-    if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-      // Menu: count each sub-item individually
-      for (const mi of item.menuItems) {
-        totalUnits += mi.quantity;
-        if (mi.isPrepared) preparedUnits += mi.quantity;
-      }
-    } else {
-      // Regular item
-      totalUnits += 1;
-      if (item.isPrepared) preparedUnits += 1;
-    }
-  }
-
-  return { totalUnits, preparedUnits };
-}
-
-// ============ MAIN PAGE ============
+import { ItemCard } from "./components/ItemCard";
+import { MenuItemCard } from "./components/MenuItemCard";
+import { PAYMENT_LABELS } from "./constants";
+import { computeProgress } from "./helpers";
 
 export default function PreparationDetailPage() {
   const params = useParams();
@@ -373,7 +113,8 @@ export default function PreparationDetailPage() {
   const toPrepare = items.filter((i) => !i.isPrepared);
   const prepared = items.filter((i) => i.isPrepared);
   const { totalUnits, preparedUnits } = computeProgress(items);
-  const progressPercent = totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
+  const progressPercent =
+    totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
   const allPrepared = totalUnits > 0 && preparedUnits === totalUnits;
 
   const pickupTime =
@@ -429,20 +170,24 @@ export default function PreparationDetailPage() {
             </div>
 
             {/* Payment toggle */}
-            <label className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-              order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
-            }`}>
+            <label
+              className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
+                order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
+              }`}
+            >
               <Checkbox
                 checked={order.paymentStatus === "paid"}
                 onCheckedChange={() => togglePayment()}
                 disabled={statusMutation.isPending}
                 className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
               />
-              <span className={`text-sm font-medium ${
-                order.paymentStatus === "paid"
-                  ? "text-green-700"
-                  : "text-gray-700"
-              }`}>
+              <span
+                className={`text-sm font-medium ${
+                  order.paymentStatus === "paid"
+                    ? "text-green-700"
+                    : "text-gray-700"
+                }`}
+              >
                 {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
               </span>
             </label>
@@ -525,7 +270,12 @@ export default function PreparationDetailPage() {
                   item.isMenu ? (
                     <MenuItemCard key={item.id} item={item} orderId={orderId} />
                   ) : (
-                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={false} />
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      orderId={orderId}
+                      isPreparedSide={false}
+                    />
                   ),
                 )
               )}
@@ -551,7 +301,12 @@ export default function PreparationDetailPage() {
                   item.isMenu ? (
                     <MenuItemCard key={item.id} item={item} orderId={orderId} />
                   ) : (
-                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={true} />
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      orderId={orderId}
+                      isPreparedSide={true}
+                    />
                   ),
                 )
               )}
