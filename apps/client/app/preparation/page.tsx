@@ -1,171 +1,15 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Clock,
-  RefreshCw,
-  UserRound,
-  ChevronRight,
-  CreditCard,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  fetchOrders,
-  fetchTenantSettings,
-  formatCurrency,
-  type OrderWithItems,
-} from "@/lib/api";
-
-// ============ TAB CONFIG ============
-
-type PreparationStatus = "pending" | "in_preparation" | "ready" | "picked_up";
-
-const TABS = [
-  {
-    key: "to_prepare",
-    label: "À préparer",
-    statuses: ["pending", "in_preparation"] as PreparationStatus[],
-  },
-  {
-    key: "ready",
-    label: "Prêt",
-    statuses: ["ready"] as PreparationStatus[],
-  },
-  {
-    key: "picked_up",
-    label: "Récupéré",
-    statuses: ["picked_up"] as PreparationStatus[],
-  },
-];
-
-const PAYMENT_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending: { label: "Impayé", variant: "destructive" },
-  paid: { label: "Payé", variant: "default" },
-  partially_paid: { label: "Partiel", variant: "secondary" },
-  refunded: { label: "Remboursé", variant: "outline" },
-};
-
-const STATUS_BADGE: Record<PreparationStatus, { label: string; className: string }> = {
-  pending: { label: "En attente", className: "bg-amber-100 text-amber-800" },
-  in_preparation: { label: "En cours", className: "bg-blue-100 text-blue-800" },
-  ready: { label: "Prêt", className: "bg-green-100 text-green-800" },
-  picked_up: { label: "Récupéré", className: "bg-gray-100 text-gray-800" },
-};
-
-// ============ ORDER ROW ============
-
-function computeProgress(items: OrderWithItems["items"]) {
-  let totalUnits = 0;
-  let preparedUnits = 0;
-  for (const item of items) {
-    if (item.isMenu && item.menuItems && item.menuItems.length > 0) {
-      for (const mi of item.menuItems) {
-        totalUnits += mi.quantity;
-        if (mi.isPrepared) preparedUnits += mi.quantity;
-      }
-    } else {
-      totalUnits += 1;
-      if (item.isPrepared) preparedUnits += 1;
-    }
-  }
-  return { totalUnits, preparedUnits };
-}
-
-function OrderRow({ order }: { order: OrderWithItems }) {
-  const router = useRouter();
-
-  const items = order.items ?? [];
-  const { totalUnits: totalCount, preparedUnits: preparedCount } = computeProgress(items);
-  const progressPercent = totalCount > 0 ? (preparedCount / totalCount) * 100 : 0;
-
-  const pickupTime =
-    order.pickupTimeStart && order.pickupTimeEnd
-      ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
-      : order.pickupTimeStart || null;
-
-  const payment = PAYMENT_BADGE[order.paymentStatus] ?? PAYMENT_BADGE.pending;
-  const status = STATUS_BADGE[order.preparationStatus as PreparationStatus];
-
-  return (
-    <button
-      type="button"
-      onClick={() => router.push(`/preparation/${order.id}`)}
-      className="flex items-center gap-4 w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/50"
-    >
-      {/* Ticket number */}
-      <div className="shrink-0 w-20">
-        <span className="font-mono font-bold text-sm">
-          #{order.ticketNumber}
-        </span>
-      </div>
-
-      {/* Client */}
-      <div className="shrink-0 w-32 truncate">
-        {order.client?.name ? (
-          <span className="text-sm flex items-center gap-1">
-            <UserRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{order.client.name}</span>
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
-      </div>
-
-      {/* Progress */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Progress value={progressPercent} className="h-2 flex-1" />
-          <span className="text-xs text-muted-foreground shrink-0">
-            {preparedCount}/{totalCount}
-          </span>
-        </div>
-      </div>
-
-      {/* Pickup time */}
-      <div className="shrink-0 w-24 text-center">
-        {pickupTime ? (
-          <span className="text-xs flex items-center justify-center gap-1 text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {pickupTime}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </div>
-
-      {/* Total */}
-      <div className="shrink-0 w-20 text-right">
-        <span className="text-sm font-medium">{formatCurrency(order.total)}</span>
-      </div>
-
-      {/* Payment badge */}
-      <div className="shrink-0 w-20">
-        <Badge variant={payment.variant} className="text-xs">
-          <CreditCard className="h-3 w-3 mr-1" />
-          {payment.label}
-        </Badge>
-      </div>
-
-      {/* Status badge */}
-      <div className="shrink-0 w-24">
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
-          {status.label}
-        </span>
-      </div>
-
-      {/* Arrow */}
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-    </button>
-  );
-}
-
-// ============ MAIN PAGE ============
+import { fetchOrders, fetchTenantSettings } from "@/lib/api";
+import { OrderRow } from "./components/OrderRow";
+import { type PreparationStatus, TABS } from "./constants";
 
 export default function PreparationPage() {
   const queryClient = useQueryClient();
@@ -209,7 +53,8 @@ export default function PreparationPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            {orders.length} commande{orders.length !== 1 ? "s" : ""} aujourd&apos;hui
+            {orders.length} commande{orders.length !== 1 ? "s" : ""}{" "}
+            aujourd&apos;hui
           </div>
           <Button
             variant="outline"

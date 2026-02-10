@@ -29,6 +29,9 @@
       "a11y": {
         "noLabelWithoutControl": "off"
       },
+      "suspicious": {
+        "noArrayIndexKey": "warn"
+      },
       "correctness": {
         "useExhaustiveDependencies": {
           "level": "warn",
