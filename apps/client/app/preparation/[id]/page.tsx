@@ -53,10 +53,6 @@ import { MenuItemCard } from "./components/MenuItemCard";
 import { computeProgress } from "./helpers";
 
 function buildSmsBody(order: OrderWithItems, shopName: string): string {
-  const productLines = order.items
-    .map((item) => `- ${item.quantity}x ${item.productName}`)
-    .join("\n");
-
   let pickup = "";
   if (order.pickupTimeStart && order.pickupTimeEnd) {
     pickup = ` entre ${order.pickupTimeStart} et ${order.pickupTimeEnd}`;
@@ -64,7 +60,12 @@ function buildSmsBody(order: OrderWithItems, shopName: string): string {
     pickup = ` a ${order.pickupTimeStart}`;
   }
 
-  return `Bonjour${order.client?.name ? ` ${order.client.name}` : ""}, votre commande #${order.ticketNumber} est prete: ${pickup}.\n\n${productLines}\n\n${shopName}`;
+  const name = order.client?.name ? ` ${order.client.name}` : "";
+  const shop = shopName ? ` - ${shopName}` : "";
+  return `Bonjour${name}, votre commande #${order.ticketNumber} est prete${pickup}.${shop}`.slice(
+    0,
+    150,
+  );
 }
 
 export default function PreparationDetailPage() {
@@ -451,10 +452,10 @@ export default function PreparationDetailPage() {
               value={smsBody}
               onChange={(e) => setSmsBody(e.target.value)}
               rows={6}
-              maxLength={480}
+              maxLength={150}
             />
             <p className="text-xs text-muted-foreground text-right">
-              {smsBody.length} / 480 caracteres
+              {smsBody.length} / 150 caracteres
             </p>
             {smsMutation.isError && (
               <p className="text-sm text-destructive">

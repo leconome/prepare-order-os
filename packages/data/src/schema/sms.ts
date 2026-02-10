@@ -138,9 +138,10 @@ export const sendSmsSchema = z.object({
   recipientPhone: z
     .string()
     .min(1)
-    .regex(/^\+?[0-9\s-]+$/, "Invalid phone number"),
+    .transform((v) => v.replace(/[^+\d]/g, ""))
+    .pipe(z.string().min(6, "Phone number too short")),
   recipientName: z.string().optional(),
-  content: z.string().min(1).max(480),
+  content: z.string().min(1).max(150),
 });
 export type SendSms = z.infer<typeof sendSmsSchema>;
 
