@@ -1,4 +1,5 @@
 import {
+  clients,
   type CreateOrder,
   type OrderFilters,
   orderItems,
@@ -8,13 +9,26 @@ import {
   type UpdateOrder,
   type UpdateOrderStatus,
 } from "@prepareos/data";
-import { and, asc, desc, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  ilike,
+  isNotNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
 
 export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
+    search,
     clientId,
     paymentStatus,
     preparationStatus,
@@ -29,6 +43,33 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
   const offset = (page - 1) * limit;
 
   const conditions = [eq(orders.tenantId, tenantId)];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    const searchCondition = or(
+      ilike(orders.ticketNumber, pattern),
+      exists(
+        db
+          .select({ v: sql`1` })
+          .from(clients)
+          .where(
+            and(eq(clients.id, orders.clientId), ilike(clients.name, pattern)),
+          ),
+      ),
+      exists(
+        db
+          .select({ v: sql`1` })
+          .from(orderItems)
+          .where(
+            and(
+              eq(orderItems.orderId, orders.id),
+              ilike(orderItems.productName, pattern),
+            ),
+          ),
+      ),
+    );
+    if (searchCondition) conditions.push(searchCondition);
+  }
 
   if (clientId) {
     conditions.push(eq(orders.clientId, clientId));

@@ -211,6 +211,7 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export const orderFiltersSchema = z.object({
+  search: z.string().optional(),
   clientId: z.string().uuid().optional(),
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),

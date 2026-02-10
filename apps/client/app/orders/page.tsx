@@ -1,7 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -10,6 +17,7 @@ import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -19,54 +27,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fetchOrders, formatCurrency, type OrderWithItems } from "@/lib/api";
+import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
 import {
-  fetchOrders,
-  formatCurrency,
-  formatDate,
-  type OrderWithItems,
-} from "@/lib/api";
-import { PAYMENT_LABELS } from "@/lib/constants";
-
-const PREPARATION_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  in_preparation: "En préparation",
-  ready: "Prêt",
-  picked_up: "Récupéré",
-};
-
-function getPaymentBadgeVariant(
-  status: string,
-): "paid" | "pending" | "partiallyPaid" | "refunded" | "outline" {
-  switch (status) {
-    case "paid":
-      return "paid";
-    case "pending":
-      return "pending";
-    case "partially_paid":
-      return "partiallyPaid";
-    case "refunded":
-      return "refunded";
-    default:
-      return "outline";
-  }
-}
-
-function getPreparationBadgeVariant(
-  status: string,
-): "pending" | "preparation" | "ready" | "pickedUp" | "outline" {
-  switch (status) {
-    case "ready":
-      return "ready";
-    case "picked_up":
-      return "pickedUp";
-    case "in_preparation":
-      return "preparation";
-    case "pending":
-      return "pending";
-    default:
-      return "outline";
-  }
-}
+  getPaymentBadgeVariant,
+  getPreparationBadgeVariant,
+} from "@/lib/helpers";
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
   if (orders.length === 0) {
@@ -82,7 +48,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
       <TableHeader>
         <TableRow>
           <TableHead className="w-24">Ticket</TableHead>
-          <TableHead>Date</TableHead>
+          <TableHead>Client</TableHead>
           <TableHead>Articles</TableHead>
           <TableHead>Préparation</TableHead>
           <TableHead>Paiement</TableHead>
@@ -103,9 +69,11 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
                 #{order.ticketNumber}
               </Link>
             </TableCell>
-            <TableCell className="text-muted-foreground">
+            <TableCell>
               <Link href={`/orders/${order.id}`} className="block w-full">
-                {formatDate(order.createdAt)}
+                {order.client?.name ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </Link>
             </TableCell>
             <TableCell>
@@ -174,22 +142,75 @@ const PAGE_SIZE = 20;
 
 export default function OrdersPage() {
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const trimmedSearch = search.trim();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders", page],
-    queryFn: () => fetchOrders({ page, limit: PAGE_SIZE }),
+    queryKey: ["orders", page, trimmedSearch],
+    queryFn: () =>
+      fetchOrders({
+        page,
+        limit: PAGE_SIZE,
+        search: trimmedSearch || undefined,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   return (
     <DashboardLayout title="Commandes" description="Gérez vos commandes">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {data?.pagination.total ?? 0} commandes au total
-            </span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par client, produit, ticket..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setSearch("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {data?.pagination.total ?? 0} commandes
+            </span>
+            {(data?.pagination.totalPages ?? 1) > 1 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => p - 1)}
+                  disabled={page <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {page}/{data?.pagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page >= (data?.pagination.totalPages ?? 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"

@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Search, X } from "lucide-react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchOrders, fetchTenantSettings } from "@/lib/api";
@@ -13,6 +15,7 @@ import { type PreparationStatus, TABS } from "./constants";
 
 export default function PreparationPage() {
   const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
@@ -20,9 +23,10 @@ export default function PreparationPage() {
   });
 
   const filterDays = tenant?.preparationFilterDays ?? 0;
+  const trimmedSearch = search.trim();
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["preparation-orders", filterDays],
+    queryKey: ["preparation-orders", filterDays, trimmedSearch],
     queryFn: () => {
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - filterDays);
@@ -31,6 +35,7 @@ export default function PreparationPage() {
         limit: 200,
         fromDate,
         toDate: new Date(new Date().setHours(23, 59, 59, 999)),
+        search: trimmedSearch || undefined,
       });
     },
     refetchInterval: 30000,
@@ -51,26 +56,46 @@ export default function PreparationPage() {
       description="Suivi des commandes du jour"
     >
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {orders.length} commande{orders.length !== 1 ? "s" : ""}{" "}
-            aujourd&apos;hui
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              queryClient.invalidateQueries({
-                queryKey: ["preparation-orders"],
-              })
-            }
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par client, produit, ticket..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
             />
-            Actualiser
-          </Button>
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setSearch("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {orders.length} commande{orders.length !== 1 ? "s" : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                queryClient.invalidateQueries({
+                  queryKey: ["preparation-orders"],
+                })
+              }
+              disabled={isFetching}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+              />
+              Actualiser
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

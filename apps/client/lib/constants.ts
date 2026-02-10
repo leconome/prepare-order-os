@@ -5,4 +5,11 @@ const PAYMENT_LABELS: Record<string, string> = {
   refunded: "Remboursé",
 };
 
-export { PAYMENT_LABELS };
+const PREPARATION_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  in_preparation: "En préparation",
+  ready: "Prêt",
+  picked_up: "Récupéré",
+};
+
+export { PAYMENT_LABELS, PREPARATION_STATUS_LABELS };

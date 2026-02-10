@@ -35,48 +35,11 @@ import {
   formatDate,
   updateOrderStatus,
 } from "@/lib/api";
-import { PAYMENT_LABELS } from "@/lib/constants";
-
-const PREPARATION_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  in_preparation: "En préparation",
-  ready: "Prêt",
-  picked_up: "Récupéré",
-};
-
-function getPaymentBadgeVariant(
-  status: string,
-): "paid" | "pending" | "partiallyPaid" | "refunded" | "outline" {
-  switch (status) {
-    case "paid":
-      return "paid";
-    case "pending":
-      return "pending";
-    case "partially_paid":
-      return "partiallyPaid";
-    case "refunded":
-      return "refunded";
-    default:
-      return "outline";
-  }
-}
-
-function getPreparationBadgeVariant(
-  status: string,
-): "pending" | "preparation" | "ready" | "pickedUp" | "outline" {
-  switch (status) {
-    case "ready":
-      return "ready";
-    case "picked_up":
-      return "pickedUp";
-    case "in_preparation":
-      return "preparation";
-    case "pending":
-      return "pending";
-    default:
-      return "outline";
-  }
-}
+import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
+import {
+  getPaymentBadgeVariant,
+  getPreparationBadgeVariant,
+} from "@/lib/helpers";
 
 function OrderDetailSkeleton() {
   return (

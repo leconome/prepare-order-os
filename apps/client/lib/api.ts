@@ -90,6 +90,7 @@ export async function fetchOrders(
 
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.search) searchParams.set("search", params.search);
   if (params?.clientId) searchParams.set("clientId", params.clientId);
   if (params?.paymentStatus)
     searchParams.set("paymentStatus", params.paymentStatus);
