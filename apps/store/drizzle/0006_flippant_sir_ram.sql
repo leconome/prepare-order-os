@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "sms_notified_at" timestamp with time zone;
