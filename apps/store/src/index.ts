@@ -13,6 +13,7 @@ import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
 import products from "./routes/products.js";
 import tenantsRoutes from "./routes/tenants.js";
+import smsRoutes from "./routes/sms.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
@@ -70,6 +71,7 @@ app.route("/api/menus", menus);
 app.route("/api/users", usersRoutes);
 app.route("/api/clients", clientsRoutes);
 app.route("/api/tenants", tenantsRoutes);
+app.route("/api/sms", smsRoutes);
 app.route("/api/uploads", uploads);
 
 // Root route

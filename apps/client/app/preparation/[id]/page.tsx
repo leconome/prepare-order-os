@@ -6,15 +6,25 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  MessageSquare,
   Undo2,
   UserRound,
+  UserStar,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -24,19 +34,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   fetchOrder,
   fetchStaff,
+  fetchTenantSettings,
   formatCurrency,
+  type OrderWithItems,
+  sendSms,
   type UpdateOrderStatus,
   updateOrder,
   updateOrderStatus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { PAYMENT_LABELS } from "@/lib/constants";
 import { ItemCard } from "./components/ItemCard";
 import { MenuItemCard } from "./components/MenuItemCard";
-import { PAYMENT_LABELS } from "./constants";
 import { computeProgress } from "./helpers";
+
+function buildSmsBody(order: OrderWithItems, shopName: string): string {
+  const productLines = order.items
+    .map((item) => `- ${item.quantity}x ${item.productName}`)
+    .join("\n");
+
+  let pickup = "";
+  if (order.pickupTimeStart && order.pickupTimeEnd) {
+    pickup = ` entre ${order.pickupTimeStart} et ${order.pickupTimeEnd}`;
+  } else if (order.pickupTimeStart) {
+    pickup = ` a ${order.pickupTimeStart}`;
+  }
+
+  return `Bonjour${order.client?.name ? ` ${order.client.name}` : ""}, votre commande #${order.ticketNumber} est prete: ${pickup}.\n\n${productLines}\n\n${shopName}`;
+}
 
 export default function PreparationDetailPage() {
   const params = useParams();
@@ -45,6 +74,14 @@ export default function PreparationDetailPage() {
   const { user } = useAuth();
   const orderId = params.id as string;
   const isOwner = user?.role === "owner" || user?.role === "admin";
+
+  const [smsDialogOpen, setSmsDialogOpen] = useState(false);
+  const [smsBody, setSmsBody] = useState("");
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -74,6 +111,28 @@ export default function PreparationDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
     },
   });
+
+  const smsMutation = useMutation({
+    mutationFn: async () => {
+      if (!order?.client?.phone) throw new Error("No client phone");
+      await sendSms({
+        recipientPhone: order.client.phone,
+        recipientName: order.client.name ?? undefined,
+        content: smsBody,
+      });
+      await updateOrder(orderId, { smsNotifiedAt: new Date() });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      setSmsDialogOpen(false);
+    },
+  });
+
+  const openSmsDialog = () => {
+    if (!order) return;
+    setSmsBody(buildSmsBody(order, tenant?.name ?? ""));
+    setSmsDialogOpen(true);
+  };
 
   const togglePayment = () => {
     const next = order?.paymentStatus === "paid" ? "pending" : "paid";
@@ -192,10 +251,27 @@ export default function PreparationDetailPage() {
               </span>
             </label>
 
+            {/* Send SMS — only when ready + client has phone */}
+            {order.client?.phone && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openSmsDialog}
+                disabled={
+                  order.preparationStatus !== "ready" ||
+                  !!order.smsNotifiedAt ||
+                  smsMutation.isPending
+                }
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {order.smsNotifiedAt ? "SMS envoye" : "Notifier par SMS"}
+              </Button>
+            )}
+
             {/* Assigned to — owner only */}
             {isOwner && (
               <div className="flex items-center gap-2">
-                <UserRound className="h-4 w-4 text-muted-foreground" />
+                <UserStar className="h-4 w-4 text-muted-foreground" />
                 <Select
                   value={order.assignedToId ?? "unassigned"}
                   onValueChange={(value) =>
@@ -357,6 +433,49 @@ export default function PreparationDetailPage() {
           )}
         </div>
       </div>
+
+      {/* SMS Confirmation Dialog */}
+      <Dialog
+        open={smsDialogOpen}
+        onOpenChange={(open) => !open && setSmsDialogOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Envoyer un SMS au client</DialogTitle>
+            <DialogDescription>
+              SMS a {order.client?.name ?? "client"} ({order.client?.phone})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={smsBody}
+              onChange={(e) => setSmsBody(e.target.value)}
+              rows={6}
+              maxLength={480}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {smsBody.length} / 480 caracteres
+            </p>
+            {smsMutation.isError && (
+              <p className="text-sm text-destructive">
+                {smsMutation.error?.message || "Erreur lors de l'envoi"}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSmsDialogOpen(false)}>
+                Annuler
+              </Button>
+              <Button
+                onClick={() => smsMutation.mutate()}
+                disabled={!smsBody.trim() || smsMutation.isPending}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {smsMutation.isPending ? "Envoi..." : "Envoyer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

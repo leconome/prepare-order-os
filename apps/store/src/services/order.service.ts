@@ -338,6 +338,8 @@ export async function updateOrder(
     updateData.internalNote = data.internalNote;
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
+  if (data.smsNotifiedAt !== undefined)
+    updateData.smsNotifiedAt = data.smsNotifiedAt;
 
   await db
     .update(orders)

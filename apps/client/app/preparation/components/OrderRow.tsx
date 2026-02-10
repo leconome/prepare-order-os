@@ -1,23 +1,30 @@
-import {
-  ChevronRight,
-  Clock,
-  CreditCard,
-  MessageSquareText,
-  UserRound,
-} from "lucide-react";
+"use client";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Clock, MessageSquareText, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { formatCurrency, type OrderWithItems } from "@/lib/api";
 import {
-  PAYMENT_BADGE,
-  type PreparationStatus,
-  STATUS_BADGE,
-} from "../constants";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  formatCurrency,
+  type OrderWithItems,
+  type UpdateOrderStatus,
+  updateOrderStatus,
+} from "@/lib/api";
+import { PAYMENT_LABELS } from "@/lib/constants";
+import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
 
 function OrderRow({ order }: { order: OrderWithItems }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const items = order.items ?? [];
   const { totalUnits: totalCount, preparedUnits: preparedCount } =
@@ -30,7 +37,6 @@ function OrderRow({ order }: { order: OrderWithItems }) {
       ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
       : order.pickupTimeStart || null;
 
-  const payment = PAYMENT_BADGE[order.paymentStatus] ?? PAYMENT_BADGE.pending;
   const status = STATUS_BADGE[order.preparationStatus as PreparationStatus];
 
   const itemsSummary = items
@@ -41,34 +47,38 @@ function OrderRow({ order }: { order: OrderWithItems }) {
     )
     .join(", ");
 
+  const statusMutation = useMutation({
+    mutationFn: (data: UpdateOrderStatus) => updateOrderStatus(order.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["order", order.id] });
+    },
+  });
+
+  const togglePayment = () => {
+    const next = order.paymentStatus === "paid" ? "pending" : "paid";
+    statusMutation.mutate({ paymentStatus: next });
+  };
+
   return (
     <button
       type="button"
       onClick={() => router.push(`/preparation/${order.id}`)}
-      className="flex items-center gap-4 w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50"
+      className="grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50"
     >
-      <div className="flex-1 min-w-0 space-y-1.5">
-        {/* Top row: ticket, client, pickup, total, payment, status */}
+      {/* ── Commande (col 1–6) ── */}
+      <div className="col-span-6 min-w-0 space-y-1">
         <div className="flex items-center gap-3">
           <span className="font-mono font-bold text-sm shrink-0">
             #{order.ticketNumber}
           </span>
 
-          {order.client?.name && (
-            <span className="text-sm flex items-center gap-1 shrink-0">
-              <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="truncate max-w-32">{order.client.name}</span>
+          <span className="text-sm flex items-center gap-1 shrink-0">
+            <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="truncate max-w-32">
+              {order?.client?.name ?? "---"}
             </span>
-          )}
-
-          <div className="flex items-center gap-1 shrink-0">
-            <Progress value={progressPercent} className="h-1.5 w-16" />
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {preparedCount}/{totalCount}
-            </span>
-          </div>
-
-          <div className="flex-1" />
+          </span>
 
           {pickupTime && (
             <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
@@ -76,24 +86,8 @@ function OrderRow({ order }: { order: OrderWithItems }) {
               {pickupTime}
             </span>
           )}
-
-          <span className="text-sm font-medium shrink-0">
-            {formatCurrency(order.total)}
-          </span>
-
-          <Badge variant={payment.variant} className="text-xs shrink-0">
-            <CreditCard className="h-3 w-3 mr-1" />
-            {payment.label}
-          </Badge>
-
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${status.className}`}
-          >
-            {status.label}
-          </span>
         </div>
 
-        {/* Bottom row: items composition + internal note */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="truncate">{itemsSummary}</span>
 
@@ -106,7 +100,68 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         </div>
       </div>
 
-      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      {/* ── Paiement (col 7–8) ── */}
+      <div className="col-span-2 flex flex-col items-center gap-2">
+        <span className="text-sm font-medium shrink-0">
+          {formatCurrency(order.total)}
+        </span>
+        <label
+          className={`flex items-center justify-center gap-2 w-full cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
+            order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
+          }`}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={order.paymentStatus === "paid"}
+            onCheckedChange={() => togglePayment()}
+            disabled={statusMutation.isPending}
+            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+          />
+          <span
+            className={`text-xs font-medium ${
+              order.paymentStatus === "paid"
+                ? "text-green-700"
+                : "text-gray-700"
+            }`}
+          >
+            {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+          </span>
+        </label>
+      </div>
+
+      {/* ── Statut (col 9–10) ── */}
+      <div className="col-span-2 flex gap-2 flex-col">
+        <div className="flex items-center gap-1 shrink-0">
+          <Progress value={progressPercent} className="h-1.5 w-full" />
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {preparedCount}/{totalCount}
+          </span>
+        </div>
+        <Select
+          value={order.preparationStatus}
+          onValueChange={(value) =>
+            statusMutation.mutate({
+              preparationStatus: value as PreparationStatus,
+            })
+          }
+          disabled={statusMutation.isPending}
+        >
+          <SelectTrigger
+            className={`shrink-0 gap-1 px-2 w-full py-0.5 text-xs font-medium transition-all active:scale-95 ${status.className}`}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(STATUS_BADGE).map(([key, val]) => (
+              <SelectItem key={key} value={key}>
+                {val.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </button>
   );
 }

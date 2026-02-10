@@ -9,6 +9,7 @@ import type {
   CreateOrder,
   CreateProduct,
   CreateStaff,
+  GrantCredits,
   Menu,
   MenuFilters,
   MenuWithProducts,
@@ -19,6 +20,12 @@ import type {
   OrderWithItems,
   Product,
   ProductFilters,
+  RevokeCredits,
+  SendSms,
+  SmsCreditFilters,
+  SmsCreditTransaction,
+  SmsFilters,
+  SmsMessage,
   StaffFilters,
   Tenant,
   UpdateCategory,
@@ -499,6 +506,106 @@ export async function fetchAllTenants(): Promise<{
   return fetchApi<{ data: Tenant[] }>("/admin/tenants");
 }
 
+// ============ ADMIN SMS ============
+
+export async function fetchAdminSmsCredits(): Promise<{
+  creditsLeft: number;
+  name: string;
+  buyUrl: string;
+}> {
+  return fetchApi("/admin/sms/credits");
+}
+
+export type SmsTenant = {
+  id: string;
+  name: string;
+  slug: string;
+  smsCredits: number;
+};
+
+export async function fetchAdminSmsTenants(): Promise<{
+  data: SmsTenant[];
+  totalDistributed: number;
+  available: number | null;
+}> {
+  return fetchApi("/admin/sms/tenants");
+}
+
+export async function grantSmsCredits(
+  tenantId: string,
+  data: GrantCredits,
+): Promise<{ credits: number }> {
+  return fetchApi(`/admin/sms/tenants/${tenantId}/grant`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function revokeSmsCredits(
+  tenantId: string,
+  data: RevokeCredits,
+): Promise<{ credits: number }> {
+  return fetchApi(`/admin/sms/tenants/${tenantId}/revoke`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchAdminTenantTransactions(
+  tenantId: string,
+  params?: Partial<SmsCreditFilters>,
+): Promise<PaginatedResponse<SmsCreditTransaction>> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/admin/sms/tenants/${tenantId}/transactions${query ? `?${query}` : ""}`);
+}
+
+// ============ TENANT SMS ============
+
+export async function fetchSmsCredits(): Promise<{ credits: number }> {
+  return fetchApi("/sms/credits");
+}
+
+export async function fetchSmsTransactions(
+  params?: Partial<SmsCreditFilters>,
+): Promise<PaginatedResponse<SmsCreditTransaction>> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/sms/transactions${query ? `?${query}` : ""}`);
+}
+
+export async function fetchSmsMessages(
+  params?: Partial<SmsFilters>,
+): Promise<PaginatedResponse<SmsMessage>> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.fromDate) searchParams.set("fromDate", params.fromDate.toISOString());
+  if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/sms/messages${query ? `?${query}` : ""}`);
+}
+
+export async function sendSms(data: SendSms): Promise<SmsMessage> {
+  return fetchApi("/sms/send", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function refreshSmsStatus(messageId: string): Promise<SmsMessage> {
+  return fetchApi(`/sms/messages/${messageId}/refresh`, {
+    method: "POST",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -552,4 +659,11 @@ export type {
   ClientFilters,
   Tenant,
   UpdateTenantSettings,
+  SmsCreditTransaction,
+  SmsMessage,
+  SmsFilters,
+  SmsCreditFilters,
+  GrantCredits,
+  RevokeCredits,
+  SendSms,
 };

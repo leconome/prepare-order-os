@@ -64,6 +64,7 @@ export const orders = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
+    smsNotifiedAt: timestamp("sms_notified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -201,6 +202,7 @@ export const updateOrderSchema = z.object({
   clientNote: z.string().nullable().optional(),
   internalNote: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  smsNotifiedAt: z.coerce.date().nullable().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({

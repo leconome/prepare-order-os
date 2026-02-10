@@ -25,13 +25,7 @@ import {
   formatDate,
   type OrderWithItems,
 } from "@/lib/api";
-
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  paid: "Payé",
-  partially_paid: "Partiellement payé",
-  refunded: "Remboursé",
-};
+import { PAYMENT_LABELS } from "@/lib/constants";
 
 const PREPARATION_STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
@@ -41,7 +35,7 @@ const PREPARATION_STATUS_LABELS: Record<string, string> = {
 };
 
 function getPaymentBadgeVariant(
-  status: string
+  status: string,
 ): "paid" | "pending" | "partiallyPaid" | "refunded" | "outline" {
   switch (status) {
     case "paid":
@@ -58,7 +52,7 @@ function getPaymentBadgeVariant(
 }
 
 function getPreparationBadgeVariant(
-  status: string
+  status: string,
 ): "pending" | "preparation" | "ready" | "pickedUp" | "outline" {
   switch (status) {
     case "ready":
@@ -143,8 +137,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
             <TableCell>
               <Link href={`/orders/${order.id}`} className="block w-full">
                 <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                  {PAYMENT_STATUS_LABELS[order.paymentStatus] ||
-                    order.paymentStatus}
+                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
                 </Badge>
               </Link>
             </TableCell>

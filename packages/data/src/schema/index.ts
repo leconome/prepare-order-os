@@ -6,3 +6,4 @@ export * from "./menus.js";
 export * from "./orders.js";
 export * from "./clients.js";
 export * from "./ticket-counter.js";
+export * from "./sms.js";

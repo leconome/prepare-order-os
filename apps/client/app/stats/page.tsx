@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  BarChart3,
   DollarSign,
   Package,
   ShoppingCart,
@@ -14,12 +13,13 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  fetchClients,
   fetchOrders,
   fetchProducts,
-  fetchClients,
   formatCurrency,
   type OrderWithItems,
 } from "@/lib/api";
+import { PAYMENT_LABELS } from "@/lib/constants";
 
 // ============ STAT CARD ============
 
@@ -74,10 +74,14 @@ function computeStats(orders: OrderWithItems[]) {
 
   const byPreparation: Record<string, number> = {};
   const byPayment: Record<string, number> = {};
-  const productCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+  const productCounts: Record<
+    string,
+    { name: string; qty: number; revenue: number }
+  > = {};
 
   for (const order of orders) {
-    byPreparation[order.preparationStatus] = (byPreparation[order.preparationStatus] || 0) + 1;
+    byPreparation[order.preparationStatus] =
+      (byPreparation[order.preparationStatus] || 0) + 1;
     byPayment[order.paymentStatus] = (byPayment[order.paymentStatus] || 0) + 1;
 
     for (const item of order.items || []) {
@@ -111,13 +115,6 @@ const PREPARATION_COLORS: Record<string, string> = {
   in_preparation: "bg-blue-500",
   ready: "bg-green-500",
   picked_up: "bg-gray-400",
-};
-
-const PAYMENT_LABELS: Record<string, string> = {
-  pending: "Impayé",
-  paid: "Payé",
-  partially_paid: "Partiel",
-  refunded: "Remboursé",
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
@@ -188,7 +185,8 @@ export default function StatsPage() {
 
   const { data: todayData, isLoading: loadingToday } = useQuery({
     queryKey: ["stats-today"],
-    queryFn: () => fetchOrders({ limit: 100, fromDate: today.from, toDate: today.to }),
+    queryFn: () =>
+      fetchOrders({ limit: 100, fromDate: today.from, toDate: today.to }),
   });
 
   const { data: allData, isLoading: loadingAll } = useQuery({
@@ -221,7 +219,9 @@ export default function StatsPage() {
       <div className="space-y-6">
         {/* Today's summary */}
         <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Aujourd'hui</h2>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">
+            Aujourd'hui
+          </h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Commandes du jour"
@@ -243,7 +243,10 @@ export default function StatsPage() {
             />
             <StatCard
               title="En attente"
-              value={((todayStats.byPreparation["pending"] || 0) + (todayStats.byPreparation["in_preparation"] || 0)).toString()}
+              value={(
+                (todayStats.byPreparation["pending"] || 0) +
+                (todayStats.byPreparation["in_preparation"] || 0)
+              ).toString()}
               icon={Package}
               description="À préparer / en cours"
               loading={loadingToday}
@@ -253,7 +256,9 @@ export default function StatsPage() {
 
         {/* Global summary */}
         <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Global</h2>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">
+            Global
+          </h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Total commandes"
@@ -307,7 +312,9 @@ export default function StatsPage() {
         {todayStats.topProducts.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Top produits du jour</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Top produits du jour
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {loadingToday ? (
@@ -319,14 +326,23 @@ export default function StatsPage() {
               ) : (
                 <div className="space-y-2">
                   {todayStats.topProducts.map((p, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between text-sm"
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground w-5 text-right">{i + 1}.</span>
+                        <span className="text-muted-foreground w-5 text-right">
+                          {i + 1}.
+                        </span>
                         <span>{p.name}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-muted-foreground">{p.qty} vendu{p.qty > 1 ? "s" : ""}</span>
-                        <span className="font-medium">{formatCurrency(p.revenue)}</span>
+                        <span className="text-muted-foreground">
+                          {p.qty} vendu{p.qty > 1 ? "s" : ""}
+                        </span>
+                        <span className="font-medium">
+                          {formatCurrency(p.revenue)}
+                        </span>
                       </div>
                     </div>
                   ))}

@@ -11,7 +11,7 @@ import {
   Loader2,
   MessageSquare,
   Package,
-  User,
+  UserStar,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -31,17 +31,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchOrder,
-  updateOrderStatus,
   formatCurrency,
   formatDate,
+  updateOrderStatus,
 } from "@/lib/api";
-
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  paid: "Payé",
-  partially_paid: "Partiellement payé",
-  refunded: "Remboursé",
-};
+import { PAYMENT_LABELS } from "@/lib/constants";
 
 const PREPARATION_STATUS_LABELS: Record<string, string> = {
   pending: "En attente",
@@ -51,7 +45,7 @@ const PREPARATION_STATUS_LABELS: Record<string, string> = {
 };
 
 function getPaymentBadgeVariant(
-  status: string
+  status: string,
 ): "paid" | "pending" | "partiallyPaid" | "refunded" | "outline" {
   switch (status) {
     case "paid":
@@ -68,7 +62,7 @@ function getPaymentBadgeVariant(
 }
 
 function getPreparationBadgeVariant(
-  status: string
+  status: string,
 ): "pending" | "preparation" | "ready" | "pickedUp" | "outline" {
   switch (status) {
     case "ready":
@@ -203,12 +197,14 @@ export default function OrderDetailPage() {
             </Link>
           </Button>
           <div className="flex items-center gap-2">
-            <Badge variant={getPreparationBadgeVariant(order.preparationStatus)}>
+            <Badge
+              variant={getPreparationBadgeVariant(order.preparationStatus)}
+            >
               {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
                 order.preparationStatus}
             </Badge>
             <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-              {PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus}
+              {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
             </Badge>
           </div>
         </div>
@@ -252,7 +248,9 @@ export default function OrderDetailPage() {
 
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Sous-total</span>
+                        <span className="text-muted-foreground">
+                          Sous-total
+                        </span>
                         <span>{formatCurrency(order.subtotal)}</span>
                       </div>
                       {parseFloat(order.taxTotal) > 0 && (
@@ -385,7 +383,7 @@ export default function OrderDetailPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
+                    <UserStar className="h-5 w-5" />
                     Équipe
                   </CardTitle>
                 </CardHeader>
@@ -393,26 +391,30 @@ export default function OrderDetailPage() {
                   {order.createdBy && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        <User className="h-4 w-4" />
+                        <UserStar className="h-4 w-4" />
                       </div>
                       <div>
                         <div className="text-sm font-medium text-muted-foreground">
                           Créée par
                         </div>
-                        <div className="font-medium">{order.createdBy.name}</div>
+                        <div className="font-medium">
+                          {order.createdBy.name}
+                        </div>
                       </div>
                     </div>
                   )}
                   {order.assignedTo && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                        <User className="h-4 w-4" />
+                        <UserStar className="h-4 w-4" />
                       </div>
                       <div>
                         <div className="text-sm font-medium text-muted-foreground">
                           Assignée à
                         </div>
-                        <div className="font-medium">{order.assignedTo.name}</div>
+                        <div className="font-medium">
+                          {order.assignedTo.name}
+                        </div>
                       </div>
                     </div>
                   )}

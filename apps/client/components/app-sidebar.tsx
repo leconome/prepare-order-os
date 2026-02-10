@@ -12,7 +12,7 @@ import {
   ShoppingCart,
   Store,
   UserRound,
-  Users,
+  UserStar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -91,7 +91,7 @@ const managementNavigation = [
   {
     title: "Équipe",
     url: "/staff",
-    icon: Users,
+    icon: UserStar,
     roles: ["admin", "owner"],
   },
 ];

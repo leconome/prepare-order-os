@@ -7,6 +7,7 @@ export const tenants = pgTable("tenants", {
   name: varchar("name", { length: 200 }).notNull(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   preparationFilterDays: integer("preparation_filter_days").notNull().default(0),
+  smsCredits: integer("sms_credits").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
