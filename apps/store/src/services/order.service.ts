@@ -194,23 +194,26 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
     const menu = await getMenuById(tenantId, menuReq.menuId!);
     if (!menu) continue;
 
-    const menuPrice = Number(menuReq.unitPrice) * menuReq.quantity;
-    subtotal += menuPrice;
+    const unitPrice = Number(menuReq.unitPrice);
+    subtotal += unitPrice * menuReq.quantity;
 
-    menuItemsToInsert.push({
-      productId: menuReq.productId,
-      productName: menuReq.productName,
-      quantity: menuReq.quantity,
-      unitPrice: menuReq.unitPrice,
-      totalPrice: menuPrice.toFixed(2),
-      isMenu: true,
-      notes: menuReq.notes ?? null,
-      menuProducts: menu.products.map((mp) => ({
-        productId: mp.product.id,
-        productName: mp.product.name,
-        quantity: mp.quantity * menuReq.quantity,
-      })),
-    });
+    // Expand into N separate rows so each menu instance can be prepared independently
+    for (let i = 0; i < menuReq.quantity; i++) {
+      menuItemsToInsert.push({
+        productId: menuReq.productId,
+        productName: menuReq.productName,
+        quantity: 1,
+        unitPrice: menuReq.unitPrice,
+        totalPrice: unitPrice.toFixed(2),
+        isMenu: true,
+        notes: menuReq.notes ?? null,
+        menuProducts: menu.products.map((mp) => ({
+          productId: mp.product.id,
+          productName: mp.product.name,
+          quantity: mp.quantity,
+        })),
+      });
+    }
   }
 
   const taxRate = 0.2; // 20% VAT

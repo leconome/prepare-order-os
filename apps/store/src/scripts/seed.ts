@@ -1401,25 +1401,27 @@ async function seedOrders(
         continue;
       }
       // Calculate price as sum of products if menu has no price
-      const menuPrice = menuData.menu.price
+      const unitMenuPrice = menuData.menu.price
         ? Number(menuData.menu.price)
         : menuData.products.reduce((sum, p) => sum + Number(p.price), 0);
-      const totalPrice = menuPrice * menuItem.quantity;
-      subtotal += totalPrice;
+      subtotal += unitMenuPrice * menuItem.quantity;
 
-      menuItemsToInsert.push({
-        productId: menuData.menu.id,
-        productName: menuData.menu.name,
-        quantity: menuItem.quantity,
-        unitPrice: menuPrice.toFixed(2),
-        totalPrice: totalPrice.toFixed(2),
-        isMenu: true,
-        menuProducts: menuData.products.map((p) => ({
-          productId: p.id,
-          productName: p.name,
+      // Expand into N separate rows so each menu instance can be prepared independently
+      for (let i = 0; i < menuItem.quantity; i++) {
+        menuItemsToInsert.push({
+          productId: menuData.menu.id,
+          productName: menuData.menu.name,
           quantity: 1,
-        })),
-      });
+          unitPrice: unitMenuPrice.toFixed(2),
+          totalPrice: unitMenuPrice.toFixed(2),
+          isMenu: true,
+          menuProducts: menuData.products.map((p) => ({
+            productId: p.id,
+            productName: p.name,
+            quantity: 1,
+          })),
+        });
+      }
     }
 
     const taxRate = 0.2;
