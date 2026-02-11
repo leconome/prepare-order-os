@@ -16,7 +16,13 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -183,34 +189,6 @@ export default function OrdersPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {data?.pagination.total ?? 0} commandes
-            </span>
-            {(data?.pagination.totalPages ?? 1) > 1 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setPage((p) => p - 1)}
-                  disabled={page <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {page}/{data?.pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= (data?.pagination.totalPages ?? 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            )}
             <Button
               variant="outline"
               size="sm"
@@ -238,6 +216,38 @@ export default function OrdersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Commandes récentes</CardTitle>
+            <CardAction>
+              <div className="flex flex-row items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {data?.pagination.total ?? 0} commandes
+                </span>
+                {(data?.pagination.totalPages ?? 1) > 1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => p - 1)}
+                      disabled={page <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {page}/{data?.pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= (data?.pagination.totalPages ?? 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardAction>
           </CardHeader>
           <CardContent>
             {isLoading ? (
