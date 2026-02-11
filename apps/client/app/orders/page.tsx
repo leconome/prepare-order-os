@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -41,6 +42,8 @@ import {
 } from "@/lib/helpers";
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
+  const router = useRouter();
+
   if (orders.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -66,59 +69,45 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
           <TableRow
             key={order.id}
             className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => router.push(`/orders/${order.id}`)}
           >
             <TableCell className="font-medium">
-              <Link
-                href={`/orders/${order.id}`}
-                className="block w-full hover:text-primary"
-              >
-                #{order.ticketNumber}
-              </Link>
+              #{order.ticketNumber}
             </TableCell>
             <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                {order.client?.name ?? (
-                  <span className="text-muted-foreground">—</span>
+              {order.client?.name ?? (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-col gap-1">
+                {order.items?.slice(0, 2).map((item) => (
+                  <span key={item.id} className="text-sm">
+                    {item.quantity}x {item.productName}
+                  </span>
+                ))}
+                {order.items && order.items.length > 2 && (
+                  <span className="text-sm text-muted-foreground">
+                    +{order.items.length - 2} autres
+                  </span>
                 )}
-              </Link>
+              </div>
             </TableCell>
             <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <div className="flex flex-col gap-1">
-                  {order.items?.slice(0, 2).map((item) => (
-                    <span key={item.id} className="text-sm">
-                      {item.quantity}x {item.productName}
-                    </span>
-                  ))}
-                  {order.items && order.items.length > 2 && (
-                    <span className="text-sm text-muted-foreground">
-                      +{order.items.length - 2} autres
-                    </span>
-                  )}
-                </div>
-              </Link>
+              <Badge
+                variant={getPreparationBadgeVariant(order.preparationStatus)}
+              >
+                {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
+                  order.preparationStatus}
+              </Badge>
             </TableCell>
             <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <Badge
-                  variant={getPreparationBadgeVariant(order.preparationStatus)}
-                >
-                  {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
-                    order.preparationStatus}
-                </Badge>
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                </Badge>
-              </Link>
+              <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
+                {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+              </Badge>
             </TableCell>
             <TableCell className="text-right font-medium">
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                {formatCurrency(order.total)}
-              </Link>
+              {formatCurrency(order.total)}
             </TableCell>
           </TableRow>
         ))}
