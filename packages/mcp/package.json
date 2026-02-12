@@ -1,0 +1,23 @@
+{
+  "name": "@prepareos/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for PrepareOS tenant operations",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "prepareos-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/node": "^25.2.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "~5.9.2"
+  }
+}
