@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 type User = {
   id: string;
@@ -19,8 +19,7 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:3002";
+const API_URL = "http://192.168.1.86:9000";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

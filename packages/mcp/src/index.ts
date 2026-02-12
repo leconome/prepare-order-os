@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 // ── Config ──────────────────────────────────────────────────────
-const API_URL = process.env.PREPAREOS_API_URL || "http://localhost:3002";
+const API_URL = process.env.PREPAREOS_API_URL || "http://localhost:9000";
 const API_TOKEN = process.env.PREPAREOS_TOKEN || "";
 
 // ── HTTP helper ─────────────────────────────────────────────────

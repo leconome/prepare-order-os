@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:3002";
+  process.env.EXPO_PUBLIC_API_URL || "http://localhost:9000";
 
 type RequestOptions = {
   method?: string;

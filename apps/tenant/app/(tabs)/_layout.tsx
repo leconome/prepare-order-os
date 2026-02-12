@@ -39,10 +39,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="menu"
+        name="voice"
         options={{
-          title: "Menu",
-          tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
+          title: "Micro",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="microphone" color={color} />
+          ),
         }}
       />
       <Tabs.Screen

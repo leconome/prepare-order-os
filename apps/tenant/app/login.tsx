@@ -1,17 +1,22 @@
+import { router } from "expo-router";
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
 } from "react-native";
-import { router } from "expo-router";
 
 import { Text, View } from "@/components/Themed";
 import { useAuth } from "@/contexts/AuthContext";
+
+const DEV_CREDENTIALS = {
+  email: "admin@admin.com",
+  password: "admin123",
+};
 
 export default function LoginScreen() {
   const { signIn, isLoading } = useAuth();
@@ -31,6 +36,18 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       Alert.alert("Erreur", err.message || "Identifiants invalides");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDevLogin() {
+    setLoading(true);
+    try {
+      await signIn(DEV_CREDENTIALS.email, DEV_CREDENTIALS.password);
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      Alert.alert("Erreur", err.message || "Connexion rapide échouée");
     } finally {
       setLoading(false);
     }
@@ -85,6 +102,18 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Se connecter</Text>
           )}
         </TouchableOpacity>
+
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[styles.devButton, loading && styles.buttonDisabled]}
+            onPress={handleDevLogin}
+            disabled={loading}
+          >
+            <Text style={styles.devButtonText}>
+              Connexion rapide — Fromagerie du Quartier
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -137,5 +166,20 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  devButton: {
+    width: "100%",
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#f59e0b",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+  },
+  devButtonText: {
+    color: "#f59e0b",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });
