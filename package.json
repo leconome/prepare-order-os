@@ -5,6 +5,7 @@
     "dev": "turbo dev",
     "dev:store": "turbo dev --filter=store",
     "dev:client": "turbo dev --filter=client",
+    "dev:tenant": "pnpm --filter tenant start",
     "build": "turbo build",
     "build:store": "turbo build --filter=store",
     "build:client": "turbo build --filter=client",
