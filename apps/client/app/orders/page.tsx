@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -34,12 +34,30 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { fetchOrders, formatCurrency, type OrderWithItems } from "@/lib/api";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  fetchOrders,
+  formatCurrency,
+  type OrdersResponse,
+  type OrderWithItems,
+} from "@/lib/api";
 import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
 import {
   getPaymentBadgeVariant,
   getPreparationBadgeVariant,
 } from "@/lib/helpers";
+
+const ORDER_TABS = [
+  { key: "all", label: "Toutes", status: undefined },
+  { key: "pending", label: "En attente", status: "pending" as const },
+  {
+    key: "in_preparation",
+    label: "En préparation",
+    status: "in_preparation" as const,
+  },
+  { key: "ready", label: "Prêt", status: "ready" as const },
+  { key: "picked_up", label: "Récupéré", status: "picked_up" as const },
+];
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
   const router = useRouter();
@@ -138,17 +156,35 @@ const PAGE_SIZE = 20;
 export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
   const trimmedSearch = search.trim();
 
+  const activeStatus = ORDER_TABS.find((t) => t.key === activeTab)?.status;
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders", page, trimmedSearch],
+    queryKey: ["orders", page, trimmedSearch, activeStatus],
     queryFn: () =>
       fetchOrders({
         page,
         limit: PAGE_SIZE,
         search: trimmedSearch || undefined,
+        preparationStatus: activeStatus,
       }),
     placeholderData: keepPreviousData,
+  });
+
+  const countQueries = useQueries({
+    queries: ORDER_TABS.map((tab) => ({
+      queryKey: ["orders-count", tab.status ?? "all", trimmedSearch],
+      queryFn: () =>
+        fetchOrders({
+          page: 1,
+          limit: 1,
+          preparationStatus: tab.status,
+          search: trimmedSearch || undefined,
+        }),
+      select: (d: OrdersResponse) => d.pagination.total,
+    })),
   });
 
   return (
@@ -201,6 +237,28 @@ export default function OrdersPage() {
             </Button>
           </div>
         </div>
+
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            setPage(1);
+          }}
+        >
+          <TabsList>
+            {ORDER_TABS.map((tab, i) => (
+              <TabsTrigger key={tab.key} value={tab.key}>
+                {tab.label}
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 text-xs h-5 px-1.5"
+                >
+                  {countQueries[i]?.data ?? 0}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <Card>
           <CardHeader>
