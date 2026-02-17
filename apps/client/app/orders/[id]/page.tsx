@@ -316,7 +316,7 @@ export default function OrderDetailPage() {
   return (
     <DashboardLayout
       title={`Commande #${order.ticketNumber}`}
-      description={`Créée le ${formatDate(order.createdAt)}`}
+      description={`Créée le ${formatDate(order.createdAt)}${order.pickupDate ? ` · Retrait le ${format(new Date(order.pickupDate), "EEEE d MMMM", { locale: fr })}${order.pickupTimeStart ? ` (${order.pickupTimeStart}-${order.pickupTimeEnd})` : ""}` : ""}`}
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between">

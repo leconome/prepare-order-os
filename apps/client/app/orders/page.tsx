@@ -47,6 +47,20 @@ import {
   getPreparationBadgeVariant,
 } from "@/lib/helpers";
 
+function formatPickupDate(order: OrderWithItems): string | null {
+  if (!order.pickupDate) return null;
+  const date = new Date(order.pickupDate);
+  const formatted = new Intl.DateTimeFormat("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+  if (order.pickupTimeStart && order.pickupTimeEnd) {
+    return `${formatted}, ${order.pickupTimeStart}-${order.pickupTimeEnd}`;
+  }
+  return formatted;
+}
+
 const ORDER_TABS = [
   { key: "all", label: "Toutes", status: undefined },
   { key: "pending", label: "En attente", status: "pending" as const },
@@ -76,6 +90,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
         <TableRow>
           <TableHead className="w-24">Ticket</TableHead>
           <TableHead>Client</TableHead>
+          <TableHead>Retrait</TableHead>
           <TableHead>Articles</TableHead>
           <TableHead>Préparation</TableHead>
           <TableHead>Paiement</TableHead>
@@ -94,6 +109,11 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
             </TableCell>
             <TableCell>
               {order.client?.name ?? (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
+            <TableCell>
+              {formatPickupDate(order) ?? (
                 <span className="text-muted-foreground">—</span>
               )}
             </TableCell>
@@ -141,6 +161,7 @@ function OrdersTableSkeleton() {
         <div key={`skeleton-${i}`} className="flex items-center gap-4">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
           <Skeleton className="h-4 flex-1" />
           <Skeleton className="h-6 w-20" />
           <Skeleton className="h-6 w-20" />
