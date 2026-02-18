@@ -1,32 +1,38 @@
-import { Hono } from "hono";
-import { eq, and, sql } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { users } from "@prepareos/data/schema";
+import { zValidator } from "@hono/zod-validator";
 import {
-  staffFiltersSchema,
   createStaffSchema,
+  pinLoginSchema,
+  staffFiltersSchema,
   updateStaffSchema,
 } from "@prepareos/data";
-import { auth } from "../lib/auth.js";
+import { users } from "@prepareos/data/schema";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { setSignedCookie } from "hono/cookie";
+import { nanoid } from "nanoid";
 import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
+import { db } from "../db/index.js";
+import { auth } from "../lib/auth.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { ownerOrAdmin } from "../middleware/role-guard.js";
-import { nanoid } from "nanoid";
+import type { AppEnv } from "../types.js";
 
-const usersRoutes = new Hono();
+const usersRoutes = new Hono<AppEnv>();
 
 // Check if a user exists by email (for dev mode only - no auth required)
 usersRoutes.get("/check/:email", async (c) => {
-  // Only allow in development
-  if (process.env.NODE_ENV === "production") {
+  // Only allow in dev stage
+  const stage = process.env.STAGE;
+
+  if (stage !== "dev") {
     return c.json({ error: "Not available in production" }, 403);
   }
 
+  const tenantId = c.get("tenantId") as string;
   const email = c.req.param("email");
 
   const user = await db.query.users.findFirst({
-    where: eq(users.email, email),
+    where: and(eq(users.email, email), eq(users.tenantId, tenantId)),
     columns: {
       id: true,
       email: true,
@@ -38,12 +44,158 @@ usersRoutes.get("/check/:email", async (c) => {
   return c.json({ exists: !!user, user: user ?? null });
 });
 
+// Create dev user with role (dev mode only - no auth required)
+usersRoutes.post("/dev-signup", async (c) => {
+  if (process.env.STAGE !== "dev") {
+    return c.json({ error: "Not available in production" }, 403);
+  }
+
+  const tenantId = c.get("tenantId") as string;
+  const { email, password, name, role } = await c.req.json();
+
+  const result = await auth.api.signUpEmail({
+    body: { email, password, name, tenantId },
+  });
+
+  if (!result.user) {
+    return c.json({ error: "Failed to create user" }, 500);
+  }
+
+  // Update role and ensure tenantId is set
+  const updateFields: Record<string, unknown> = { tenantId };
+  if (role && role !== "staff") {
+    updateFields.role = role;
+  }
+  await db.update(users).set(updateFields).where(eq(users.id, result.user.id));
+
+  return c.json({ user: { ...result.user, role: role || "staff" } }, 201);
+});
+
+// Public: List active staff for login screen (minimal info only)
+usersRoutes.get("/login-staff", async (c) => {
+  const tenantId = c.get("tenantId") as string;
+
+  const staffList = await db.query.users.findMany({
+    where: and(
+      eq(users.isActive, true),
+      isNotNull(users.pin),
+      eq(users.tenantId, tenantId),
+    ),
+    columns: {
+      id: true,
+      name: true,
+      image: true,
+    },
+    orderBy: (users, { asc }) => [asc(users.name)],
+  });
+
+  return c.json({ staff: staffList });
+});
+
+// Public: PIN login — creates a full better-auth session
+const pinAttempts = new Map<
+  string,
+  { count: number; lastAttempt: number }
+>();
+const MAX_PIN_ATTEMPTS = 5;
+const PIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+usersRoutes.post(
+  "/login-pin",
+  zValidator("json", pinLoginSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const { userId, pin } = c.req.valid("json");
+
+    console.log(`Login attempt for userId: ${userId}`);
+
+    // Rate limiting per userId
+    const attempt = pinAttempts.get(userId);
+    if (attempt) {
+      if (
+        attempt.count >= MAX_PIN_ATTEMPTS &&
+        Date.now() - attempt.lastAttempt < PIN_LOCKOUT_MS
+      ) {
+        return c.json(
+          { error: "Trop de tentatives, réessayez dans 5 minutes" },
+          429,
+        );
+      }
+      if (Date.now() - attempt.lastAttempt >= PIN_LOCKOUT_MS) {
+        pinAttempts.delete(userId);
+      }
+    }
+
+    // Find user by ID and verify PIN — scoped by tenant
+    const user = await db.query.users.findFirst({
+      where: and(
+        eq(users.id, userId),
+        eq(users.pin, pin),
+        eq(users.isActive, true),
+        eq(users.tenantId, tenantId),
+        isNotNull(users.pin),
+      ),
+    });
+
+    if (!user) {
+      // Track failed attempt
+      const current = pinAttempts.get(userId) || {
+        count: 0,
+        lastAttempt: 0,
+      };
+      pinAttempts.set(userId, {
+        count: current.count + 1,
+        lastAttempt: Date.now(),
+      });
+      return c.json({ error: "PIN incorrect" }, 401);
+    }
+
+    // Reset attempts on success
+    pinAttempts.delete(userId);
+
+    // Create session using better-auth's internal adapter
+    const authCtx = await auth.$context;
+    const session = await authCtx.internalAdapter.createSession(
+      user.id,
+      false, // dontRememberMe
+      {
+        ipAddress: c.req.header("x-forwarded-for") || "",
+        userAgent: c.req.header("user-agent") || "",
+      },
+    );
+
+    // Set signed cookie (same way better-auth does internally)
+    const cookieName = authCtx.authCookies.sessionToken.name;
+    const isDev = process.env.STAGE === "dev";
+    await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
+      path: "/",
+      httpOnly: true,
+      sameSite: isDev ? "None" : "Lax",
+      maxAge: 7 * 24 * 60 * 60,
+      secure: true,
+    });
+
+    return c.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+      },
+    });
+  },
+);
+
 // Require authentication for all other routes
 usersRoutes.use("*", authMiddleware);
 
 // List all users (for admin/owner)
 usersRoutes.get("/", async (c) => {
+  const tenantId = c.get("tenantId") as string;
+
   const allUsers = await db.query.users.findMany({
+    where: eq(users.tenantId, tenantId),
     columns: {
       id: true,
       email: true,
@@ -64,10 +216,11 @@ usersRoutes.get(
   "/staff",
   zValidator("query", staffFiltersSchema),
   async (c) => {
+    const tenantId = c.get("tenantId") as string;
     const { role, isActive, page = 1, limit = 20 } = c.req.valid("query");
     const offset = (page - 1) * limit;
 
-    const conditions = [];
+    const conditions = [eq(users.tenantId, tenantId)];
 
     if (role) {
       conditions.push(eq(users.role, role));
@@ -77,8 +230,7 @@ usersRoutes.get(
       conditions.push(eq(users.isActive, isActive));
     }
 
-    const whereClause =
-      conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause = and(...conditions);
 
     const [data, countResult] = await Promise.all([
       db.query.users.findMany({
@@ -89,6 +241,7 @@ usersRoutes.get(
           id: true,
           name: true,
           email: true,
+          pin: true,
           role: true,
           isActive: true,
           createdAt: true,
@@ -96,7 +249,10 @@ usersRoutes.get(
         },
         orderBy: (users, { asc }) => [asc(users.name)],
       }),
-      db.select({ count: sql<number>`count(*)` }).from(users).where(whereClause),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(whereClause),
     ]);
 
     const total = Number(countResult[0]?.count ?? 0);
@@ -115,10 +271,11 @@ usersRoutes.get(
 
 // Get user by ID
 usersRoutes.get("/:id", async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
 
   const user = await db.query.users.findFirst({
-    where: eq(users.id, id),
+    where: and(eq(users.id, id), eq(users.tenantId, tenantId)),
     columns: {
       id: true,
       email: true,
@@ -150,11 +307,12 @@ usersRoutes.post(
   ownerOrAdmin,
   zValidator("json", createUserSchema),
   async (c) => {
+    const tenantId = c.get("tenantId") as string;
     const { email, password, name, role } = c.req.valid("json");
 
-    // Check if user already exists
+    // Check if user already exists in this tenant
     const existing = await db.query.users.findFirst({
-      where: eq(users.email, email),
+      where: and(eq(users.email, email), eq(users.tenantId, tenantId)),
     });
 
     if (existing) {
@@ -168,6 +326,7 @@ usersRoutes.post(
           email,
           password,
           name: name || email.split("@")[0],
+          tenantId,
         },
       });
 
@@ -175,13 +334,15 @@ usersRoutes.post(
         return c.json({ error: "Failed to create user" }, 500);
       }
 
-      // Update role if specified (default is staff)
+      // Update role and ensure tenantId is set
+      const updateFields: Record<string, unknown> = { tenantId };
       if (role && role !== "staff") {
-        await db
-          .update(users)
-          .set({ role })
-          .where(eq(users.id, result.user.id));
+        updateFields.role = role;
       }
+      await db
+        .update(users)
+        .set(updateFields)
+        .where(eq(users.id, result.user.id));
 
       // Fetch the updated user
       const user = await db.query.users.findFirst({
@@ -210,6 +371,7 @@ usersRoutes.post(
   ownerOrAdmin,
   zValidator("json", createStaffSchema),
   async (c) => {
+    const tenantId = c.get("tenantId") as string;
     const { name, email, pin, role, isActive } = c.req.valid("json");
 
     // Check if user already exists
@@ -221,9 +383,9 @@ usersRoutes.post(
       return c.json({ error: "User with this email already exists" }, 409);
     }
 
-    // Check if PIN is already in use
+    // Check if PIN is already in use within this tenant
     const existingPin = await db.query.users.findFirst({
-      where: eq(users.pin, pin),
+      where: and(eq(users.pin, pin), eq(users.tenantId, tenantId)),
     });
 
     if (existingPin) {
@@ -241,6 +403,7 @@ usersRoutes.post(
         role: role || "staff",
         isActive: isActive ?? true,
         emailVerified: false,
+        tenantId,
       })
       .returning({
         id: users.id,
@@ -262,21 +425,22 @@ usersRoutes.patch(
   ownerOrAdmin,
   zValidator("json", updateStaffSchema),
   async (c) => {
+    const tenantId = c.get("tenantId") as string;
     const id = c.req.param("id");
     const data = c.req.valid("json");
 
     const existing = await db.query.users.findFirst({
-      where: eq(users.id, id),
+      where: and(eq(users.id, id), eq(users.tenantId, tenantId)),
     });
 
     if (!existing) {
       return c.json({ error: "User not found" }, 404);
     }
 
-    // Check if new PIN is already in use by another user
+    // Check if new PIN is already in use by another user in this tenant
     if (data.pin) {
       const existingPin = await db.query.users.findFirst({
-        where: and(eq(users.pin, data.pin)),
+        where: and(eq(users.pin, data.pin), eq(users.tenantId, tenantId)),
       });
 
       if (existingPin && existingPin.id !== id) {
@@ -296,7 +460,7 @@ usersRoutes.patch(
     const [user] = await db
       .update(users)
       .set(updateData)
-      .where(eq(users.id, id))
+      .where(and(eq(users.id, id), eq(users.tenantId, tenantId)))
       .returning({
         id: users.id,
         name: users.name,
@@ -313,17 +477,18 @@ usersRoutes.patch(
 
 // Delete a user
 usersRoutes.delete("/:id", ownerOrAdmin, async (c) => {
+  const tenantId = c.get("tenantId") as string;
   const id = c.req.param("id");
 
   const existing = await db.query.users.findFirst({
-    where: eq(users.id, id),
+    where: and(eq(users.id, id), eq(users.tenantId, tenantId)),
   });
 
   if (!existing) {
     return c.json({ error: "User not found" }, 404);
   }
 
-  await db.delete(users).where(eq(users.id, id));
+  await db.delete(users).where(and(eq(users.id, id), eq(users.tenantId, tenantId)));
 
   return c.json({ success: true });
 });

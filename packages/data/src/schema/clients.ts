@@ -4,23 +4,32 @@ import {
   varchar,
   text,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
+import { tenants } from "./tenants.js";
 
-export const clients = pgTable("clients", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 200 }).notNull(),
-  phone: varchar("phone", { length: 20 }),
-  email: varchar("email", { length: 255 }),
-  notes: text("notes"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const clients = pgTable(
+  "clients",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 200 }).notNull(),
+    phone: varchar("phone", { length: 20 }),
+    email: varchar("email", { length: 255 }),
+    notes: text("notes"),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("clients_tenant_id_idx").on(table.tenantId)],
+);
 
 // Drizzle types
 export type Client = typeof clients.$inferSelect;

@@ -9,15 +9,25 @@ import type {
   CreateOrder,
   CreateProduct,
   CreateStaff,
+  GrantCredits,
   Menu,
   MenuFilters,
   MenuWithProducts,
   Order,
   OrderFilters,
+  OrderItemWithMenuItems,
+  OrderMenuItem,
   OrderWithItems,
   Product,
   ProductFilters,
+  RevokeCredits,
+  SendSms,
+  SmsCreditFilters,
+  SmsCreditTransaction,
+  SmsFilters,
+  SmsMessage,
   StaffFilters,
+  Tenant,
   UpdateCategory,
   UpdateClient,
   UpdateMenu,
@@ -25,6 +35,7 @@ import type {
   UpdateOrderStatus,
   UpdateProduct,
   UpdateStaff,
+  UpdateTenantSettings,
   User,
 } from "@prepareos/data";
 
@@ -79,6 +90,7 @@ export async function fetchOrders(
 
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.search) searchParams.set("search", params.search);
   if (params?.clientId) searchParams.set("clientId", params.clientId);
   if (params?.paymentStatus)
     searchParams.set("paymentStatus", params.paymentStatus);
@@ -134,6 +146,34 @@ export async function deleteOrder(orderId: string): Promise<void> {
   });
 }
 
+export async function toggleOrderItemPrepared(
+  orderId: string,
+  itemId: string,
+  isPrepared: boolean,
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(
+    `/orders/${orderId}/items/${itemId}/prepared`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isPrepared }),
+    },
+  );
+}
+
+export async function toggleMenuItemPrepared(
+  orderId: string,
+  menuItemId: string,
+  isPrepared: boolean,
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(
+    `/orders/${orderId}/menu-items/${menuItemId}/prepared`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ isPrepared }),
+    },
+  );
+}
+
 // ============ PRODUCTS ============
 
 export type ProductsResponse = PaginatedResponse<Product>;
@@ -181,6 +221,29 @@ export async function deleteProduct(productId: string): Promise<void> {
   });
 }
 
+export async function uploadProductImage(
+  file: File,
+): Promise<{ url: string; key: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const url = `${API_URL}/api/uploads/product-image`;
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: "Upload failed" }));
+    throw new Error(error.error || `Upload failed: HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 // ============ CATEGORIES ============
 
 export type CategoriesResponse = PaginatedResponse<Category>;
@@ -219,6 +282,15 @@ export async function updateCategory(
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+export async function fetchCategoryProductCount(
+  categoryId: string,
+): Promise<number> {
+  const result = await fetchApi<{ count: number }>(
+    `/categories/${categoryId}/product-count`,
+  );
+  return result.count;
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
@@ -274,10 +346,9 @@ export async function deleteMenu(menuId: string): Promise<void> {
 
 // ============ STAFF (USERS) ============
 
-// Staff user type for listings (excludes sensitive fields like pin)
 export type StaffUser = Pick<
   User,
-  "id" | "name" | "email" | "role" | "isActive" | "createdAt" | "updatedAt"
+  "id" | "name" | "email" | "pin" | "role" | "isActive" | "createdAt" | "updatedAt"
 >;
 
 export type StaffResponse = PaginatedResponse<StaffUser>;
@@ -364,6 +435,178 @@ export async function deleteClient(clientId: string): Promise<void> {
   });
 }
 
+// ============ PIN AUTH ============
+
+export type LoginStaffMember = {
+  id: string;
+  name: string | null;
+  image: string | null;
+};
+
+export async function fetchLoginStaff(): Promise<{
+  staff: LoginStaffMember[];
+}> {
+  return fetchApi<{ staff: LoginStaffMember[] }>("/users/login-staff");
+}
+
+export async function loginWithPin(
+  userId: string,
+  pin: string,
+): Promise<{
+  user: { id: string; name: string | null; email: string; role: string };
+}> {
+  return fetchApi("/users/login-pin", {
+    method: "POST",
+    body: JSON.stringify({ userId, pin }),
+  });
+}
+
+// ============ AUTH (DEV) ============
+
+export async function checkUserExists(
+  email: string,
+): Promise<{
+  exists: boolean;
+  user: { id: string; email: string; name: string; role: string } | null;
+}> {
+  return fetchApi(`/users/check/${encodeURIComponent(email)}`);
+}
+
+export async function signUpDevUser(data: {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+}): Promise<unknown> {
+  return fetchApi("/users/dev-signup", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// ============ TENANTS ============
+
+export async function fetchTenantSettings(): Promise<Tenant> {
+  return fetchApi<Tenant>("/tenants");
+}
+
+export async function updateTenantSettings(
+  data: UpdateTenantSettings,
+): Promise<Tenant> {
+  return fetchApi<Tenant>("/tenants/settings", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// ============ ADMIN ============
+
+export async function fetchAllTenants(): Promise<{
+  data: Tenant[];
+}> {
+  return fetchApi<{ data: Tenant[] }>("/admin/tenants");
+}
+
+// ============ ADMIN SMS ============
+
+export async function fetchAdminSmsCredits(): Promise<{
+  creditsLeft: number;
+  name: string;
+  buyUrl: string;
+}> {
+  return fetchApi("/admin/sms/credits");
+}
+
+export type SmsTenant = {
+  id: string;
+  name: string;
+  slug: string;
+  smsCredits: number;
+};
+
+export async function fetchAdminSmsTenants(): Promise<{
+  data: SmsTenant[];
+  totalDistributed: number;
+  available: number | null;
+}> {
+  return fetchApi("/admin/sms/tenants");
+}
+
+export async function grantSmsCredits(
+  tenantId: string,
+  data: GrantCredits,
+): Promise<{ credits: number }> {
+  return fetchApi(`/admin/sms/tenants/${tenantId}/grant`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function revokeSmsCredits(
+  tenantId: string,
+  data: RevokeCredits,
+): Promise<{ credits: number }> {
+  return fetchApi(`/admin/sms/tenants/${tenantId}/revoke`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchAdminTenantTransactions(
+  tenantId: string,
+  params?: Partial<SmsCreditFilters>,
+): Promise<PaginatedResponse<SmsCreditTransaction>> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/admin/sms/tenants/${tenantId}/transactions${query ? `?${query}` : ""}`);
+}
+
+// ============ TENANT SMS ============
+
+export async function fetchSmsCredits(): Promise<{ credits: number }> {
+  return fetchApi("/sms/credits");
+}
+
+export async function fetchSmsTransactions(
+  params?: Partial<SmsCreditFilters>,
+): Promise<PaginatedResponse<SmsCreditTransaction>> {
+  const searchParams = new URLSearchParams();
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/sms/transactions${query ? `?${query}` : ""}`);
+}
+
+export async function fetchSmsMessages(
+  params?: Partial<SmsFilters>,
+): Promise<PaginatedResponse<SmsMessage>> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.fromDate) searchParams.set("fromDate", params.fromDate.toISOString());
+  if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/sms/messages${query ? `?${query}` : ""}`);
+}
+
+export async function sendSms(data: SendSms): Promise<SmsMessage> {
+  return fetchApi("/sms/send", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function refreshSmsStatus(messageId: string): Promise<SmsMessage> {
+  return fetchApi(`/sms/messages/${messageId}/refresh`, {
+    method: "POST",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -388,6 +631,8 @@ export function formatDate(date: string | Date): string {
 export type {
   Order,
   OrderWithItems,
+  OrderItemWithMenuItems,
+  OrderMenuItem,
   OrderFilters,
   CreateOrder,
   UpdateOrder,
@@ -413,4 +658,13 @@ export type {
   CreateClient,
   UpdateClient,
   ClientFilters,
+  Tenant,
+  UpdateTenantSettings,
+  SmsCreditTransaction,
+  SmsMessage,
+  SmsFilters,
+  SmsCreditFilters,
+  GrantCredits,
+  RevokeCredits,
+  SendSms,
 };

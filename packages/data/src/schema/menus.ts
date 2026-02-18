@@ -5,27 +5,38 @@ import {
   text,
   boolean,
   integer,
+  decimal,
   timestamp,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { products, type Product } from "./products.js";
+import { tenants } from "./tenants.js";
 
-export const menus = pgTable("menus", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 100 }).notNull(),
-  description: text("description"),
-  isActive: boolean("is_active").notNull().default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const menus = pgTable(
+  "menus",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    price: decimal("price", { precision: 10, scale: 2 }),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("menus_tenant_id_idx").on(table.tenantId)],
+);
 
 export const menuProducts = pgTable(
   "menu_products",
@@ -36,6 +47,7 @@ export const menuProducts = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull().default(1),
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.menuId, table.productId] })],
@@ -68,21 +80,29 @@ export const selectMenuSchema = createSelectSchema(menus);
 export const insertMenuProductSchema = createInsertSchema(menuProducts);
 export const selectMenuProductSchema = createSelectSchema(menuProducts);
 
+// Menu product entry schema (product + quantity)
+export const menuProductEntrySchema = z.object({
+  productId: z.string().uuid(),
+  quantity: z.number().int().positive().default(1),
+});
+
 // Custom schemas for API
 export const createMenuSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
+  price: z.string().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
-  productIds: z.array(z.string().uuid()).optional(),
+  products: z.array(menuProductEntrySchema).optional(),
 });
 
 export const updateMenuSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).nullable().optional(),
+  price: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
-  productIds: z.array(z.string().uuid()).optional(),
+  products: z.array(menuProductEntrySchema).optional(),
 });
 
 export const menuFiltersSchema = z.object({
@@ -92,7 +112,9 @@ export const menuFiltersSchema = z.object({
 });
 
 // Types
-export type MenuWithProducts = Menu & { products: Product[] };
+export type MenuProductWithProduct = { product: Product; quantity: number };
+export type MenuWithProducts = Menu & { products: MenuProductWithProduct[] };
 export type CreateMenu = z.infer<typeof createMenuSchema>;
 export type UpdateMenu = z.infer<typeof updateMenuSchema>;
 export type MenuFilters = z.infer<typeof menuFiltersSchema>;
+export type MenuProductEntry = z.infer<typeof menuProductEntrySchema>;

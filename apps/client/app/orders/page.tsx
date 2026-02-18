@@ -1,13 +1,30 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw } from "lucide-react";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -17,62 +34,48 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   fetchOrders,
   formatCurrency,
-  formatDate,
+  type OrdersResponse,
   type OrderWithItems,
 } from "@/lib/api";
+import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
+import {
+  getPaymentBadgeVariant,
+  getPreparationBadgeVariant,
+} from "@/lib/helpers";
 
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  paid: "Payé",
-  partially_paid: "Partiellement payé",
-  refunded: "Remboursé",
-};
-
-const PREPARATION_STATUS_LABELS: Record<string, string> = {
-  pending: "En attente",
-  in_preparation: "En préparation",
-  ready: "Prêt",
-  picked_up: "Récupéré",
-};
-
-function getPaymentBadgeVariant(
-  status: string
-): "paid" | "pending" | "partiallyPaid" | "refunded" | "outline" {
-  switch (status) {
-    case "paid":
-      return "paid";
-    case "pending":
-      return "pending";
-    case "partially_paid":
-      return "partiallyPaid";
-    case "refunded":
-      return "refunded";
-    default:
-      return "outline";
+function formatPickupDate(order: OrderWithItems): string | null {
+  if (!order.pickupDate) return null;
+  const date = new Date(order.pickupDate);
+  const formatted = new Intl.DateTimeFormat("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(date);
+  if (order.pickupTimeStart && order.pickupTimeEnd) {
+    return `${formatted}, ${order.pickupTimeStart}-${order.pickupTimeEnd}`;
   }
+  return formatted;
 }
 
-function getPreparationBadgeVariant(
-  status: string
-): "pending" | "preparation" | "ready" | "pickedUp" | "outline" {
-  switch (status) {
-    case "ready":
-      return "ready";
-    case "picked_up":
-      return "pickedUp";
-    case "in_preparation":
-      return "preparation";
-    case "pending":
-      return "pending";
-    default:
-      return "outline";
-  }
-}
+const ORDER_TABS = [
+  { key: "all", label: "Toutes", status: undefined },
+  { key: "pending", label: "En attente", status: "pending" as const },
+  {
+    key: "in_preparation",
+    label: "En préparation",
+    status: "in_preparation" as const,
+  },
+  { key: "ready", label: "Prêt", status: "ready" as const },
+  { key: "picked_up", label: "Récupéré", status: "picked_up" as const },
+];
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
+  const router = useRouter();
+
   if (orders.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -86,7 +89,8 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
       <TableHeader>
         <TableRow>
           <TableHead className="w-24">Ticket</TableHead>
-          <TableHead>Date</TableHead>
+          <TableHead>Client</TableHead>
+          <TableHead>Retrait</TableHead>
           <TableHead>Articles</TableHead>
           <TableHead>Préparation</TableHead>
           <TableHead>Paiement</TableHead>
@@ -98,58 +102,50 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
           <TableRow
             key={order.id}
             className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => router.push(`/orders/${order.id}`)}
           >
             <TableCell className="font-medium">
-              <Link
-                href={`/orders/${order.id}`}
-                className="block w-full hover:text-primary"
+              #{order.ticketNumber}
+            </TableCell>
+            <TableCell>
+              {order.client?.name ?? (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
+            <TableCell>
+              {formatPickupDate(order) ?? (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
+            <TableCell>
+              <div className="flex flex-col gap-1">
+                {order.items?.slice(0, 2).map((item) => (
+                  <span key={item.id} className="text-sm">
+                    {item.quantity}x {item.productName}
+                  </span>
+                ))}
+                {order.items && order.items.length > 2 && (
+                  <span className="text-sm text-muted-foreground">
+                    +{order.items.length - 2} autres
+                  </span>
+                )}
+              </div>
+            </TableCell>
+            <TableCell>
+              <Badge
+                variant={getPreparationBadgeVariant(order.preparationStatus)}
               >
-                #{order.ticketNumber}
-              </Link>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                {formatDate(order.createdAt)}
-              </Link>
+                {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
+                  order.preparationStatus}
+              </Badge>
             </TableCell>
             <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <div className="flex flex-col gap-1">
-                  {order.items?.slice(0, 2).map((item) => (
-                    <span key={item.id} className="text-sm">
-                      {item.quantity}x {item.productName}
-                    </span>
-                  ))}
-                  {order.items && order.items.length > 2 && (
-                    <span className="text-sm text-muted-foreground">
-                      +{order.items.length - 2} autres
-                    </span>
-                  )}
-                </div>
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <Badge
-                  variant={getPreparationBadgeVariant(order.preparationStatus)}
-                >
-                  {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
-                    order.preparationStatus}
-                </Badge>
-              </Link>
-            </TableCell>
-            <TableCell>
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                  {PAYMENT_STATUS_LABELS[order.paymentStatus] ||
-                    order.paymentStatus}
-                </Badge>
-              </Link>
+              <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
+                {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+              </Badge>
             </TableCell>
             <TableCell className="text-right font-medium">
-              <Link href={`/orders/${order.id}`} className="block w-full">
-                {formatCurrency(order.total)}
-              </Link>
+              {formatCurrency(order.total)}
             </TableCell>
           </TableRow>
         ))}
@@ -165,6 +161,7 @@ function OrdersTableSkeleton() {
         <div key={`skeleton-${i}`} className="flex items-center gap-4">
           <Skeleton className="h-4 w-16" />
           <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
           <Skeleton className="h-4 flex-1" />
           <Skeleton className="h-6 w-20" />
           <Skeleton className="h-6 w-20" />
@@ -175,20 +172,67 @@ function OrdersTableSkeleton() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function OrdersPage() {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const trimmedSearch = search.trim();
+
+  const activeStatus = ORDER_TABS.find((t) => t.key === activeTab)?.status;
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => fetchOrders({ limit: 50 }),
+    queryKey: ["orders", page, trimmedSearch, activeStatus],
+    queryFn: () =>
+      fetchOrders({
+        page,
+        limit: PAGE_SIZE,
+        search: trimmedSearch || undefined,
+        preparationStatus: activeStatus,
+      }),
+    placeholderData: keepPreviousData,
+  });
+
+  const countQueries = useQueries({
+    queries: ORDER_TABS.map((tab) => ({
+      queryKey: ["orders-count", tab.status ?? "all", trimmedSearch],
+      queryFn: () =>
+        fetchOrders({
+          page: 1,
+          limit: 1,
+          preparationStatus: tab.status,
+          search: trimmedSearch || undefined,
+        }),
+      select: (d: OrdersResponse) => d.pagination.total,
+    })),
   });
 
   return (
     <DashboardLayout title="Commandes" description="Gérez vos commandes">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {data?.pagination.total ?? 0} commandes au total
-            </span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par client, produit, ticket..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-10"
+            />
+            {search && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                onClick={() => setSearch("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -215,9 +259,63 @@ export default function OrdersPage() {
           </div>
         </div>
 
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            setActiveTab(value);
+            setPage(1);
+          }}
+        >
+          <TabsList>
+            {ORDER_TABS.map((tab, i) => (
+              <TabsTrigger key={tab.key} value={tab.key}>
+                {tab.label}
+                <Badge
+                  variant="secondary"
+                  className="ml-1.5 text-xs h-5 px-1.5"
+                >
+                  {countQueries[i]?.data ?? 0}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
         <Card>
           <CardHeader>
             <CardTitle>Commandes récentes</CardTitle>
+            <CardAction>
+              <div className="flex flex-row items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {data?.pagination.total ?? 0} commandes
+                </span>
+                {(data?.pagination.totalPages ?? 1) > 1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => p - 1)}
+                      disabled={page <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {page}/{data?.pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= (data?.pagination.totalPages ?? 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardAction>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -236,7 +334,15 @@ export default function OrdersPage() {
                 </Button>
               </div>
             ) : (
-              <OrdersTable orders={data?.data ?? []} />
+              <>
+                <OrdersTable orders={data?.data ?? []} />
+                <TablePagination
+                  page={data?.pagination.page ?? 1}
+                  totalPages={data?.pagination.totalPages ?? 1}
+                  total={data?.pagination.total ?? 0}
+                  onPageChange={setPage}
+                />
+              </>
             )}
           </CardContent>
         </Card>

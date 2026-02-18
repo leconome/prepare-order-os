@@ -3,13 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createMenuSchema, updateMenuSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Minus, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -28,8 +27,16 @@ import {
   createMenu,
   deleteMenu,
   fetchProducts,
+  formatCurrency,
   updateMenu,
 } from "@/lib/api";
+
+type SelectedProduct = {
+  productId: string;
+  productName: string;
+  price: string;
+  quantity: number;
+};
 
 interface MenuFormProps {
   initialData?: MenuWithProducts;
@@ -39,6 +46,21 @@ export function MenuForm({ initialData }: MenuFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditMode = !!initialData;
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
+    () => {
+      if (initialData?.products) {
+        return initialData.products.map((p) => ({
+          productId: p.product.id,
+          productName: p.product.name,
+          price: p.product.price,
+          quantity: p.quantity,
+        }));
+      }
+      return [];
+    },
+  );
 
   const { data: productsData } = useQuery({
     queryKey: ["products"],
@@ -50,21 +72,47 @@ export function MenuForm({ initialData }: MenuFormProps) {
     defaultValues: {
       name: initialData?.name ?? "",
       description: initialData?.description ?? "",
+      price: initialData?.price ?? "",
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
-      productIds: initialData?.products?.map((p) => p.id) ?? [],
+      products: initialData?.products?.map((p) => ({
+        productId: p.product.id,
+        quantity: p.quantity,
+      })) ?? [],
     },
   });
+
+  // Sync selectedProducts → form.products
+  useEffect(() => {
+    form.setValue(
+      "products",
+      selectedProducts.map((p) => ({
+        productId: p.productId,
+        quantity: p.quantity,
+      })),
+    );
+  }, [selectedProducts, form]);
 
   // Reset form when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
+      const prods = initialData.products?.map((p) => ({
+        productId: p.product.id,
+        productName: p.product.name,
+        price: p.product.price,
+        quantity: p.quantity,
+      })) ?? [];
+      setSelectedProducts(prods);
       form.reset({
         name: initialData.name,
         description: initialData.description ?? "",
+        price: initialData.price ?? "",
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
-        productIds: initialData.products?.map((p) => p.id) ?? [],
+        products: prods.map((p) => ({
+          productId: p.productId,
+          quantity: p.quantity,
+        })),
       });
     }
   }, [initialData, form]);
@@ -105,7 +153,50 @@ export function MenuForm({ initialData }: MenuFormProps) {
     }
   });
 
-  const selectedProductIds = form.watch("productIds") || [];
+  const addProduct = (product: { id: string; name: string; price: string }) => {
+    const existing = selectedProducts.find((p) => p.productId === product.id);
+    if (existing) {
+      setSelectedProducts(
+        selectedProducts.map((p) =>
+          p.productId === product.id
+            ? { ...p, quantity: p.quantity + 1 }
+            : p,
+        ),
+      );
+    } else {
+      setSelectedProducts([
+        ...selectedProducts,
+        {
+          productId: product.id,
+          productName: product.name,
+          price: product.price,
+          quantity: 1,
+        },
+      ]);
+    }
+  };
+
+  const updateQuantity = (productId: string, delta: number) => {
+    setSelectedProducts(
+      selectedProducts
+        .map((p) =>
+          p.productId === productId
+            ? { ...p, quantity: Math.max(0, p.quantity + delta) }
+            : p,
+        )
+        .filter((p) => p.quantity > 0),
+    );
+  };
+
+  const removeProduct = (productId: string) => {
+    setSelectedProducts(
+      selectedProducts.filter((p) => p.productId !== productId),
+    );
+  };
+
+  const filteredProducts = productsData?.data.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <Card>
@@ -151,6 +242,28 @@ export function MenuForm({ initialData }: MenuFormProps) {
 
             <FormField
               control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prix du menu</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Laisser vide pour la somme des produits"
+                      className="max-w-[300px]"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="sortOrder"
               render={({ field }) => (
                 <FormItem>
@@ -168,62 +281,124 @@ export function MenuForm({ initialData }: MenuFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="productIds"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Produits</FormLabel>
-                  <div className="max-h-[300px] overflow-y-auto rounded-lg border p-3">
-                    {productsData?.data.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Aucun produit disponible
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {productsData?.data.map((product) => (
-                          <div
-                            key={product.id}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={product.id}
-                              checked={selectedProductIds.includes(product.id)}
-                              onCheckedChange={(checked) => {
-                                const current = form.getValues("productIds") || [];
-                                if (checked) {
-                                  form.setValue("productIds", [
-                                    ...current,
-                                    product.id,
-                                  ]);
-                                } else {
-                                  form.setValue(
-                                    "productIds",
-                                    current.filter((id) => id !== product.id)
-                                  );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={product.id}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {product.name}
-                            </label>
-                          </div>
-                        ))}
+            {/* Product selection */}
+            <div className="space-y-3">
+              <FormLabel>Produits</FormLabel>
+
+              {/* Selected products list */}
+              {selectedProducts.length > 0 && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  {selectedProducts.map((sp) => (
+                    <div
+                      key={sp.productId}
+                      className="flex items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate block">
+                          {sp.productName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatCurrency(sp.price)}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                  {selectedProductIds.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedProductIds.length} produit(s) sélectionné(s)
-                    </p>
-                  )}
-                  <FormMessage />
-                </FormItem>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => updateQuantity(sp.productId, -1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-8 text-center text-sm font-medium">
+                          {sp.quantity}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => updateQuantity(sp.productId, 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => removeProduct(sp.productId)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground pt-1 border-t">
+                    {selectedProducts.reduce((sum, p) => sum + p.quantity, 0)} produit(s) au total
+                  </p>
+                </div>
               )}
-            />
+
+              {/* Product search & picker */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Rechercher un produit à ajouter..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                  {searchQuery && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                      onClick={() => setSearchQuery("")}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-[200px] overflow-y-auto rounded-lg border p-2">
+                  {filteredProducts?.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      Aucun produit disponible
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredProducts?.map((product) => {
+                        const inList = selectedProducts.find(
+                          (p) => p.productId === product.id,
+                        );
+                        return (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => addProduct(product)}
+                            className="flex items-center justify-between w-full rounded-md p-2 text-left text-sm hover:bg-muted transition-colors"
+                          >
+                            <span className="truncate">{product.name}</span>
+                            <span className="text-muted-foreground shrink-0 ml-2">
+                              {inList ? (
+                                <span className="text-primary font-medium">
+                                  x{inList.quantity}
+                                </span>
+                              ) : (
+                                formatCurrency(product.price)
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <FormField
               control={form.control}

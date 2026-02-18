@@ -1,35 +1,52 @@
 import {
   pgTable,
   text,
+  uuid,
   varchar,
   boolean,
   timestamp,
   pgEnum,
+  uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
+import { tenants } from "./tenants.js";
 
 // Unified role enum: admin (devs), owner (store owners), staff (employees)
 export const userRoleEnum = pgEnum("user_role", ["admin", "owner", "staff"]);
 
-export const users = pgTable("users", {
-  id: text("id").primaryKey(),
-  name: text("name"),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
-  image: text("image"),
-  role: userRoleEnum("role").notNull().default("staff"),
-  // PIN for staff login (4 digits, hashed)
-  pin: varchar("pin", { length: 255 }),
-  // Active status (for disabling accounts)
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
+    role: userRoleEnum("role").notNull().default("staff"),
+    // PIN for staff login (4 digits, hashed)
+    pin: varchar("pin", { length: 255 }),
+    // Active status (for disabling accounts)
+    isActive: boolean("is_active").notNull().default(true),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("users_tenant_pin_unique")
+      .on(table.tenantId, table.pin)
+      .where(sql`${table.pin} IS NOT NULL`),
+    index("users_tenant_id_idx").on(table.tenantId),
+  ],
+);
 
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
@@ -111,6 +128,13 @@ export const pinAuthSchema = z.object({
   pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
 });
 export type PinAuth = z.infer<typeof pinAuthSchema>;
+
+// PIN login schema (for staff login endpoint)
+export const pinLoginSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
+});
+export type PinLogin = z.infer<typeof pinLoginSchema>;
 
 // User reference type for relations (used in orders)
 export type UserRef = {

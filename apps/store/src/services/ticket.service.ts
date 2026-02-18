@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { ticketCounters } from "@prepareos/data";
 
@@ -10,14 +10,14 @@ function getDateKey(): string {
   return `${year}${month}${day}`;
 }
 
-export async function generateTicketNumber(): Promise<string> {
+export async function generateTicketNumber(tenantId: string): Promise<string> {
   const dateKey = getDateKey();
 
   const result = await db
     .insert(ticketCounters)
-    .values({ dateKey, counter: 1 })
+    .values({ tenantId, dateKey, counter: 1 })
     .onConflictDoUpdate({
-      target: ticketCounters.dateKey,
+      target: [ticketCounters.tenantId, ticketCounters.dateKey],
       set: { counter: sql`${ticketCounters.counter} + 1` },
     })
     .returning({ counter: ticketCounters.counter });
@@ -28,11 +28,11 @@ export async function generateTicketNumber(): Promise<string> {
   return `${dateKey}:${paddedCounter}`;
 }
 
-export async function getCurrentCounter(dateKey?: string): Promise<number> {
+export async function getCurrentCounter(tenantId: string, dateKey?: string): Promise<number> {
   const key = dateKey ?? getDateKey();
 
   const result = await db.query.ticketCounters.findFirst({
-    where: eq(ticketCounters.dateKey, key),
+    where: and(eq(ticketCounters.dateKey, key), eq(ticketCounters.tenantId, tenantId)),
   });
 
   return result?.counter ?? 0;

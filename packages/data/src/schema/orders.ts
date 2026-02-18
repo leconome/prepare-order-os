@@ -7,12 +7,15 @@ import {
   decimal,
   pgEnum,
   integer,
+  boolean,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
 import { clients, type Client } from "./clients.js";
+import { tenants } from "./tenants.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pending",
@@ -28,41 +31,49 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
   "picked_up",
 ]);
 
-export const orders = pgTable("orders", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
-  // Reference to client
-  clientId: uuid("client_id").references(() => clients.id),
-  paymentStatus: paymentStatusEnum("payment_status")
-    .notNull()
-    .default("pending"),
-  preparationStatus: preparationStatusEnum("preparation_status")
-    .notNull()
-    .default("pending"),
-  pickupDate: timestamp("pickup_date", { withTimezone: true }),
-  pickupTimeStart: varchar("pickup_time_start", { length: 5 }),
-  pickupTimeEnd: varchar("pickup_time_end", { length: 5 }),
-  clientNote: text("client_note"),
-  internalNote: text("internal_note"),
-  // References to users table (text ID from better-auth)
-  createdById: text("created_by_id").references(() => users.id),
-  assignedToId: text("assigned_to_id").references(() => users.id),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  total: decimal("total", { precision: 10, scale: 2 })
-    .notNull()
-    .default("0.00"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
+    // Reference to client
+    clientId: uuid("client_id").references(() => clients.id),
+    paymentStatus: paymentStatusEnum("payment_status")
+      .notNull()
+      .default("pending"),
+    preparationStatus: preparationStatusEnum("preparation_status")
+      .notNull()
+      .default("pending"),
+    pickupDate: timestamp("pickup_date", { withTimezone: true }),
+    pickupTimeStart: varchar("pickup_time_start", { length: 5 }),
+    pickupTimeEnd: varchar("pickup_time_end", { length: 5 }),
+    clientNote: text("client_note"),
+    internalNote: text("internal_note"),
+    // References to users table (text ID from better-auth)
+    createdById: text("created_by_id").references(() => users.id),
+    assignedToId: text("assigned_to_id").references(() => users.id),
+    subtotal: decimal("subtotal", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    total: decimal("total", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    smsNotifiedAt: timestamp("sms_notified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("orders_tenant_id_idx").on(table.tenantId)],
+);
 
 export const orderItems = pgTable("order_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -74,6 +85,8 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  isMenu: boolean("is_menu").notNull().default(false),
+  isPrepared: boolean("is_prepared").notNull().default(false),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -81,6 +94,17 @@ export const orderItems = pgTable("order_items", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+export const orderMenuItems = pgTable("order_menu_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderItemId: uuid("order_item_id")
+    .notNull()
+    .references(() => orderItems.id, { onDelete: "cascade" }),
+  productId: uuid("product_id").notNull(),
+  productName: varchar("product_name", { length: 200 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  isPrepared: boolean("is_prepared").notNull().default(false),
 });
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -101,10 +125,18 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   items: many(orderItems),
 }));
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
+  }),
+  menuItems: many(orderMenuItems),
+}));
+
+export const orderMenuItemsRelations = relations(orderMenuItems, ({ one }) => ({
+  orderItem: one(orderItems, {
+    fields: [orderMenuItems.orderItemId],
+    references: [orderItems.id],
   }),
 }));
 
@@ -113,6 +145,8 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
+export type OrderMenuItem = typeof orderMenuItems.$inferSelect;
+export type NewOrderMenuItem = typeof orderMenuItems.$inferInsert;
 
 // Zod schemas from drizzle-zod
 export const insertOrderSchema = createInsertSchema(orders);
@@ -142,6 +176,7 @@ export const createOrderItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.string(),
   notes: z.string().optional(),
+  menuId: z.string().uuid().optional(),
 });
 
 export const createOrderSchema = z.object({
@@ -167,6 +202,7 @@ export const updateOrderSchema = z.object({
   clientNote: z.string().nullable().optional(),
   internalNote: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  smsNotifiedAt: z.coerce.date().nullable().optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -175,6 +211,7 @@ export const updateOrderStatusSchema = z.object({
 });
 
 export const orderFiltersSchema = z.object({
+  search: z.string().optional(),
   clientId: z.string().uuid().optional(),
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
@@ -184,15 +221,18 @@ export const orderFiltersSchema = z.object({
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  limit: z.coerce.number().int().positive().max(200).default(20),
 });
 
 // Client reference type (minimal info for display)
 export type ClientRef = Pick<Client, "id" | "name" | "phone" | "email">;
 
 // Types
+export type OrderItemWithMenuItems = OrderItem & {
+  menuItems?: OrderMenuItem[];
+};
 export type OrderWithItems = Order & {
-  items: OrderItem[];
+  items: OrderItemWithMenuItems[];
   client?: ClientRef | null;
   createdBy?: UserRef;
   assignedTo?: UserRef;
@@ -204,3 +244,8 @@ export type CreateOrder = z.infer<typeof createOrderSchema>;
 export type UpdateOrder = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type OrderFilters = z.infer<typeof orderFiltersSchema>;
+
+export const toggleItemPreparedSchema = z.object({
+  isPrepared: z.boolean(),
+});
+export type ToggleItemPrepared = z.infer<typeof toggleItemPreparedSchema>;

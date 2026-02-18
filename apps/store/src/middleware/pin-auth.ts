@@ -23,10 +23,13 @@ export const pinAuthMiddleware: MiddlewareHandler = async (
     return c.json({ error: "Invalid PIN format" }, 401);
   }
 
+  const tenantId = c.get("tenantId") as string;
+
   const user = await db.query.users.findFirst({
     where: and(
       eq(users.pin, pin),
       eq(users.isActive, true),
+      eq(users.tenantId, tenantId),
       isNotNull(users.pin),
     ),
   });
@@ -40,6 +43,7 @@ export const pinAuthMiddleware: MiddlewareHandler = async (
     email: user.email,
     name: user.name,
     role: user.role,
+    tenantId,
   } satisfies AuthUser);
 
   await next();
@@ -56,10 +60,13 @@ export const optionalPinAuthMiddleware: MiddlewareHandler = async (
   const pin = c.req.header("X-Staff-PIN");
 
   if (pin && /^\d{4}$/.test(pin)) {
+    const tenantId = c.get("tenantId") as string;
+
     const user = await db.query.users.findFirst({
       where: and(
         eq(users.pin, pin),
         eq(users.isActive, true),
+        eq(users.tenantId, tenantId),
         isNotNull(users.pin),
       ),
     });
@@ -70,6 +77,7 @@ export const optionalPinAuthMiddleware: MiddlewareHandler = async (
         email: user.email,
         name: user.name,
         role: user.role,
+        tenantId,
       } satisfies AuthUser);
     }
   }

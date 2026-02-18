@@ -1,17 +1,34 @@
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { db } from "../db/index.js";
 import {
-  orders,
-  orderItems,
+  clients,
   type CreateOrder,
+  type OrderFilters,
+  orderItems,
+  orderMenuItems,
+  orders,
+  products,
   type UpdateOrder,
   type UpdateOrderStatus,
-  type OrderFilters,
 } from "@prepareos/data";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gte,
+  ilike,
+  isNotNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import { db } from "../db/index.js";
+import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
 
-export async function listOrders(filters: OrderFilters) {
+export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
+    search,
     clientId,
     paymentStatus,
     preparationStatus,
@@ -25,7 +42,34 @@ export async function listOrders(filters: OrderFilters) {
   } = filters;
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions = [eq(orders.tenantId, tenantId)];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    const searchCondition = or(
+      ilike(orders.ticketNumber, pattern),
+      exists(
+        db
+          .select({ v: sql`1` })
+          .from(clients)
+          .where(
+            and(eq(clients.id, orders.clientId), ilike(clients.name, pattern)),
+          ),
+      ),
+      exists(
+        db
+          .select({ v: sql`1` })
+          .from(orderItems)
+          .where(
+            and(
+              eq(orderItems.orderId, orders.id),
+              ilike(orderItems.productName, pattern),
+            ),
+          ),
+      ),
+    );
+    if (searchCondition) conditions.push(searchCondition);
+  }
 
   if (clientId) {
     conditions.push(eq(orders.clientId, clientId));
@@ -64,7 +108,7 @@ export async function listOrders(filters: OrderFilters) {
     conditions.push(lte(orders.createdAt, toDate));
   }
 
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  const whereClause = and(...conditions);
 
   const [data, countResult] = await Promise.all([
     db.query.orders.findMany({
@@ -73,7 +117,14 @@ export async function listOrders(filters: OrderFilters) {
       offset,
       orderBy: desc(orders.createdAt),
       with: {
-        items: true,
+        items: {
+          orderBy: asc(orderItems.createdAt),
+          with: {
+            menuItems: {
+              orderBy: asc(orderMenuItems.id),
+            },
+          },
+        },
         client: {
           columns: {
             id: true,
@@ -112,11 +163,18 @@ export async function listOrders(filters: OrderFilters) {
   };
 }
 
-export async function getOrderById(id: string) {
+export async function getOrderById(tenantId: string, id: string) {
   return db.query.orders.findFirst({
-    where: eq(orders.id, id),
+    where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
     with: {
-      items: true,
+      items: {
+        orderBy: asc(orderItems.createdAt),
+        with: {
+          menuItems: {
+            orderBy: asc(orderMenuItems.id),
+          },
+        },
+      },
       client: {
         columns: {
           id: true,
@@ -141,11 +199,17 @@ export async function getOrderById(id: string) {
   });
 }
 
-export async function createOrder(data: CreateOrder) {
-  const ticketNumber = await generateTicketNumber();
+export async function createOrder(tenantId: string, data: CreateOrder) {
+  const ticketNumber = await generateTicketNumber(tenantId);
 
   let subtotal = 0;
-  const itemsToInsert = data.items.map((item) => {
+
+  // Separate regular items and menu items
+  const regularItems = data.items.filter((item) => !item.menuId);
+  const menuItemRequests = data.items.filter((item) => item.menuId);
+
+  // Process regular items
+  const regularItemsToInsert = regularItems.map((item) => {
     const totalPrice = Number(item.unitPrice) * item.quantity;
     subtotal += totalPrice;
     return {
@@ -154,9 +218,52 @@ export async function createOrder(data: CreateOrder) {
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
+      isMenu: false,
       notes: item.notes ?? null,
     };
   });
+
+  // Process menu items — look up each menu to get its products
+  const menuItemsToInsert: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+    isMenu: boolean;
+    notes: string | null;
+    menuProducts: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
+  }[] = [];
+
+  for (const menuReq of menuItemRequests) {
+    const menu = await getMenuById(tenantId, menuReq.menuId!);
+    if (!menu) continue;
+
+    const unitPrice = Number(menuReq.unitPrice);
+    subtotal += unitPrice * menuReq.quantity;
+
+    // Expand into N separate rows so each menu instance can be prepared independently
+    for (let i = 0; i < menuReq.quantity; i++) {
+      menuItemsToInsert.push({
+        productId: menuReq.productId,
+        productName: menuReq.productName,
+        quantity: 1,
+        unitPrice: menuReq.unitPrice,
+        totalPrice: unitPrice.toFixed(2),
+        isMenu: true,
+        notes: menuReq.notes ?? null,
+        menuProducts: menu.products.map((mp) => ({
+          productId: mp.product.id,
+          productName: mp.product.name,
+          quantity: mp.quantity,
+        })),
+      });
+    }
+  }
 
   const taxRate = 0.2; // 20% VAT
   const taxTotal = subtotal * taxRate;
@@ -177,22 +284,82 @@ export async function createOrder(data: CreateOrder) {
       subtotal: subtotal.toFixed(2),
       taxTotal: taxTotal.toFixed(2),
       total: total.toFixed(2),
+      tenantId,
     })
     .returning();
 
-  if (itemsToInsert.length > 0) {
+  // Insert regular items
+  if (regularItemsToInsert.length > 0) {
     await db.insert(orderItems).values(
-      itemsToInsert.map((item) => ({
+      regularItemsToInsert.map((item) => ({
         ...item,
         orderId: order.id,
       })),
     );
+
+    // Decrement stock for regular product items
+    for (const item of regularItemsToInsert) {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
   }
 
-  return getOrderById(order.id);
+  // Insert menu items + their sub-items
+  for (const menuItem of menuItemsToInsert) {
+    const { menuProducts: menuProds, ...itemData } = menuItem;
+    const [insertedItem] = await db
+      .insert(orderItems)
+      .values({ ...itemData, orderId: order.id })
+      .returning();
+
+    if (menuProds.length > 0) {
+      await db.insert(orderMenuItems).values(
+        menuProds.map((mp) => ({
+          orderItemId: insertedItem.id,
+          productId: mp.productId,
+          productName: mp.productName,
+          quantity: mp.quantity,
+        })),
+      );
+
+      // Decrement stock for each product in the menu
+      for (const mp of menuProds) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${mp.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    }
+  }
+
+  return getOrderById(tenantId, order.id);
 }
 
-export async function updateOrder(id: string, data: UpdateOrder) {
+export async function updateOrder(
+  tenantId: string,
+  id: string,
+  data: UpdateOrder,
+) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -212,13 +379,22 @@ export async function updateOrder(id: string, data: UpdateOrder) {
     updateData.internalNote = data.internalNote;
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
+  if (data.smsNotifiedAt !== undefined)
+    updateData.smsNotifiedAt = data.smsNotifiedAt;
 
-  await db.update(orders).set(updateData).where(eq(orders.id, id));
+  await db
+    .update(orders)
+    .set(updateData)
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
-  return getOrderById(id);
+  return getOrderById(tenantId, id);
 }
 
-export async function updateOrderStatus(id: string, data: UpdateOrderStatus) {
+export async function updateOrderStatus(
+  tenantId: string,
+  id: string,
+  data: UpdateOrderStatus,
+) {
   const updateData: Partial<typeof orders.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -228,15 +404,134 @@ export async function updateOrderStatus(id: string, data: UpdateOrderStatus) {
   if (data.preparationStatus !== undefined)
     updateData.preparationStatus = data.preparationStatus;
 
-  await db.update(orders).set(updateData).where(eq(orders.id, id));
+  await db
+    .update(orders)
+    .set(updateData)
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
-  return getOrderById(id);
+  return getOrderById(tenantId, id);
 }
 
-export async function deleteOrder(id: string) {
+export async function toggleItemPrepared(
+  tenantId: string,
+  orderId: string,
+  itemId: string,
+  isPrepared: boolean,
+) {
+  // Verify order belongs to tenant
+  const order = await getOrderById(tenantId, orderId);
+  if (!order) return null;
+
+  // Update the item
+  const [updated] = await db
+    .update(orderItems)
+    .set({ isPrepared, updatedAt: new Date() })
+    .where(and(eq(orderItems.id, itemId), eq(orderItems.orderId, orderId)))
+    .returning();
+
+  if (!updated) return null;
+
+  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
+  if (isPrepared && order.preparationStatus === "pending") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  }
+
+  return getOrderById(tenantId, orderId);
+}
+
+export async function toggleMenuItemPrepared(
+  tenantId: string,
+  orderId: string,
+  menuItemId: string,
+  isPrepared: boolean,
+) {
+  // Verify order belongs to tenant
+  const order = await getOrderById(tenantId, orderId);
+  if (!order) return null;
+
+  // Update the menu item
+  const [updated] = await db
+    .update(orderMenuItems)
+    .set({ isPrepared })
+    .where(eq(orderMenuItems.id, menuItemId))
+    .returning();
+
+  if (!updated) return null;
+
+  // Check if all menu items for the parent order item are prepared
+  const parentItemId = updated.orderItemId;
+  const allMenuItems = await db.query.orderMenuItems.findMany({
+    where: eq(orderMenuItems.orderItemId, parentItemId),
+  });
+
+  const allPrepared = allMenuItems.every((mi) => mi.isPrepared);
+  await db
+    .update(orderItems)
+    .set({ isPrepared: allPrepared, updatedAt: new Date() })
+    .where(eq(orderItems.id, parentItemId));
+
+  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
+  if (isPrepared && order.preparationStatus === "pending") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  }
+
+  return getOrderById(tenantId, orderId);
+}
+
+export async function deleteOrder(tenantId: string, id: string) {
+  // Restore stock before deleting order items (cascade will remove them)
+  const items = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, id),
+    with: {
+      menuItems: true,
+    },
+  });
+
+  for (const item of items) {
+    if (item.isMenu && item.menuItems) {
+      // Restore stock for each product in the menu
+      for (const menuItem of item.menuItems) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} + ${menuItem.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, menuItem.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    } else {
+      // Regular item — restore stock directly
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
+  }
+
   const [deleted] = await db
     .delete(orders)
-    .where(eq(orders.id, id))
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)))
     .returning({ id: orders.id });
 
   return deleted;

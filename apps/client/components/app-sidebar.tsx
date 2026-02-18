@@ -1,8 +1,10 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
+  BarChart3,
+  ChefHat,
   FolderTree,
-  Home,
   LogOut,
   Menu,
   Package,
@@ -10,7 +12,7 @@ import {
   ShoppingCart,
   Store,
   UserRound,
-  Users,
+  UserStar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+import { fetchTenantSettings } from "@/lib/api";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -45,9 +48,9 @@ const ROLE_COLORS: Record<string, string> = {
 
 const navigation = [
   {
-    title: "Tableau de bord",
-    url: "/",
-    icon: Home,
+    title: "Préparation",
+    url: "/preparation",
+    icon: ChefHat,
   },
   {
     title: "Commandes",
@@ -58,6 +61,11 @@ const navigation = [
     title: "Clients",
     url: "/clients",
     icon: UserRound,
+  },
+  {
+    title: "Statistiques",
+    url: "/stats",
+    icon: BarChart3,
   },
 ];
 
@@ -83,7 +91,7 @@ const managementNavigation = [
   {
     title: "Équipe",
     url: "/staff",
-    icon: Users,
+    icon: UserStar,
     roles: ["admin", "owner"],
   },
 ];
@@ -100,6 +108,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
+  const shopName = tenant?.name ?? "PrepareOS";
 
   const handleLogout = async () => {
     await logout();
@@ -118,7 +133,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <Store className="h-4 w-4" />
           </div>
           <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
-            Fromagerie
+            {shopName}
           </span>
         </div>
       </SidebarHeader>
@@ -186,7 +201,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {managementNavigation.map((item) => (
+                {managementNavigation
+                  .filter((item) => user?.role && item.roles.includes(user.role))
+                  .map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild

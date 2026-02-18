@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { ImageIcon, Plus, RefreshCw, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,10 +51,12 @@ function ProductsTable({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-15">Image</TableHead>
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
           <TableHead>Prix</TableHead>
+          <TableHead>Stock</TableHead>
           <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
@@ -66,6 +70,25 @@ function ProductsTable({
               key={product.id}
               className="cursor-pointer hover:bg-muted/50 transition-colors"
             >
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block">
+                  {product.imageUrl ? (
+                    <div className="relative h-10 w-10 overflow-hidden rounded-md bg-muted">
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        className="object-contain"
+                        sizes="40px"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <ImageIcon className="h-4 w-4" />
+                    </div>
+                  )}
+                </Link>
+              </TableCell>
               <TableCell className="font-medium">
                 <Link
                   href={`/products/${product.id}`}
@@ -115,6 +138,21 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
+                  {product.stock == null ? (
+                    <span className="text-muted-foreground text-xs">-</span>
+                  ) : product.stock === 0 ? (
+                    <Badge variant="destructive">Rupture</Badge>
+                  ) : product.stock <= 5 ? (
+                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
+                      {product.stock}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm">{product.stock}</span>
+                  )}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block w-full">
                   <Badge variant={product.isActive ? "active" : "inactive"}>
                     {product.isActive ? "Actif" : "Inactif"}
                   </Badge>
@@ -133,6 +171,7 @@ function ProductsTableSkeleton() {
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={`skeleton-${i}`} className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-md" />
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 flex-1" />
           <Skeleton className="h-4 w-20" />
@@ -143,10 +182,13 @@ function ProductsTableSkeleton() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function ProductsPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     null
   );
+  const [page, setPage] = useState(1);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -154,10 +196,11 @@ export default function ProductsPage() {
   });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["products", selectedCategoryId],
+    queryKey: ["products", selectedCategoryId, page],
     queryFn: () =>
       fetchProducts({
-        limit: 100,
+        page,
+        limit: PAGE_SIZE,
         categoryId: selectedCategoryId ?? undefined,
       }),
   });
@@ -176,7 +219,7 @@ export default function ProductsPage() {
             Filtrer par catégorie:
           </span>
           <button
-            onClick={() => setSelectedCategoryId(null)}
+            onClick={() => { setSelectedCategoryId(null); setPage(1); }}
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
               selectedCategoryId === null
                 ? "bg-primary text-primary-foreground"
@@ -188,11 +231,12 @@ export default function ProductsPage() {
           {categories.map((category) => (
             <button
               key={category.id}
-              onClick={() =>
+              onClick={() => {
                 setSelectedCategoryId(
                   selectedCategoryId === category.id ? null : category.id
-                )
-              }
+                );
+                setPage(1);
+              }}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
                 selectedCategoryId === category.id
                   ? "ring-2 ring-offset-1"
@@ -283,10 +327,18 @@ export default function ProductsPage() {
                 </Button>
               </div>
             ) : (
-              <ProductsTable
-                products={data?.data ?? []}
-                categories={categories}
-              />
+              <>
+                <ProductsTable
+                  products={data?.data ?? []}
+                  categories={categories}
+                />
+                <TablePagination
+                  page={data?.pagination.page ?? 1}
+                  totalPages={data?.pagination.totalPages ?? 1}
+                  total={data?.pagination.total ?? 0}
+                  onPageChange={setPage}
+                />
+              </>
             )}
           </CardContent>
         </Card>

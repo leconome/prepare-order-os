@@ -7,28 +7,38 @@ import {
   boolean,
   integer,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { categories } from "./categories.js";
+import { tenants } from "./tenants.js";
 
-export const products = pgTable("products", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: varchar("name", { length: 200 }).notNull(),
-  description: text("description"),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  categoryId: uuid("category_id").references(() => categories.id),
-  imageUrl: text("image_url"),
-  isActive: boolean("is_active").notNull().default(true),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: varchar("name", { length: 200 }).notNull(),
+    description: text("description"),
+    price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+    categoryId: uuid("category_id").references(() => categories.id),
+    imageUrl: text("image_url"),
+    stock: integer("stock"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("products_tenant_id_idx").on(table.tenantId)],
+);
 
 export const productsRelations = relations(products, ({ one }) => ({
   category: one(categories, {
@@ -51,7 +61,8 @@ export const createProductSchema = z.object({
   description: z.string().max(1000).optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().url().nullish().or(z.literal("")),
+  stock: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -64,7 +75,8 @@ export const updateProductSchema = z.object({
     .regex(/^\d+(\.\d{1,2})?$/, "Invalid price format")
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
-  imageUrl: z.string().url().nullable().optional(),
+  imageUrl: z.string().url().nullish().or(z.literal("")),
+  stock: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
