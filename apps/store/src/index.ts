@@ -56,14 +56,14 @@ app.use(
 app.route("/api/health", health);
 app.route("/api/images", images);
 
+// Auth routes — no tenant needed (Better Auth handles email/password globally)
+app.route("/api/auth", authRoutes);
+
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
 
 // Tenant middleware — all routes below are tenant-scoped
 app.use("/api/*", tenantMiddleware);
-
-// Routes
-app.route("/api/auth", authRoutes);
 app.route("/api/orders", orders);
 app.route("/api/products", products);
 app.route("/api/categories", categories);
