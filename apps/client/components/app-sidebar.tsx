@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChefHat,
   FolderTree,
+  LayoutDashboard,
   LogOut,
   Menu,
   Package,
@@ -48,14 +49,19 @@ const ROLE_COLORS: Record<string, string> = {
 
 const navigation = [
   {
-    title: "Préparation",
-    url: "/preparation",
-    icon: ChefHat,
+    title: "Dashboard",
+    url: "/",
+    icon: LayoutDashboard,
   },
   {
     title: "Commandes",
     url: "/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Préparation",
+    url: "/preparation",
+    icon: ChefHat,
   },
   {
     title: "Clients",
