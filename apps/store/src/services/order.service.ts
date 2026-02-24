@@ -1,6 +1,7 @@
 import {
   clients,
   type CreateOrder,
+  type CreateOrderItem,
   type OrderFilters,
   orderItems,
   orderMenuItems,
@@ -22,9 +23,197 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { db } from "../db/index.js";
+import { db, type Database } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
+
+type TxOrDb = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * Restore stock for a list of order items (regular + menu sub-items).
+ * Accepts an optional transaction handle.
+ */
+async function restoreStockForItems(
+  tenantId: string,
+  items: {
+    productId: string;
+    quantity: number;
+    isMenu: boolean;
+    menuItems?: { productId: string; quantity: number }[];
+  }[],
+  tx: TxOrDb = db,
+) {
+  for (const item of items) {
+    if (item.isMenu && item.menuItems) {
+      for (const menuItem of item.menuItems) {
+        await tx
+          .update(products)
+          .set({
+            stock: sql`${products.stock} + ${menuItem.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, menuItem.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    } else {
+      await tx
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
+  }
+}
+
+/**
+ * Insert order items (regular + menus) and deduct stock.
+ * Returns the computed subtotal.
+ */
+async function insertItemsAndDeductStock(
+  tenantId: string,
+  orderId: string,
+  items: CreateOrderItem[],
+  tx: TxOrDb = db,
+): Promise<number> {
+  let subtotal = 0;
+
+  const regularItems = items.filter((item) => !item.menuId);
+  const menuItemRequests = items.filter((item) => item.menuId);
+
+  // Process regular items
+  const regularItemsToInsert = regularItems.map((item) => {
+    const totalPrice = Number(item.unitPrice) * item.quantity;
+    subtotal += totalPrice;
+    return {
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: totalPrice.toFixed(2),
+      isMenu: false,
+      notes: item.notes ?? null,
+    };
+  });
+
+  // Process menu items
+  const menuItemsToInsert: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+    isMenu: boolean;
+    notes: string | null;
+    menuProducts: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
+  }[] = [];
+
+  for (const menuReq of menuItemRequests) {
+    if (!menuReq.menuId) continue;
+    const menu = await getMenuById(tenantId, menuReq.menuId);
+    if (!menu) continue;
+
+    const unitPrice = Number(menuReq.unitPrice);
+    subtotal += unitPrice * menuReq.quantity;
+
+    for (let i = 0; i < menuReq.quantity; i++) {
+      menuItemsToInsert.push({
+        productId: menuReq.productId,
+        productName: menuReq.productName,
+        quantity: 1,
+        unitPrice: menuReq.unitPrice,
+        totalPrice: unitPrice.toFixed(2),
+        isMenu: true,
+        notes: menuReq.notes ?? null,
+        menuProducts: menu.products.map((mp) => ({
+          productId: mp.product.id,
+          productName: mp.product.name,
+          quantity: mp.quantity,
+        })),
+      });
+    }
+  }
+
+  // Insert regular items
+  if (regularItemsToInsert.length > 0) {
+    await tx.insert(orderItems).values(
+      regularItemsToInsert.map((item) => ({
+        ...item,
+        orderId,
+      })),
+    );
+
+    for (const item of regularItemsToInsert) {
+      await tx
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
+  }
+
+  // Insert menu items + their sub-items
+  for (const menuItem of menuItemsToInsert) {
+    const { menuProducts: menuProds, ...itemData } = menuItem;
+    const [insertedItem] = await tx
+      .insert(orderItems)
+      .values({ ...itemData, orderId })
+      .returning();
+
+    if (menuProds.length > 0) {
+      await tx.insert(orderMenuItems).values(
+        menuProds.map((mp) => ({
+          orderItemId: insertedItem.id,
+          productId: mp.productId,
+          productName: mp.productName,
+          quantity: mp.quantity,
+        })),
+      );
+
+      for (const mp of menuProds) {
+        await tx
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${mp.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    }
+  }
+
+  return subtotal;
+}
 
 export async function listOrders(tenantId: string, filters: OrderFilters) {
   const {
@@ -202,73 +391,6 @@ export async function getOrderById(tenantId: string, id: string) {
 export async function createOrder(tenantId: string, data: CreateOrder) {
   const ticketNumber = await generateTicketNumber(tenantId);
 
-  let subtotal = 0;
-
-  // Separate regular items and menu items
-  const regularItems = data.items.filter((item) => !item.menuId);
-  const menuItemRequests = data.items.filter((item) => item.menuId);
-
-  // Process regular items
-  const regularItemsToInsert = regularItems.map((item) => {
-    const totalPrice = Number(item.unitPrice) * item.quantity;
-    subtotal += totalPrice;
-    return {
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: totalPrice.toFixed(2),
-      isMenu: false,
-      notes: item.notes ?? null,
-    };
-  });
-
-  // Process menu items — look up each menu to get its products
-  const menuItemsToInsert: {
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: string;
-    totalPrice: string;
-    isMenu: boolean;
-    notes: string | null;
-    menuProducts: {
-      productId: string;
-      productName: string;
-      quantity: number;
-    }[];
-  }[] = [];
-
-  for (const menuReq of menuItemRequests) {
-    const menu = await getMenuById(tenantId, menuReq.menuId!);
-    if (!menu) continue;
-
-    const unitPrice = Number(menuReq.unitPrice);
-    subtotal += unitPrice * menuReq.quantity;
-
-    // Expand into N separate rows so each menu instance can be prepared independently
-    for (let i = 0; i < menuReq.quantity; i++) {
-      menuItemsToInsert.push({
-        productId: menuReq.productId,
-        productName: menuReq.productName,
-        quantity: 1,
-        unitPrice: menuReq.unitPrice,
-        totalPrice: unitPrice.toFixed(2),
-        isMenu: true,
-        notes: menuReq.notes ?? null,
-        menuProducts: menu.products.map((mp) => ({
-          productId: mp.product.id,
-          productName: mp.product.name,
-          quantity: mp.quantity,
-        })),
-      });
-    }
-  }
-
-  const taxRate = 0.2; // 20% VAT
-  const taxTotal = subtotal * taxRate;
-  const total = subtotal + taxTotal;
-
   const [order] = await db
     .insert(orders)
     .values({
@@ -281,76 +403,31 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       internalNote: data.internalNote ?? null,
       createdById: data.createdById ?? null,
       assignedToId: data.assignedToId ?? null,
-      subtotal: subtotal.toFixed(2),
-      taxTotal: taxTotal.toFixed(2),
-      total: total.toFixed(2),
+      subtotal: "0.00",
+      taxTotal: "0.00",
+      total: "0.00",
       tenantId,
     })
     .returning();
 
-  // Insert regular items
-  if (regularItemsToInsert.length > 0) {
-    await db.insert(orderItems).values(
-      regularItemsToInsert.map((item) => ({
-        ...item,
-        orderId: order.id,
-      })),
-    );
+  const subtotal = await insertItemsAndDeductStock(
+    tenantId,
+    order.id,
+    data.items,
+  );
 
-    // Decrement stock for regular product items
-    for (const item of regularItemsToInsert) {
-      await db
-        .update(products)
-        .set({
-          stock: sql`${products.stock} - ${item.quantity}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-          ),
-        );
-    }
-  }
+  const taxRate = 0.2; // 20% VAT
+  const taxTotal = subtotal * taxRate;
+  const total = subtotal + taxTotal;
 
-  // Insert menu items + their sub-items
-  for (const menuItem of menuItemsToInsert) {
-    const { menuProducts: menuProds, ...itemData } = menuItem;
-    const [insertedItem] = await db
-      .insert(orderItems)
-      .values({ ...itemData, orderId: order.id })
-      .returning();
-
-    if (menuProds.length > 0) {
-      await db.insert(orderMenuItems).values(
-        menuProds.map((mp) => ({
-          orderItemId: insertedItem.id,
-          productId: mp.productId,
-          productName: mp.productName,
-          quantity: mp.quantity,
-        })),
-      );
-
-      // Decrement stock for each product in the menu
-      for (const mp of menuProds) {
-        await db
-          .update(products)
-          .set({
-            stock: sql`${products.stock} - ${mp.quantity}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(products.id, mp.productId),
-              eq(products.tenantId, tenantId),
-              isNotNull(products.stock),
-            ),
-          );
-      }
-    }
-  }
+  await db
+    .update(orders)
+    .set({
+      subtotal: subtotal.toFixed(2),
+      taxTotal: taxTotal.toFixed(2),
+      total: total.toFixed(2),
+    })
+    .where(eq(orders.id, order.id));
 
   return getOrderById(tenantId, order.id);
 }
@@ -382,10 +459,53 @@ export async function updateOrder(
   if (data.smsNotifiedAt !== undefined)
     updateData.smsNotifiedAt = data.smsNotifiedAt;
 
-  await db
-    .update(orders)
-    .set(updateData)
-    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
+  const newItems = data.items;
+  if (newItems) {
+    // Replace items atomically: restore stock, delete old, insert new, recalculate totals
+    await db.transaction(async (tx) => {
+      // 1. Fetch existing items with menu sub-items
+      const existingItems = await tx.query.orderItems.findMany({
+        where: eq(orderItems.orderId, id),
+        with: { menuItems: true },
+      });
+
+      // 2. Restore stock for old items
+      await restoreStockForItems(tenantId, existingItems, tx);
+
+      // 3. Delete old items (cascade deletes orderMenuItems)
+      await tx.delete(orderItems).where(eq(orderItems.orderId, id));
+
+      // 4. Insert new items and deduct stock
+      const subtotal = await insertItemsAndDeductStock(
+        tenantId,
+        id,
+        newItems,
+        tx,
+      );
+
+      // 5. Recalculate totals
+      const taxRate = 0.2;
+      const taxTotal = subtotal * taxRate;
+      const total = subtotal + taxTotal;
+
+      // 6. Auto-reset preparation status since items changed
+      updateData.preparationStatus = "pending";
+      updateData.subtotal = subtotal.toFixed(2);
+      updateData.taxTotal = taxTotal.toFixed(2);
+      updateData.total = total.toFixed(2);
+
+      await tx
+        .update(orders)
+        .set(updateData)
+        .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
+    });
+  } else {
+    // Metadata-only update (no item changes)
+    await db
+      .update(orders)
+      .set(updateData)
+      .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
+  }
 
   return getOrderById(tenantId, id);
 }
@@ -493,41 +613,7 @@ export async function deleteOrder(tenantId: string, id: string) {
     },
   });
 
-  for (const item of items) {
-    if (item.isMenu && item.menuItems) {
-      // Restore stock for each product in the menu
-      for (const menuItem of item.menuItems) {
-        await db
-          .update(products)
-          .set({
-            stock: sql`${products.stock} + ${menuItem.quantity}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(products.id, menuItem.productId),
-              eq(products.tenantId, tenantId),
-              isNotNull(products.stock),
-            ),
-          );
-      }
-    } else {
-      // Regular item — restore stock directly
-      await db
-        .update(products)
-        .set({
-          stock: sql`${products.stock} + ${item.quantity}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-          ),
-        );
-    }
-  }
+  await restoreStockForItems(tenantId, items);
 
   const [deleted] = await db
     .delete(orders)

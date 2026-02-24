@@ -59,6 +59,16 @@ orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
     return c.json({ error: "Order not found" }, 404);
   }
 
+  if (
+    data.items &&
+    ["ready", "picked_up"].includes(existing.preparationStatus)
+  ) {
+    return c.json(
+      { error: "Cannot modify items on a completed order" },
+      409,
+    );
+  }
+
   const order = await orderService.updateOrder(tenantId, id, data);
   return c.json(order);
 });

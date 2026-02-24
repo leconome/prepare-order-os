@@ -203,6 +203,7 @@ export const updateOrderSchema = z.object({
   internalNote: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
+  items: z.array(createOrderItemSchema).min(1).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
