@@ -219,6 +219,8 @@ export const orderFiltersSchema = z.object({
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
   pickupDate: z.coerce.date().optional(),
+  pickupDateFrom: z.coerce.date().optional(),
+  pickupDateTo: z.coerce.date().optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),

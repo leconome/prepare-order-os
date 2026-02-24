@@ -160,7 +160,7 @@ async function insertItemsAndDeductStock(
     );
 
     for (const item of regularItemsToInsert) {
-      await tx
+      const result = await tx
         .update(products)
         .set({
           stock: sql`${products.stock} - ${item.quantity}`,
@@ -171,8 +171,27 @@ async function insertItemsAndDeductStock(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
+            gte(products.stock, item.quantity),
+          ),
+        )
+        .returning({ id: products.id });
+
+      // If stock is tracked but insufficient, the update matched 0 rows
+      const hasStock = await tx
+        .select({ stock: products.stock })
+        .from(products)
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
           ),
         );
+      if (hasStock.length > 0 && result.length === 0) {
+        throw new Error(
+          `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+        );
+      }
     }
   }
 
@@ -195,7 +214,7 @@ async function insertItemsAndDeductStock(
       );
 
       for (const mp of menuProds) {
-        await tx
+        const result = await tx
           .update(products)
           .set({
             stock: sql`${products.stock} - ${mp.quantity}`,
@@ -206,8 +225,26 @@ async function insertItemsAndDeductStock(
               eq(products.id, mp.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
+              gte(products.stock, mp.quantity),
+            ),
+          )
+          .returning({ id: products.id });
+
+        const hasStock = await tx
+          .select({ stock: products.stock })
+          .from(products)
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
             ),
           );
+        if (hasStock.length > 0 && result.length === 0) {
+          throw new Error(
+            `Stock insuffisant pour "${mp.productName}" (stock: ${hasStock[0].stock}, demandé: ${mp.quantity})`,
+          );
+        }
       }
     }
   }
@@ -224,6 +261,8 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
     createdById,
     assignedToId,
     pickupDate,
+    pickupDateFrom,
+    pickupDateTo,
     fromDate,
     toDate,
     page = 1,
@@ -287,6 +326,14 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
     endOfDay.setHours(23, 59, 59, 999);
     conditions.push(gte(orders.pickupDate, startOfDay));
     conditions.push(lte(orders.pickupDate, endOfDay));
+  }
+
+  if (pickupDateFrom) {
+    conditions.push(gte(orders.pickupDate, pickupDateFrom));
+  }
+
+  if (pickupDateTo) {
+    conditions.push(lte(orders.pickupDate, pickupDateTo));
   }
 
   if (fromDate) {

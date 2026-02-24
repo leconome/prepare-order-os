@@ -45,8 +45,15 @@ orders.post("/", zValidator("json", createOrderSchema), async (c) => {
     createdById: data.createdById ?? user.id,
   };
 
-  const order = await orderService.createOrder(tenantId, orderData);
-  return c.json(order, 201);
+  try {
+    const order = await orderService.createOrder(tenantId, orderData);
+    return c.json(order, 201);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Stock insuffisant")) {
+      return c.json({ error: err.message }, 409);
+    }
+    throw err;
+  }
 });
 
 orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
@@ -69,8 +76,15 @@ orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
     );
   }
 
-  const order = await orderService.updateOrder(tenantId, id, data);
-  return c.json(order);
+  try {
+    const order = await orderService.updateOrder(tenantId, id, data);
+    return c.json(order);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Stock insuffisant")) {
+      return c.json({ error: err.message }, 409);
+    }
+    throw err;
+  }
 });
 
 orders.patch(

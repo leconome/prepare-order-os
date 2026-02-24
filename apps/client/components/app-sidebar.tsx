@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -31,9 +31,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/lib/auth";
 import { fetchTenantSettings } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
@@ -138,9 +137,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
             <Store className="h-4 w-4" />
           </div>
-          <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
-            {shopName}
-          </span>
+          <div className="flex flex-col">
+            <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
+              PrepareOS
+            </span>
+            <p className="text-xs">{shopName}</p>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent className="relative">
@@ -208,24 +210,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {managementNavigation
-                  .filter((item) => user?.role && item.roles.includes(user.role))
+                  .filter(
+                    (item) => user?.role && item.roles.includes(user.role),
+                  )
                   .map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={
-                        pathname === item.url || pathname.startsWith(item.url)
-                      }
-                      tooltip={item.title}
-                      className="data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-500/10 data-[active=true]:to-indigo-500/10 data-[active=true]:text-blue-700 dark:data-[active=true]:text-blue-300"
-                    >
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={
+                          pathname === item.url || pathname.startsWith(item.url)
+                        }
+                        tooltip={item.title}
+                        className="data-[active=true]:bg-gradient-to-r data-[active=true]:from-blue-500/10 data-[active=true]:to-indigo-500/10 data-[active=true]:text-blue-700 dark:data-[active=true]:text-blue-300"
+                      >
+                        <Link href={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -256,7 +260,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="border-t border-sidebar-border/50 relative">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip={user?.email ?? "User"} className="h-auto py-2">
+            <SidebarMenuButton
+              tooltip={user?.email ?? "User"}
+              className="h-auto py-2"
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
                 {user?.name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
               </div>

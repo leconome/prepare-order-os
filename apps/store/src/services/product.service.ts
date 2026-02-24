@@ -1,4 +1,4 @@
-import { eq, and, ilike, sql, asc } from "drizzle-orm";
+import { eq, and, ilike, sql, asc, lte, isNotNull } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   products,
@@ -8,7 +8,7 @@ import {
 } from "@prepareos/data";
 
 export async function listProducts(tenantId: string, filters: ProductFilters) {
-  const { categoryId, isActive, search, page = 1, limit = 20 } = filters;
+  const { categoryId, isActive, search, maxStock, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
   const conditions = [eq(products.tenantId, tenantId)];
@@ -23,6 +23,11 @@ export async function listProducts(tenantId: string, filters: ProductFilters) {
 
   if (search) {
     conditions.push(ilike(products.name, `%${search}%`));
+  }
+
+  if (maxStock !== undefined) {
+    conditions.push(isNotNull(products.stock));
+    conditions.push(lte(products.stock, maxStock));
   }
 
   const whereClause = and(...conditions);

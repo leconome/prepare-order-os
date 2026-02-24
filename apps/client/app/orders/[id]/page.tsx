@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateOrderSchema } from "@prepareos/data";
+import { createClientSchema, updateOrderSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -11,6 +11,7 @@ import {
   CalendarIcon,
   Coffee,
   FileText,
+  Check,
   Loader2,
   MessageSquare,
   Minus,
@@ -24,6 +25,7 @@ import {
   Sunset,
   Trash2,
   Undo2,
+  UserPlus,
   UserRound,
   UserStar,
   X,
@@ -64,6 +66,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type CreateClient,
+  createClient,
   fetchClients,
   fetchMenus,
   fetchOrder,
@@ -182,6 +186,31 @@ export default function OrderDetailPage() {
     null,
   );
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+
+  const clientForm = useForm({
+    resolver: zodResolver(createClientSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+    },
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: createClient,
+    onSuccess: (newClient) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setSelectedClient(newClient);
+      form.setValue("clientId", newClient.id, { shouldDirty: true });
+      setShowNewClientForm(false);
+      clientForm.reset();
+    },
+  });
+
+  const handleQuickClientCreate = clientForm.handleSubmit((data) => {
+    createClientMutation.mutate(data as CreateClient);
+  });
 
   const form = useForm<UpdateOrder>({
     resolver: zodResolver(editOrderSchema),
@@ -432,6 +461,8 @@ export default function OrderDetailPage() {
     form.reset(orderToFormValues(order));
     setSelectedClient(order.client ?? null);
     setClientSearchQuery("");
+    setShowNewClientForm(false);
+    clientForm.reset();
     cancelItemEdit();
   };
 
@@ -1193,85 +1224,180 @@ export default function OrderDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {selectedClient && (
-                      <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
-                            {selectedClient.name[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {selectedClient.name}
+                  {!showNewClientForm ? (
+                    <div className="space-y-3">
+                      {selectedClient && (
+                        <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
+                              {selectedClient.name[0]?.toUpperCase()}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {selectedClient.phone ||
-                                selectedClient.email ||
-                                "Aucun contact"}
+                            <div>
+                              <div className="font-medium">
+                                {selectedClient.name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {selectedClient.phone ||
+                                  selectedClient.email ||
+                                  "Aucun contact"}
+                              </div>
                             </div>
                           </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClientClear}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
+                      )}
+
+                      {!selectedClient && (
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Rechercher un client..."
+                              value={clientSearchQuery}
+                              onChange={(e) =>
+                                setClientSearchQuery(e.target.value)
+                              }
+                              className="pl-10"
+                            />
+                          </div>
+
+                          {clientsData?.data && clientsData.data.length > 0 && (
+                            <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
+                              {clientsData.data.map((client) => (
+                                <button
+                                  key={client.id}
+                                  type="button"
+                                  onClick={() => handleClientSelect(client)}
+                                  className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
+                                >
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
+                                    {client.name[0]?.toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
+                                      {client.name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {client.phone ||
+                                        client.email ||
+                                        "Aucun contact"}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {clientSearchQuery &&
+                            clientsData?.data?.length === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-2">
+                                Aucun client trouvé
+                              </p>
+                            )}
+                        </>
+                      )}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowNewClientForm(true)}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Nouveau client
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Nouveau client</h4>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={handleClientClear}
+                          onClick={() => {
+                            setShowNewClientForm(false);
+                            clientForm.reset();
+                          }}
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    )}
 
-                    {!selectedClient && (
-                      <>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium">Nom *</label>
                           <Input
-                            placeholder="Rechercher un client..."
-                            value={clientSearchQuery}
-                            onChange={(e) =>
-                              setClientSearchQuery(e.target.value)
-                            }
-                            className="pl-10"
+                            placeholder="Nom du client"
+                            {...clientForm.register("name")}
                           />
-                        </div>
-
-                        {clientsData?.data && clientsData.data.length > 0 && (
-                          <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
-                            {clientsData.data.map((client) => (
-                              <button
-                                key={client.id}
-                                type="button"
-                                onClick={() => handleClientSelect(client)}
-                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
-                              >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
-                                  {client.name[0]?.toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">
-                                    {client.name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {client.phone ||
-                                      client.email ||
-                                      "Aucun contact"}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {clientSearchQuery &&
-                          clientsData?.data?.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-2">
-                              Aucun client trouvé
+                          {clientForm.formState.errors.name && (
+                            <p className="text-xs text-destructive mt-1">
+                              {clientForm.formState.errors.name.message}
                             </p>
                           )}
-                      </>
-                    )}
-                  </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">
+                            Téléphone
+                          </label>
+                          <Input
+                            placeholder="06 12 34 56 78"
+                            {...clientForm.register("phone")}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Email</label>
+                          <Input
+                            type="email"
+                            placeholder="client@example.com"
+                            {...clientForm.register("email")}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setShowNewClientForm(false);
+                            clientForm.reset();
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1"
+                          disabled={createClientMutation.isPending}
+                          onClick={handleQuickClientCreate}
+                        >
+                          {createClientMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-2 h-4 w-4" />
+                          )}
+                          Créer
+                        </Button>
+                      </div>
+
+                      {createClientMutation.isError && (
+                        <p className="text-sm text-destructive">
+                          Erreur:{" "}
+                          {(createClientMutation.error as Error).message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
