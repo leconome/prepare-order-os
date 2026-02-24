@@ -8,8 +8,32 @@ export type TenantVariables = {
   tenantId: string;
 };
 
-const baseDomain = process.env.BASE_DOMAIN; // e.g. "up.railway.app" or "localhost"
+const baseDomain = process.env.BASE_DOMAIN; // e.g. "prepareos.fr"
 const baseParts = baseDomain ? baseDomain.split(".").length : 0;
+
+// Subdomains that are platform infrastructure, not tenants
+const RESERVED_SUBDOMAINS = new Set(["api", "admin", "www"]);
+
+/**
+ * Extract tenant slug from a hostname.
+ * Returns undefined if the hostname is a reserved subdomain or has no subdomain.
+ */
+function extractSlug(hostname: string): string | undefined {
+  const clean = hostname.split(":")[0]; // strip port
+  const parts = clean.split(".");
+
+  let candidate: string | undefined;
+
+  if (baseParts > 0 && parts.length > baseParts) {
+    candidate = parts[0];
+  } else if (parts.length >= 3) {
+    candidate = parts[0];
+  }
+
+  if (candidate && RESERVED_SUBDOMAINS.has(candidate)) return undefined;
+
+  return candidate;
+}
 
 export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
   let slug: string | undefined;
@@ -18,18 +42,34 @@ export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
   if (process.env.STAGE === "dev" && process.env.DEV_TENANT_SLUG) {
     slug = process.env.DEV_TENANT_SLUG;
   } else {
-    // Production: extract subdomain from Host header
-    const host = c.req.header("host") ?? "";
-    const hostname = host.split(":")[0]; // strip port
-    const parts = hostname.split(".");
+    // 1. Try Origin header (cross-origin requests from client)
+    //    e.g. Origin: https://fromagerie.prepareos.fr
+    const origin = c.req.header("origin");
+    if (origin) {
+      try {
+        const url = new URL(origin);
+        slug = extractSlug(url.hostname);
+      } catch {
+        // invalid origin, skip
+      }
+    }
 
-    // If BASE_DOMAIN is set, extract slug when hostname has more parts than the base
-    // e.g. "fromagerie.up.railway.app" (4 parts) vs "up.railway.app" (3 parts)
-    if (baseParts > 0 && parts.length > baseParts) {
-      slug = parts[0];
-    } else if (parts.length >= 3) {
-      // Standard subdomain (e.g. fromagerie.prepareos.com)
-      slug = parts[0];
+    // 2. Fallback to Referer header (some GET requests)
+    if (!slug) {
+      const referer = c.req.header("referer");
+      if (referer) {
+        try {
+          const url = new URL(referer);
+          slug = extractSlug(url.hostname);
+        } catch {
+          // invalid referer, skip
+        }
+      }
+    }
+
+    // 3. Fallback to Host header (direct API access / same-origin)
+    if (!slug) {
+      slug = extractSlug(c.req.header("host") ?? "");
     }
   }
 
@@ -43,7 +83,6 @@ export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
     );
   }
 
-  // 3. Look up tenant in DB
   const tenant = await db.query.tenants.findFirst({
     where: eq(tenants.slug, slug),
   });
