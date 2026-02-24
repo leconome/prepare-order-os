@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Calendar,
   Check,
   CheckCircle2,
   Clock,
@@ -11,6 +12,7 @@ import {
   UserRound,
   UserStar,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -204,52 +206,93 @@ export default function PreparationDetailPage() {
             {/* Left: Order info */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-lg">
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="font-mono font-bold text-lg hover:underline"
+                >
                   #{order.ticketNumber}
-                </span>
+                </Link>
                 <span className="text-sm font-medium">
                   {formatCurrency(order.total)}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                {order.client?.name && (
-                  <div className="flex items-center gap-1">
-                    <UserRound className="h-3.5 w-3.5" />
-                    {order.client.name}
-                  </div>
-                )}
-                {pickupTime && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {pickupTime}
-                  </div>
-                )}
-                {isOwner && (
-                  <div className="flex items-center gap-1">
-                    <UserStar className="h-3.5 w-3.5" />
-                    <Select
-                      value={order.assignedToId ?? "unassigned"}
-                      onValueChange={(value) =>
-                        assignMutation.mutate(
-                          value === "unassigned" ? null : value,
-                        )
-                      }
-                      disabled={assignMutation.isPending}
-                    >
-                      <SelectTrigger className="h-7 w-[160px] text-xs">
-                        <SelectValue placeholder="Assigner..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">Non assigné</SelectItem>
-                        {staffData?.data?.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name || member.email}
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <div className="flex flex-row flex-wrap items-center gap-2">
+                  {order.client?.name && (
+                    <div className="flex items-center gap-1">
+                      <UserRound className="h-3.5 w-3.5" />
+                      {order.client.name}
+                    </div>
+                  )}
+                  {pickupTime && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {pickupTime}
+                    </div>
+                  )}
+                  {isOwner && (
+                    <div className="flex items-center gap-1">
+                      <UserStar className="h-3.5 w-3.5" />
+                      <Select
+                        value={order.assignedToId ?? "unassigned"}
+                        onValueChange={(value) =>
+                          assignMutation.mutate(
+                            value === "unassigned" ? null : value,
+                          )
+                        }
+                        disabled={assignMutation.isPending}
+                      >
+                        <SelectTrigger className="h-7 w-[160px] text-xs">
+                          <SelectValue placeholder="Assigner..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">
+                            Non assigné
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                          {staffData?.data?.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name || member.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-row gap-2">
+                  {order.createdAt && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Créée{" "}
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(order.createdAt))}
+                    </div>
+                  )}
+                  {order.updatedAt &&
+                    order.createdAt &&
+                    new Date(order.updatedAt).getTime() -
+                      new Date(order.createdAt).getTime() >
+                      1000 && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        Modifiée {(() => {
+                          const diff =
+                            Date.now() - new Date(order.updatedAt).getTime();
+                          const mins = Math.floor(diff / 60000);
+                          const hrs = Math.floor(mins / 60);
+                          const days = Math.floor(hrs / 24);
+                          if (mins < 1) return "à l'instant";
+                          if (mins < 60) return `il y a ${mins} min`;
+                          if (hrs < 24) return `il y a ${hrs}h`;
+                          return `il y a ${days}j`;
+                        })()}
+                      </div>
+                    )}
+                </div>
               </div>
             </div>
 
