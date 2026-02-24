@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateOrderSchema } from "@prepareos/data";
+import { createClientSchema, updateOrderSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -11,18 +11,26 @@ import {
   CalendarIcon,
   Coffee,
   FileText,
+  Check,
   Loader2,
   MessageSquare,
+  Minus,
   Package,
+  Pencil,
+  Plus,
   Save,
   Search,
+  ShoppingCart,
   Sun,
   Sunset,
+  Trash2,
   Undo2,
+  UserPlus,
   UserRound,
   UserStar,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -55,13 +63,19 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type CreateClient,
+  createClient,
   fetchClients,
+  fetchMenus,
   fetchOrder,
+  fetchProducts,
   fetchStaff,
   formatCurrency,
   formatDate,
+  type Product,
   type UpdateOrder,
   updateOrder,
   updateOrderStatus,
@@ -77,7 +91,17 @@ const editOrderSchema = updateOrderSchema.omit({
   paymentStatus: true,
   preparationStatus: true,
   smsNotifiedAt: true,
+  items: true,
 });
+
+type EditOrderItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: string;
+  notes?: string;
+  menuId?: string;
+};
 
 type TimeInterval = {
   id: string;
@@ -162,6 +186,31 @@ export default function OrderDetailPage() {
     null,
   );
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+
+  const clientForm = useForm({
+    resolver: zodResolver(createClientSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+      email: "",
+    },
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: createClient,
+    onSuccess: (newClient) => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setSelectedClient(newClient);
+      form.setValue("clientId", newClient.id, { shouldDirty: true });
+      setShowNewClientForm(false);
+      clientForm.reset();
+    },
+  });
+
+  const handleQuickClientCreate = clientForm.handleSubmit((data) => {
+    createClientMutation.mutate(data as CreateClient);
+  });
 
   const form = useForm<UpdateOrder>({
     resolver: zodResolver(editOrderSchema),
@@ -206,6 +255,168 @@ export default function OrderDetailPage() {
       fetchClients({ limit: 20, search: clientSearchQuery || undefined }),
   });
 
+  // Item editing state
+  const [isEditingItems, setIsEditingItems] = useState(false);
+  const [editableItems, setEditableItems] = useState<EditOrderItem[]>([]);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+
+  const { data: productsData } = useQuery({
+    queryKey: ["products", productSearchQuery],
+    queryFn: () =>
+      fetchProducts({
+        limit: 50,
+        isActive: true,
+        search: productSearchQuery || undefined,
+      }),
+    enabled: isEditingItems,
+  });
+
+  const { data: menusData } = useQuery({
+    queryKey: ["menus-active"],
+    queryFn: () => fetchMenus({ isActive: true, limit: 50 }),
+    enabled: isEditingItems,
+  });
+
+  // Item editing helpers
+  const getItemKey = (item: EditOrderItem) =>
+    item.menuId ? `menu-${item.menuId}` : item.productId;
+
+  const addProductToOrder = (product: Product) => {
+    const existing = editableItems.find(
+      (item) => item.productId === product.id && !item.menuId,
+    );
+    if (existing) {
+      setEditableItems(
+        editableItems.map((item) =>
+          item.productId === product.id && !item.menuId
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        ),
+      );
+    } else {
+      setEditableItems([
+        ...editableItems,
+        {
+          productId: product.id,
+          productName: product.name,
+          quantity: 1,
+          unitPrice: product.price,
+        },
+      ]);
+    }
+  };
+
+  const addMenuToOrder = (menu: {
+    id: string;
+    name: string;
+    price: string | null;
+  }) => {
+    const existing = editableItems.find((item) => item.menuId === menu.id);
+    const menuPrice = menu.price || "0";
+    if (existing) {
+      setEditableItems(
+        editableItems.map((item) =>
+          item.menuId === menu.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        ),
+      );
+    } else {
+      setEditableItems([
+        ...editableItems,
+        {
+          productId: menu.id,
+          productName: menu.name,
+          quantity: 1,
+          unitPrice: menuPrice,
+          menuId: menu.id,
+        },
+      ]);
+    }
+  };
+
+  const updateItemQuantity = (key: string, delta: number) => {
+    setEditableItems(
+      editableItems
+        .map((item) =>
+          getItemKey(item) === key
+            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
+            : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  };
+
+  const removeItem = (key: string) => {
+    setEditableItems(
+      editableItems.filter((item) => getItemKey(item) !== key),
+    );
+  };
+
+  const updateItemNotes = (key: string, notes: string) => {
+    setEditableItems(
+      editableItems.map((item) =>
+        getItemKey(item) === key ? { ...item, notes } : item,
+      ),
+    );
+  };
+
+  const calculateEditTotal = () => {
+    return editableItems.reduce(
+      (total, item) => total + Number.parseFloat(item.unitPrice) * item.quantity,
+      0,
+    );
+  };
+
+  const enterItemEditMode = () => {
+    if (!order) return;
+    // Convert server-expanded items back to collapsed editable form
+    const collapsed: EditOrderItem[] = [];
+    const menuGroups = new Map<string, EditOrderItem>();
+
+    for (const item of order.items) {
+      if (item.isMenu) {
+        // Group menu items by productId (which is the menuId)
+        const existing = menuGroups.get(item.productId);
+        if (existing) {
+          existing.quantity += item.quantity;
+        } else {
+          menuGroups.set(item.productId, {
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            notes: item.notes ?? undefined,
+            menuId: item.productId,
+          });
+        }
+      } else {
+        collapsed.push({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          notes: item.notes ?? undefined,
+        });
+      }
+    }
+
+    collapsed.push(...menuGroups.values());
+    setEditableItems(collapsed);
+    setIsEditingItems(true);
+    setProductSearchQuery("");
+  };
+
+  const cancelItemEdit = () => {
+    setIsEditingItems(false);
+    setEditableItems([]);
+    setProductSearchQuery("");
+  };
+
+  const canEditItems =
+    order &&
+    !["ready", "picked_up"].includes(order.preparationStatus);
+
   // Sync form with order data
   useEffect(() => {
     if (!order) return;
@@ -229,18 +440,30 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      setIsEditingItems(false);
+      setEditableItems([]);
+      setProductSearchQuery("");
     },
   });
 
   const onSubmit = form.handleSubmit((data) => {
-    updateOrderMutation.mutate(data);
+    const payload: UpdateOrder = { ...data };
+    if (isEditingItems) {
+      payload.items = editableItems;
+    }
+    updateOrderMutation.mutate(payload);
   });
+
+  const isModified = isDirty || isEditingItems;
 
   const handleReset = () => {
     if (!order) return;
     form.reset(orderToFormValues(order));
     setSelectedClient(order.client ?? null);
     setClientSearchQuery("");
+    setShowNewClientForm(false);
+    clientForm.reset();
+    cancelItemEdit();
   };
 
   const handleIntervalSelect = (interval: TimeInterval) => {
@@ -327,7 +550,7 @@ export default function OrderDetailPage() {
             </Link>
           </Button>
           <div className="flex items-center gap-2">
-            {isDirty ? (
+            {isModified ? (
               <>
                 <Button
                   variant="outline"
@@ -341,7 +564,10 @@ export default function OrderDetailPage() {
                 <Button
                   size="sm"
                   onClick={onSubmit}
-                  disabled={updateOrderMutation.isPending}
+                  disabled={
+                    updateOrderMutation.isPending ||
+                    (isEditingItems && editableItems.length === 0)
+                  }
                   className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 >
                   {updateOrderMutation.isPending ? (
@@ -380,13 +606,348 @@ export default function OrderDetailPage() {
             <div className="lg:col-span-2 space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Articles ({order.items?.length || 0})
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      Articles (
+                      {isEditingItems
+                        ? editableItems.reduce(
+                            (sum, i) => sum + i.quantity,
+                            0,
+                          )
+                        : order.items?.length || 0}
+                      )
+                    </CardTitle>
+                    {!isEditingItems && canEditItems && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={enterItemEditMode}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Modifier
+                      </Button>
+                    )}
+                    {isEditingItems && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={cancelItemEdit}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Annuler
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {order.items && order.items.length > 0 ? (
+                  {isEditingItems ? (
+                    <div className="space-y-4">
+                      <Tabs defaultValue="produits">
+                        <TabsList className="w-full">
+                          <TabsTrigger value="produits" className="flex-1">
+                            Produits
+                          </TabsTrigger>
+                          <TabsTrigger value="menus" className="flex-1">
+                            Menus
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="produits" className="mt-3 space-y-2">
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Rechercher un produit..."
+                              value={productSearchQuery}
+                              onChange={(e) =>
+                                setProductSearchQuery(e.target.value)
+                              }
+                              className="pl-10"
+                            />
+                            {productSearchQuery && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                                onClick={() => setProductSearchQuery("")}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {productsData?.data && productsData.data.length > 0 ? (
+                            <div className="grid gap-2 sm:grid-cols-2 max-h-[300px] overflow-y-auto">
+                              {productsData.data.map((product) => {
+                                const inCart = editableItems.find(
+                                  (item) =>
+                                    item.productId === product.id &&
+                                    !item.menuId,
+                                );
+                                const cartQty = inCart?.quantity ?? 0;
+                                const remaining =
+                                  product.stock !== null
+                                    ? product.stock - cartQty
+                                    : null;
+                                const isOutOfStock =
+                                  remaining !== null &&
+                                  remaining <= 0 &&
+                                  !inCart;
+                                return (
+                                  <button
+                                    key={product.id}
+                                    type="button"
+                                    onClick={() => addProductToOrder(product)}
+                                    disabled={isOutOfStock}
+                                    className={cn(
+                                      "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                                      inCart && "border-primary bg-primary/5",
+                                      isOutOfStock &&
+                                        "opacity-50 cursor-not-allowed hover:bg-transparent",
+                                    )}
+                                  >
+                                    {product.imageUrl && (
+                                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
+                                        <Image
+                                          src={product.imageUrl}
+                                          alt={product.name}
+                                          fill
+                                          className="object-cover"
+                                          sizes="40px"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate">
+                                        {product.name}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <span>
+                                          {formatCurrency(product.price)}
+                                        </span>
+                                        {product.stock !== null && (
+                                          <span
+                                            className={cn(
+                                              "text-xs",
+                                              remaining !== null &&
+                                                remaining <= 0 &&
+                                                "text-destructive font-medium",
+                                              remaining !== null &&
+                                                remaining > 0 &&
+                                                remaining <= 3 &&
+                                                "text-amber-600 font-medium",
+                                            )}
+                                          >
+                                            {remaining !== null &&
+                                            remaining <= 0
+                                              ? "Rupture"
+                                              : `Stock: ${remaining}`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {inCart && (
+                                      <Badge
+                                        variant="default"
+                                        className="ml-2 shrink-0"
+                                      >
+                                        {inCart.quantity}
+                                      </Badge>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              Aucun produit trouv&eacute;
+                            </div>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="menus" className="mt-3">
+                          {menusData?.data && menusData.data.length > 0 ? (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {menusData.data.map((menu) => {
+                                const inCart = editableItems.find(
+                                  (item) => item.menuId === menu.id,
+                                );
+                                return (
+                                  <button
+                                    key={menu.id}
+                                    type="button"
+                                    onClick={() => addMenuToOrder(menu)}
+                                    className={cn(
+                                      "flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                                      inCart && "border-primary bg-primary/5",
+                                    )}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate flex items-center gap-2">
+                                        {menu.name}
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs shrink-0"
+                                        >
+                                          Menu
+                                        </Badge>
+                                      </div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {menu.price
+                                          ? formatCurrency(menu.price)
+                                          : "Prix variable"}
+                                      </div>
+                                    </div>
+                                    {inCart && (
+                                      <Badge
+                                        variant="default"
+                                        className="ml-2 shrink-0"
+                                      >
+                                        {inCart.quantity}
+                                      </Badge>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              Aucun menu disponible
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+
+                      {/* Editable cart */}
+                      {editableItems.length > 0 && (
+                        <div className="space-y-3">
+                          <Separator />
+                          <div className="text-sm font-medium flex items-center gap-2">
+                            <ShoppingCart className="h-4 w-4" />
+                            Panier
+                          </div>
+                          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                            {editableItems.map((item) => {
+                              const key = getItemKey(item);
+                              return (
+                                <div
+                                  key={key}
+                                  className="rounded-lg border p-3 space-y-2"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate flex items-center gap-2">
+                                        {item.productName}
+                                        {item.menuId && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs shrink-0"
+                                          >
+                                            Menu
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground">
+                                        {formatCurrency(item.unitPrice)} x{" "}
+                                        {item.quantity}
+                                      </div>
+                                    </div>
+                                    <div className="text-right font-medium">
+                                      {formatCurrency(
+                                        Number.parseFloat(item.unitPrice) *
+                                          item.quantity,
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() =>
+                                          updateItemQuantity(key, -1)
+                                        }
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="w-8 text-center text-sm font-medium">
+                                        {item.quantity}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() =>
+                                          updateItemQuantity(key, 1)
+                                        }
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => removeItem(key)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    placeholder={
+                                      item.menuId
+                                        ? "Notes pour ce menu..."
+                                        : "Notes pour ce produit..."
+                                    }
+                                    value={item.notes || ""}
+                                    onChange={(e) =>
+                                      updateItemNotes(key, e.target.value)
+                                    }
+                                    className="h-8 text-sm"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <Separator />
+
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Sous-total
+                              </span>
+                              <span>
+                                {formatCurrency(calculateEditTotal())}
+                              </span>
+                            </div>
+                            <div className="flex justify-between font-medium text-lg">
+                              <span>Total</span>
+                              <span>
+                                {formatCurrency(calculateEditTotal())}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {editableItems.length === 0 && (
+                        <div className="py-8 text-center text-muted-foreground">
+                          <ShoppingCart className="mx-auto h-12 w-12 opacity-20" />
+                          <p className="mt-2">Aucun article</p>
+                          <p className="text-sm">
+                            Cliquez sur un produit ou menu pour l&apos;ajouter
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : order.items && order.items.length > 0 ? (
                     <div className="space-y-3">
                       {order.items.map((item) => (
                         <div
@@ -396,6 +957,14 @@ export default function OrderDetailPage() {
                           <div className="space-y-1">
                             <div className="font-medium">
                               {item.productName}
+                              {item.isMenu && (
+                                <Badge
+                                  variant="outline"
+                                  className="ml-2 text-xs"
+                                >
+                                  Menu
+                                </Badge>
+                              )}
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {formatCurrency(item.unitPrice)} x {item.quantity}
@@ -421,9 +990,11 @@ export default function OrderDetailPage() {
                           </span>
                           <span>{formatCurrency(order.subtotal)}</span>
                         </div>
-                        {parseFloat(order.taxTotal) > 0 && (
+                        {Number.parseFloat(order.taxTotal) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Taxes</span>
+                            <span className="text-muted-foreground">
+                              Taxes
+                            </span>
                             <span>{formatCurrency(order.taxTotal)}</span>
                           </div>
                         )}
@@ -653,85 +1224,180 @@ export default function OrderDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {selectedClient && (
-                      <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
-                            {selectedClient.name[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium">
-                              {selectedClient.name}
+                  {!showNewClientForm ? (
+                    <div className="space-y-3">
+                      {selectedClient && (
+                        <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
+                              {selectedClient.name[0]?.toUpperCase()}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {selectedClient.phone ||
-                                selectedClient.email ||
-                                "Aucun contact"}
+                            <div>
+                              <div className="font-medium">
+                                {selectedClient.name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {selectedClient.phone ||
+                                  selectedClient.email ||
+                                  "Aucun contact"}
+                              </div>
                             </div>
                           </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClientClear}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
+                      )}
+
+                      {!selectedClient && (
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Rechercher un client..."
+                              value={clientSearchQuery}
+                              onChange={(e) =>
+                                setClientSearchQuery(e.target.value)
+                              }
+                              className="pl-10"
+                            />
+                          </div>
+
+                          {clientsData?.data && clientsData.data.length > 0 && (
+                            <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
+                              {clientsData.data.map((client) => (
+                                <button
+                                  key={client.id}
+                                  type="button"
+                                  onClick={() => handleClientSelect(client)}
+                                  className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
+                                >
+                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
+                                    {client.name[0]?.toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">
+                                      {client.name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground truncate">
+                                      {client.phone ||
+                                        client.email ||
+                                        "Aucun contact"}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {clientSearchQuery &&
+                            clientsData?.data?.length === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-2">
+                                Aucun client trouvé
+                              </p>
+                            )}
+                        </>
+                      )}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowNewClientForm(true)}
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Nouveau client
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Nouveau client</h4>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={handleClientClear}
+                          onClick={() => {
+                            setShowNewClientForm(false);
+                            clientForm.reset();
+                          }}
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    )}
 
-                    {!selectedClient && (
-                      <>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium">Nom *</label>
                           <Input
-                            placeholder="Rechercher un client..."
-                            value={clientSearchQuery}
-                            onChange={(e) =>
-                              setClientSearchQuery(e.target.value)
-                            }
-                            className="pl-10"
+                            placeholder="Nom du client"
+                            {...clientForm.register("name")}
                           />
-                        </div>
-
-                        {clientsData?.data && clientsData.data.length > 0 && (
-                          <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
-                            {clientsData.data.map((client) => (
-                              <button
-                                key={client.id}
-                                type="button"
-                                onClick={() => handleClientSelect(client)}
-                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
-                              >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
-                                  {client.name[0]?.toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">
-                                    {client.name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {client.phone ||
-                                      client.email ||
-                                      "Aucun contact"}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {clientSearchQuery &&
-                          clientsData?.data?.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-2">
-                              Aucun client trouvé
+                          {clientForm.formState.errors.name && (
+                            <p className="text-xs text-destructive mt-1">
+                              {clientForm.formState.errors.name.message}
                             </p>
                           )}
-                      </>
-                    )}
-                  </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">
+                            Téléphone
+                          </label>
+                          <Input
+                            placeholder="06 12 34 56 78"
+                            {...clientForm.register("phone")}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Email</label>
+                          <Input
+                            type="email"
+                            placeholder="client@example.com"
+                            {...clientForm.register("email")}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setShowNewClientForm(false);
+                            clientForm.reset();
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1"
+                          disabled={createClientMutation.isPending}
+                          onClick={handleQuickClientCreate}
+                        >
+                          {createClientMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="mr-2 h-4 w-4" />
+                          )}
+                          Créer
+                        </Button>
+                      </div>
+
+                      {createClientMutation.isError && (
+                        <p className="text-sm text-destructive">
+                          Erreur:{" "}
+                          {(createClientMutation.error as Error).message}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

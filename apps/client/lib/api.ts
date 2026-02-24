@@ -101,6 +101,10 @@ export async function fetchOrders(
     searchParams.set("assignedToId", params.assignedToId);
   if (params?.pickupDate)
     searchParams.set("pickupDate", params.pickupDate.toISOString());
+  if (params?.pickupDateFrom)
+    searchParams.set("pickupDateFrom", params.pickupDateFrom.toISOString());
+  if (params?.pickupDateTo)
+    searchParams.set("pickupDateTo", params.pickupDateTo.toISOString());
   if (params?.fromDate)
     searchParams.set("fromDate", params.fromDate.toISOString());
   if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
@@ -189,6 +193,8 @@ export async function fetchProducts(
   if (params?.isActive !== undefined)
     searchParams.set("isActive", String(params.isActive));
   if (params?.search) searchParams.set("search", params.search);
+  if (params?.maxStock !== undefined)
+    searchParams.set("maxStock", String(params.maxStock));
 
   const query = searchParams.toString();
   return fetchApi<ProductsResponse>(`/products${query ? `?${query}` : ""}`);

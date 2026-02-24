@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "POS Dashboard",
-  description: "Point of Sale Order Management",
+  title: "PrepareOS",
+  description: "Géstion de commande",
 };
 
 export default function RootLayout({

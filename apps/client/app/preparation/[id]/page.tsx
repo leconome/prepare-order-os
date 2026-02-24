@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Calendar,
   Check,
   CheckCircle2,
   Clock,
@@ -11,6 +12,7 @@ import {
   UserRound,
   UserStar,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -200,100 +202,174 @@ export default function PreparationDetailPage() {
 
         {/* Header card */}
         <Card className="p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Ticket */}
-            <div>
-              <span className="font-mono font-bold text-lg">
-                #{order.ticketNumber}
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            {/* Left: Order info */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="font-mono font-bold text-lg hover:underline"
+                >
+                  #{order.ticketNumber}
+                </Link>
+                <span className="text-sm font-medium">
+                  {formatCurrency(order.total)}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <div className="flex flex-row flex-wrap items-center gap-2">
+                  {order.client?.name && (
+                    <div className="flex items-center gap-1">
+                      <UserRound className="h-3.5 w-3.5" />
+                      {order.client.name}
+                    </div>
+                  )}
+                  {pickupTime && (
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {pickupTime}
+                    </div>
+                  )}
+                  {isOwner && (
+                    <div className="flex items-center gap-1">
+                      <UserStar className="h-3.5 w-3.5" />
+                      <Select
+                        value={order.assignedToId ?? "unassigned"}
+                        onValueChange={(value) =>
+                          assignMutation.mutate(
+                            value === "unassigned" ? null : value,
+                          )
+                        }
+                        disabled={assignMutation.isPending}
+                      >
+                        <SelectTrigger className="h-7 w-[160px] text-xs">
+                          <SelectValue placeholder="Assigner..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unassigned">
+                            Non assigné
+                          </SelectItem>
+                          {staffData?.data?.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name || member.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-row gap-2">
+                  {order.createdAt && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Créée{" "}
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(order.createdAt))}
+                    </div>
+                  )}
+                  {order.updatedAt &&
+                    order.createdAt &&
+                    new Date(order.updatedAt).getTime() -
+                      new Date(order.createdAt).getTime() >
+                      1000 && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        Modifiée {(() => {
+                          const diff =
+                            Date.now() - new Date(order.updatedAt).getTime();
+                          const mins = Math.floor(diff / 60000);
+                          const hrs = Math.floor(mins / 60);
+                          const days = Math.floor(hrs / 24);
+                          if (mins < 1) return "à l'instant";
+                          if (mins < 60) return `il y a ${mins} min`;
+                          if (hrs < 24) return `il y a ${hrs}h`;
+                          return `il y a ${days}j`;
+                        })()}
+                      </div>
+                    )}
+                </div>
+              </div>
             </div>
 
-            {/* Client */}
-            {order.client?.name && (
-              <div className="flex items-center gap-1 text-sm">
-                <UserRound className="h-4 w-4 text-muted-foreground" />
-                {order.client.name}
-              </div>
-            )}
-
-            {/* Pickup time */}
-            {pickupTime && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                {pickupTime}
-              </div>
-            )}
-
-            {/* Total */}
-            <div className="text-sm font-medium">
-              {formatCurrency(order.total)}
-            </div>
-
-            {/* Payment toggle */}
-            <label
-              className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-                order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
-              }`}
-            >
-              <Checkbox
-                checked={order.paymentStatus === "paid"}
-                onCheckedChange={() => togglePayment()}
-                disabled={statusMutation.isPending}
-                className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-              />
-              <span
-                className={`text-sm font-medium ${
+            {/* Right: CTAs */}
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
+              {/* Payment toggle */}
+              <label
+                className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
                   order.paymentStatus === "paid"
-                    ? "text-green-700"
-                    : "text-gray-700"
+                    ? "bg-green-50"
+                    : "bg-background"
                 }`}
               >
-                {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-              </span>
-            </label>
-
-            {/* Send SMS — only when ready + client has phone */}
-            {order.client?.phone && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openSmsDialog}
-                disabled={
-                  order.preparationStatus !== "ready" ||
-                  !!order.smsNotifiedAt ||
-                  smsMutation.isPending
-                }
-              >
-                <MessageSquare className="mr-2 h-4 w-4" />
-                {order.smsNotifiedAt ? "SMS envoye" : "Notifier par SMS"}
-              </Button>
-            )}
-
-            {/* Assigned to — owner only */}
-            {isOwner && (
-              <div className="flex items-center gap-2">
-                <UserStar className="h-4 w-4 text-muted-foreground" />
-                <Select
-                  value={order.assignedToId ?? "unassigned"}
-                  onValueChange={(value) =>
-                    assignMutation.mutate(value === "unassigned" ? null : value)
-                  }
-                  disabled={assignMutation.isPending}
+                <Checkbox
+                  checked={order.paymentStatus === "paid"}
+                  onCheckedChange={() => togglePayment()}
+                  disabled={statusMutation.isPending}
+                  className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    order.paymentStatus === "paid"
+                      ? "text-green-700"
+                      : "text-gray-700"
+                  }`}
                 >
-                  <SelectTrigger className="h-8 w-[180px] text-sm">
-                    <SelectValue placeholder="Assigner à..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Non assigné</SelectItem>
-                    {staffData?.data?.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name || member.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+                </span>
+              </label>
+
+              {/* Send SMS */}
+              {order.client?.phone && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openSmsDialog}
+                  disabled={
+                    order.preparationStatus !== "ready" ||
+                    !!order.smsNotifiedAt ||
+                    smsMutation.isPending
+                  }
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {order.smsNotifiedAt ? "SMS envoyé" : "SMS"}
+                </Button>
+              )}
+
+              {/* Mark as ready (header duplicate) */}
+              {order.preparationStatus !== "ready" &&
+                order.preparationStatus !== "picked_up" && (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      statusMutation.mutate({ preparationStatus: "ready" })
+                    }
+                    disabled={!allPrepared || statusMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Prêt
+                  </Button>
+                )}
+
+              {/* Mark as picked up (header duplicate) */}
+              {order.preparationStatus === "ready" && (
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    statusMutation.mutate({ preparationStatus: "picked_up" })
+                  }
+                  disabled={statusMutation.isPending}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Récupéré
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Progress bar */}
