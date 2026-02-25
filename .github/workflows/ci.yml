@@ -21,7 +21,9 @@ jobs:
 
       - name: Build
         id: build
-        run: pnpm build 2>&1 | tee /tmp/build.log
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee /tmp/build.log
         continue-on-error: true
 
       - name: Comment PR on failure
