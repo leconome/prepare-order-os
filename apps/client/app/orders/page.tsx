@@ -1,12 +1,20 @@
 "use client";
 
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +33,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -36,6 +51,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  deleteOrder,
   fetchOrders,
   formatCurrency,
   type OrdersResponse,
@@ -75,6 +91,17 @@ const ORDER_TABS = [
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<OrderWithItems | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (orderId: string) => deleteOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["orders-count"] });
+      setDeleteTarget(null);
+    },
+  });
 
   if (orders.length === 0) {
     return (
@@ -85,72 +112,132 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-24">Ticket</TableHead>
-          <TableHead>Client</TableHead>
-          <TableHead>Retrait</TableHead>
-          <TableHead>Articles</TableHead>
-          <TableHead>Préparation</TableHead>
-          <TableHead>Paiement</TableHead>
-          <TableHead className="text-right">Total</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {orders.map((order) => (
-          <TableRow
-            key={order.id}
-            className="cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() => router.push(`/orders/${order.id}`)}
-          >
-            <TableCell className="font-medium">
-              #{order.ticketNumber}
-            </TableCell>
-            <TableCell>
-              {order.client?.name ?? (
-                <span className="text-muted-foreground">—</span>
-              )}
-            </TableCell>
-            <TableCell>
-              {formatPickupDate(order) ?? (
-                <span className="text-muted-foreground">—</span>
-              )}
-            </TableCell>
-            <TableCell>
-              <div className="flex flex-col gap-1">
-                {order.items?.slice(0, 2).map((item) => (
-                  <span key={item.id} className="text-sm">
-                    {item.quantity}x {item.productName}
-                  </span>
-                ))}
-                {order.items && order.items.length > 2 && (
-                  <span className="text-sm text-muted-foreground">
-                    +{order.items.length - 2} autres
-                  </span>
-                )}
-              </div>
-            </TableCell>
-            <TableCell>
-              <Badge
-                variant={getPreparationBadgeVariant(order.preparationStatus)}
-              >
-                {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
-                  order.preparationStatus}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-right font-medium">
-              {formatCurrency(order.total)}
-            </TableCell>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-24">Ticket</TableHead>
+            <TableHead>Client</TableHead>
+            <TableHead>Retrait</TableHead>
+            <TableHead>Articles</TableHead>
+            <TableHead>Préparation</TableHead>
+            <TableHead>Paiement</TableHead>
+            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="w-10" />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow
+              key={order.id}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => router.push(`/orders/${order.id}`)}
+            >
+              <TableCell className="font-medium">
+                #{order.ticketNumber}
+              </TableCell>
+              <TableCell>
+                {order.client?.name ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {formatPickupDate(order) ?? (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-1">
+                  {order.items?.slice(0, 2).map((item) => (
+                    <span key={item.id} className="text-sm">
+                      {item.quantity}x {item.productName}
+                    </span>
+                  ))}
+                  {order.items && order.items.length > 2 && (
+                    <span className="text-sm text-muted-foreground">
+                      +{order.items.length - 2} autres
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={getPreparationBadgeVariant(order.preparationStatus)}
+                >
+                  {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
+                    order.preparationStatus}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
+                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                {formatCurrency(order.total)}
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(order);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer la commande</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer la commande #
+              {deleteTarget?.ticketNumber} ? Cette action est irréversible et le
+              stock sera restauré.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteMutation.isError && (
+            <p className="text-sm text-destructive">
+              Erreur: {(deleteMutation.error as Error).message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() =>
+                deleteTarget && deleteMutation.mutate(deleteTarget.id)
+              }
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

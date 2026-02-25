@@ -7,6 +7,7 @@ import {
   orders,
   products,
   type UpdateOrder,
+  type UpdateOrderItems,
   type UpdateOrderStatus,
 } from "@prepareos/data";
 import {
@@ -385,6 +386,195 @@ export async function updateOrder(
   await db
     .update(orders)
     .set(updateData)
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
+
+  return getOrderById(tenantId, id);
+}
+
+export async function updateOrderItems(
+  tenantId: string,
+  id: string,
+  data: UpdateOrderItems,
+) {
+  // 1. Get existing items to restore stock
+  const existingItems = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, id),
+    with: { menuItems: true },
+  });
+
+  // 2. Restore stock for old items
+  for (const item of existingItems) {
+    if (item.isMenu && item.menuItems) {
+      for (const menuItem of item.menuItems) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} + ${menuItem.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, menuItem.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    } else {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
+  }
+
+  // 3. Delete old items (cascade deletes orderMenuItems too)
+  await db.delete(orderItems).where(eq(orderItems.orderId, id));
+
+  // 4. Insert new items (same logic as createOrder)
+  let subtotal = 0;
+
+  const regularItems = data.items.filter((item) => !item.menuId);
+  const menuItemRequests = data.items.filter((item) => item.menuId);
+
+  const regularItemsToInsert = regularItems.map((item) => {
+    const totalPrice = Number(item.unitPrice) * item.quantity;
+    subtotal += totalPrice;
+    return {
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: totalPrice.toFixed(2),
+      isMenu: false,
+      notes: item.notes ?? null,
+    };
+  });
+
+  const menuItemsToInsert: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+    isMenu: boolean;
+    notes: string | null;
+    menuProducts: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
+  }[] = [];
+
+  for (const menuReq of menuItemRequests) {
+    const menu = await getMenuById(tenantId, menuReq.menuId!);
+    if (!menu) continue;
+
+    const unitPrice = Number(menuReq.unitPrice);
+    subtotal += unitPrice * menuReq.quantity;
+
+    for (let i = 0; i < menuReq.quantity; i++) {
+      menuItemsToInsert.push({
+        productId: menuReq.productId,
+        productName: menuReq.productName,
+        quantity: 1,
+        unitPrice: menuReq.unitPrice,
+        totalPrice: unitPrice.toFixed(2),
+        isMenu: true,
+        notes: menuReq.notes ?? null,
+        menuProducts: menu.products.map((mp) => ({
+          productId: mp.product.id,
+          productName: mp.product.name,
+          quantity: mp.quantity,
+        })),
+      });
+    }
+  }
+
+  // 5. Insert regular items
+  if (regularItemsToInsert.length > 0) {
+    await db.insert(orderItems).values(
+      regularItemsToInsert.map((item) => ({
+        ...item,
+        orderId: id,
+      })),
+    );
+
+    for (const item of regularItemsToInsert) {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${item.quantity}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+          ),
+        );
+    }
+  }
+
+  // 6. Insert menu items + sub-items
+  for (const menuItem of menuItemsToInsert) {
+    const { menuProducts: menuProds, ...itemData } = menuItem;
+    const [insertedItem] = await db
+      .insert(orderItems)
+      .values({ ...itemData, orderId: id })
+      .returning();
+
+    if (menuProds.length > 0) {
+      await db.insert(orderMenuItems).values(
+        menuProds.map((mp) => ({
+          orderItemId: insertedItem.id,
+          productId: mp.productId,
+          productName: mp.productName,
+          quantity: mp.quantity,
+        })),
+      );
+
+      for (const mp of menuProds) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${mp.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+            ),
+          );
+      }
+    }
+  }
+
+  // 7. Recalculate totals
+  const taxRate = 0.2;
+  const taxTotal = subtotal * taxRate;
+  const total = subtotal + taxTotal;
+
+  await db
+    .update(orders)
+    .set({
+      subtotal: subtotal.toFixed(2),
+      taxTotal: taxTotal.toFixed(2),
+      total: total.toFixed(2),
+      updatedAt: new Date(),
+    })
     .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
   return getOrderById(tenantId, id);

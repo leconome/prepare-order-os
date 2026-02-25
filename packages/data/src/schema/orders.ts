@@ -245,6 +245,11 @@ export type UpdateOrder = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type OrderFilters = z.infer<typeof orderFiltersSchema>;
 
+export const updateOrderItemsSchema = z.object({
+  items: z.array(createOrderItemSchema).min(1),
+});
+export type UpdateOrderItems = z.infer<typeof updateOrderItemsSchema>;
+
 export const toggleItemPreparedSchema = z.object({
   isPrepared: z.boolean(),
 });

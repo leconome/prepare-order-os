@@ -61,10 +61,12 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => router.push(`/preparation/${order.id}`)}
-      className="grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/preparation/${order.id}`); }}
+      className="grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50 cursor-pointer"
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
@@ -162,7 +164,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           </SelectContent>
         </Select>
       </div>
-    </button>
+    </div>
   );
 }
 

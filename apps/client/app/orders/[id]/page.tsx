@@ -14,17 +14,19 @@ import {
   Loader2,
   MessageSquare,
   Package,
+  Pencil,
   Save,
   Search,
   Sun,
   Sunset,
+  Trash2,
   Undo2,
   UserRound,
   UserStar,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -57,6 +59,14 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  deleteOrder,
   fetchClients,
   fetchOrder,
   fetchStaff,
@@ -155,6 +165,7 @@ function orderToFormValues(order: {
 
 export default function OrderDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const orderId = params.id as string;
   const queryClient = useQueryClient();
 
@@ -162,6 +173,7 @@ export default function OrderDetailPage() {
     null,
   );
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const form = useForm<UpdateOrder>({
     resolver: zodResolver(editOrderSchema),
@@ -229,6 +241,14 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      router.push("/orders");
     },
   });
 
@@ -354,6 +374,15 @@ export default function OrderDetailPage() {
               </>
             ) : (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Supprimer
+                </Button>
                 <Badge
                   variant={getPreparationBadgeVariant(order.preparationStatus)}
                 >
@@ -379,11 +408,17 @@ export default function OrderDetailPage() {
             {/* Order Items */}
             <div className="lg:col-span-2 space-y-4">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
                     Articles ({order.items?.length || 0})
                   </CardTitle>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/orders/${orderId}/edit`}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Modifier les articles
+                    </Link>
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {order.items && order.items.length > 0 ? (
@@ -875,6 +910,45 @@ export default function OrderDetailPage() {
           </div>
         </Form>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer la commande</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer la commande #{order.ticketNumber} ?
+              Cette action est irréversible et le stock sera restauré.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteMutation.isError && (
+            <p className="text-sm text-destructive">
+              Erreur: {(deleteMutation.error as Error).message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

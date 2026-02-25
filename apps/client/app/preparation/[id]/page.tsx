@@ -7,10 +7,12 @@ import {
   CheckCircle2,
   Clock,
   MessageSquare,
+  Pencil,
   Undo2,
   UserRound,
   UserStar,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -188,15 +190,23 @@ export default function PreparationDetailPage() {
       description="Préparation de commande"
     >
       <div className="space-y-4">
-        {/* Back button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/preparation")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Retour
-        </Button>
+        {/* Back button + Edit link */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/preparation")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/orders/${orderId}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Modifier les articles
+            </Link>
+          </Button>
+        </div>
 
         {/* Header card */}
         <Card className="p-4">

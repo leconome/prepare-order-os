@@ -4,6 +4,7 @@ import {
   createOrderSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
+  updateOrderItemsSchema,
   orderFiltersSchema,
   toggleItemPreparedSchema,
 } from "@prepareos/data";
@@ -77,6 +78,24 @@ orders.patch(
     }
 
     const order = await orderService.updateOrderStatus(tenantId, id, data);
+    return c.json(order);
+  },
+);
+
+orders.patch(
+  "/:id/items",
+  zValidator("json", updateOrderItemsSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const id = c.req.param("id");
+    const data = c.req.valid("json");
+
+    const existing = await orderService.getOrderById(tenantId, id);
+    if (!existing) {
+      return c.json({ error: "Order not found" }, 404);
+    }
+
+    const order = await orderService.updateOrderItems(tenantId, id, data);
     return c.json(order);
   },
 );
