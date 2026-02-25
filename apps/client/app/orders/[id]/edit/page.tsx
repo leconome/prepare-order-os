@@ -250,7 +250,17 @@ export default function EditOrderItemsPage() {
             {menusData?.data && menusData.data.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Menus</CardTitle>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    Menus
+                    {(() => {
+                      const count = orderItems.filter((i) => !!i.menuId).reduce((s, i) => s + i.quantity, 0);
+                      return count > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                          {count}
+                        </span>
+                      ) : null;
+                    })()}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -298,6 +308,14 @@ export default function EditOrderItemsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <Search className="h-5 w-5" />
                   Produits
+                  {(() => {
+                    const count = orderItems.filter((i) => !i.menuId).reduce((s, i) => s + i.quantity, 0);
+                    return count > 0 ? (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                        {count}
+                      </span>
+                    ) : null;
+                  })()}
                 </CardTitle>
               </CardHeader>
               <CardContent>

@@ -672,13 +672,29 @@ export default function OrderDetailPage() {
                 <CardContent>
                   {isEditingItems ? (
                     <div className="space-y-4">
-                      <Tabs defaultValue="produits">
+                      <Tabs defaultValue={editableItems.some((i) => !!i.menuId) && !editableItems.some((i) => !i.menuId) ? "menus" : "produits"}>
                         <TabsList className="w-full">
                           <TabsTrigger value="produits" className="flex-1">
                             Produits
+                            {(() => {
+                              const count = editableItems.filter((i) => !i.menuId).reduce((s, i) => s + i.quantity, 0);
+                              return count > 0 ? (
+                                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                                  {count}
+                                </span>
+                              ) : null;
+                            })()}
                           </TabsTrigger>
                           <TabsTrigger value="menus" className="flex-1">
                             Menus
+                            {(() => {
+                              const count = editableItems.filter((i) => !!i.menuId).reduce((s, i) => s + i.quantity, 0);
+                              return count > 0 ? (
+                                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                                  {count}
+                                </span>
+                              ) : null;
+                            })()}
                           </TabsTrigger>
                         </TabsList>
 
