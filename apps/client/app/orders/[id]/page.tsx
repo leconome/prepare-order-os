@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClientSchema, updateOrderSchema } from "@prepareos/data";
+import { createClientSchema, updateOrderSchema, UNIT_CONFIG, formatQtyLabel, lineTotal, roundQty, parseQty, type Unit } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -109,7 +109,7 @@ type EditOrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
-  unitType?: "piece" | "kg";
+  unit: Unit;
 };
 
 type TimeInterval = {
@@ -295,8 +295,8 @@ export default function OrderDetailPage() {
     item.menuId ? `menu-${item.menuId}` : item.productId;
 
   const addProductToOrder = (product: Product) => {
-    const unitType = (product as any).unitType || "piece";
-    const increment = unitType === "kg" ? 0.5 : 1;
+    const unitType = product.unitType || "piece";
+    const increment = UNIT_CONFIG[unitType].defaultQty;
     const existing = editableItems.find(
       (item) => item.productId === product.id && !item.menuId,
     );
@@ -304,7 +304,7 @@ export default function OrderDetailPage() {
       setEditableItems(
         editableItems.map((item) =>
           item.productId === product.id && !item.menuId
-            ? { ...item, quantity: Math.round((item.quantity + increment) * 100) / 100 }
+            ? { ...item, quantity: roundQty(item.quantity + increment, item.unit) }
             : item,
         ),
       );
@@ -316,7 +316,7 @@ export default function OrderDetailPage() {
           productName: product.name,
           quantity: increment,
           unitPrice: product.price,
-          unitType,
+          unit: unitType,
         },
       ]);
     }
@@ -346,6 +346,7 @@ export default function OrderDetailPage() {
           quantity: 1,
           unitPrice: menuPrice,
           menuId: menu.id,
+          unit: "piece",
         },
       ]);
     }
@@ -356,8 +357,8 @@ export default function OrderDetailPage() {
       editableItems
         .map((item) => {
           if (getItemKey(item) !== key) return item;
-          const step = item.unitType === "kg" ? 0.1 * Math.sign(delta) : delta;
-          const newQty = Math.round((item.quantity + step) * 100) / 100;
+          const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
+          const newQty = roundQty(item.quantity + step, item.unit);
           return { ...item, quantity: Math.max(0, newQty) };
         })
         .filter((item) => item.quantity > 0),
@@ -400,7 +401,7 @@ export default function OrderDetailPage() {
 
   const calculateEditSubtotal = () => {
     return editableItems.reduce(
-      (total, item) => total + Number.parseFloat(item.unitPrice) * item.quantity,
+      (total, item) => total + lineTotal(item.quantity, item.unitPrice),
       0,
     );
   };
@@ -425,9 +426,9 @@ export default function OrderDetailPage() {
     const menuGroups = new Map<string, EditOrderItem>();
 
     for (const item of order.items) {
-      const qty = typeof item.quantity === "string" ? parseFloat(item.quantity) : item.quantity;
+      const qty = parseQty(item.quantity);
       const product = productsList.find((p: any) => p.id === item.productId);
-      const unitType = (product as any)?.unitType || "piece";
+      const unitType = product?.unitType ?? (item as any).unit ?? "piece";
       if (item.isMenu) {
         // Group menu items by productId (which is the menuId)
         const existing = menuGroups.get(item.productId);
@@ -441,7 +442,7 @@ export default function OrderDetailPage() {
             unitPrice: item.unitPrice,
             notes: item.notes ?? undefined,
             menuId: item.productId,
-            unitType,
+            unit: unitType,
           });
         }
       } else {
@@ -451,7 +452,7 @@ export default function OrderDetailPage() {
           quantity: qty,
           unitPrice: item.unitPrice,
           notes: item.notes ?? undefined,
-          unitType,
+          unit: unitType,
         });
       }
     }
@@ -786,7 +787,7 @@ export default function OrderDetailPage() {
                                 const cartQty = inCart?.quantity ?? 0;
                                 const remaining =
                                   product.stock !== null
-                                    ? product.stock - cartQty
+                                    ? parseQty(product.stock) - cartQty
                                     : null;
                                 const isOutOfStock =
                                   remaining !== null &&
@@ -822,7 +823,7 @@ export default function OrderDetailPage() {
                                       </div>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <span>
-                                          {formatCurrency(product.price)}{(product as any).unitType === "kg" ? "/kg" : ""}
+                                          {formatCurrency(product.price)}{product.unitType !== "piece" ? UNIT_CONFIG[product.unitType].priceSuffix : ""}
                                         </span>
                                         {product.stock !== null && (
                                           <span
@@ -840,7 +841,7 @@ export default function OrderDetailPage() {
                                             {remaining !== null &&
                                             remaining <= 0
                                               ? "Rupture"
-                                              : `Stock: ${remaining}${(product as any).unitType === "kg" ? " kg" : ""}`}
+                                              : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
                                           </span>
                                         )}
                                       </div>
@@ -850,7 +851,7 @@ export default function OrderDetailPage() {
                                         variant="default"
                                         className="ml-2 shrink-0"
                                       >
-                                        {inCart.unitType === "kg" ? `${inCart.quantity} kg` : inCart.quantity}
+                                        {formatQtyLabel(inCart.quantity, inCart.unit)}
                                       </Badge>
                                     )}
                                   </button>
@@ -980,7 +981,7 @@ export default function OrderDetailPage() {
                                           onBlur={(e) => {
                                             const val = parseFloat(e.target.value.replace(",", "."));
                                             if (!isNaN(val) && val > 0) {
-                                              const rounded = item.unitType === "kg" ? Math.round(val * 1000) / 1000 : Math.round(val);
+                                              const rounded = roundQty(val, item.unit);
                                               setItemQuantity(key, rounded);
                                             } else {
                                               e.target.value = String(item.quantity);
@@ -988,8 +989,8 @@ export default function OrderDetailPage() {
                                           }}
                                           className="h-8 w-16 text-center font-semibold px-1"
                                         />
-                                        {item.unitType === "kg" && (
-                                          <span className="text-xs text-muted-foreground">kg</span>
+                                        {UNIT_CONFIG[item.unit].suffix && (
+                                          <span className="text-xs text-muted-foreground">{UNIT_CONFIG[item.unit].suffix}</span>
                                         )}
                                       </div>
                                       <Button
@@ -1006,8 +1007,7 @@ export default function OrderDetailPage() {
                                     </div>
                                     <div className="text-right font-medium text-sm">
                                       {formatCurrency(
-                                        Number.parseFloat(item.unitPrice) *
-                                          item.quantity,
+                                        lineTotal(item.quantity, item.unitPrice),
                                       )}
                                     </div>
                                   </div>
@@ -1028,7 +1028,7 @@ export default function OrderDetailPage() {
                                         }}
                                         className="h-5 w-14 text-center text-xs px-1 bg-white dark:bg-background"
                                       />
-                                      <span>€{item.unitType === "kg" ? "/kg" : "/u"}</span>
+                                      <span>€{UNIT_CONFIG[item.unit].priceSuffix}</span>
                                     </div>
                                     <Input
                                       placeholder="Notes..."
@@ -1132,7 +1132,7 @@ export default function OrderDetailPage() {
                               )}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {formatCurrency(item.unitPrice)} x {parseFloat(String(item.quantity)) % 1 !== 0 ? `${item.quantity} kg` : item.quantity}
+                              {formatCurrency(item.unitPrice)} x {formatQtyLabel(item.quantity, item.unit)}
                             </div>
                             {item.notes && (
                               <div className="text-sm text-muted-foreground italic">

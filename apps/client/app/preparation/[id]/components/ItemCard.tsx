@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
+import { formatQtyLabel } from "@prepareos/data";
 import {
   formatCurrency,
   type OrderWithItems,
@@ -66,7 +67,7 @@ function ItemCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold shrink-0">
-            {parseFloat(String(item.quantity)) % 1 !== 0 ? `${item.quantity}kg` : `${item.quantity}x`}
+            {formatQtyLabel(item.quantity, item.unit)}
           </span>
           <span className="text-sm truncate">{item.productName}</span>
         </div>

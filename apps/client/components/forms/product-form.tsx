@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createProductSchema, updateProductSchema } from "@prepareos/data";
+import { createProductSchema, parseQty, updateProductSchema, UNIT_CONFIG } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -60,8 +60,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
-      stock: initialData?.stock ?? undefined,
-      unitType: (initialData as any)?.unitType ?? "piece",
+      stock: initialData?.stock != null ? parseQty(initialData.stock) : undefined,
+      unitType: initialData?.unitType ?? "piece",
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -76,8 +76,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
-        stock: initialData.stock ?? undefined,
-        unitType: (initialData as any).unitType ?? "piece",
+        stock: initialData.stock != null ? parseQty(initialData.stock) : undefined,
+        unitType: initialData.unitType ?? "piece",
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -111,6 +111,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const error = createMutation.error || updateMutation.error;
+  const watchedUnit = form.watch("unitType") || "piece";
+  const unitConfig = UNIT_CONFIG[watchedUnit as keyof typeof UNIT_CONFIG];
 
   const onSubmit = form.handleSubmit((data) => {
     if (isEditMode) {
@@ -218,7 +220,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Prix (€)</FormLabel>
+                    <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
                     <FormControl>
                       <Input placeholder="10.00" {...field} />
                     </FormControl>

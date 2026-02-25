@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClientSchema, createOrderSchema } from "@prepareos/data";
+import { UNIT_CONFIG, formatQtyLabel, parseQty, roundQty, type Unit, createClientSchema, createOrderSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -76,7 +76,7 @@ type OrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
-  unitType?: "piece" | "kg";
+  unit: Unit;
 };
 
 type TimeInterval = {
@@ -214,8 +214,8 @@ export default function NewOrderPage() {
   };
 
   const addProductToOrder = (product: Product) => {
-    const unitType = (product as any).unitType || "piece";
-    const increment = unitType === "kg" ? 0.5 : 1;
+    const unitType = product.unitType || "piece";
+    const increment = UNIT_CONFIG[unitType].defaultQty;
     const existingItem = orderItems.find(
       (item) => item.productId === product.id && !item.menuId
     );
@@ -223,7 +223,7 @@ export default function NewOrderPage() {
       setOrderItems(
         orderItems.map((item) =>
           item.productId === product.id && !item.menuId
-            ? { ...item, quantity: Math.round((item.quantity + increment) * 100) / 100 }
+            ? { ...item, quantity: roundQty(item.quantity + increment, item.unit) }
             : item
         )
       );
@@ -235,7 +235,7 @@ export default function NewOrderPage() {
           productName: product.name,
           quantity: increment,
           unitPrice: product.price,
-          unitType,
+          unit: unitType,
         },
       ]);
     }
@@ -262,6 +262,7 @@ export default function NewOrderPage() {
           quantity: 1,
           unitPrice: menuPrice,
           menuId: menu.id,
+          unit: "piece" as const,
         },
       ]);
     }
@@ -274,7 +275,7 @@ export default function NewOrderPage() {
       orderItems
         .map((item) => {
           if (getItemKey(item) !== key) return item;
-          const step = item.unitType === "kg" ? 0.1 * Math.sign(delta) : delta;
+          const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
           const newQty = Math.round((item.quantity + step) * 100) / 100;
           return { ...item, quantity: Math.max(0, newQty) };
         })
@@ -465,7 +466,7 @@ export default function NewOrderPage() {
                         );
                         const cartQty = inCart?.quantity ?? 0;
                         const hasStock = product.stock !== null;
-                        const remaining = hasStock ? product.stock! - cartQty : null;
+                        const remaining = hasStock ? parseQty(product.stock!) - cartQty : null;
                         const isOutOfStock = remaining !== null && remaining <= 0 && !inCart;
                         return (
                           <button
@@ -495,7 +496,7 @@ export default function NewOrderPage() {
                                 {product.name}
                               </div>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>{formatCurrency(product.price)}{(product as any).unitType === "kg" ? "/kg" : ""}</span>
+                                <span>{formatCurrency(product.price)}{product.unitType !== "piece" ? UNIT_CONFIG[product.unitType].priceSuffix : ""}</span>
                                 {hasStock && (
                                   <span className={cn(
                                     "text-xs",
@@ -504,14 +505,14 @@ export default function NewOrderPage() {
                                   )}>
                                     {remaining !== null && remaining <= 0
                                       ? "Rupture"
-                                      : `Stock: ${remaining}${(product as any).unitType === "kg" ? " kg" : ""}`}
+                                      : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
                                   </span>
                                 )}
                               </div>
                             </div>
                             {inCart && (
                               <Badge variant="default" className="ml-2 shrink-0">
-                                {inCart.unitType === "kg" ? `${inCart.quantity} kg` : inCart.quantity}
+                                {formatQtyLabel(inCart.quantity, inCart.unit)}
                               </Badge>
                             )}
                           </button>
@@ -941,7 +942,7 @@ export default function NewOrderPage() {
                                     onBlur={(e) => {
                                       const val = parseFloat(e.target.value.replace(",", "."));
                                       if (!isNaN(val) && val > 0) {
-                                        const rounded = item.unitType === "kg" ? Math.round(val * 1000) / 1000 : Math.round(val);
+                                        const rounded = roundQty(val, item.unit);
                                         setItemQuantity(key, rounded);
                                       } else {
                                         e.target.value = String(item.quantity);
@@ -949,8 +950,8 @@ export default function NewOrderPage() {
                                     }}
                                     className="h-8 w-16 text-center font-semibold px-1"
                                   />
-                                  {item.unitType === "kg" && (
-                                    <span className="text-xs text-muted-foreground">kg</span>
+                                  {UNIT_CONFIG[item.unit].suffix && (
+                                    <span className="text-xs text-muted-foreground">{UNIT_CONFIG[item.unit].suffix}</span>
                                   )}
                                 </div>
                                 <Button
@@ -986,7 +987,7 @@ export default function NewOrderPage() {
                                   }}
                                   className="h-5 w-14 text-center text-xs px-1 bg-white dark:bg-background"
                                 />
-                                <span>€{item.unitType === "kg" ? "/kg" : "/u"}</span>
+                                <span>€{UNIT_CONFIG[item.unit].priceSuffix}</span>
                               </div>
                               <Input
                                 placeholder={item.menuId ? "Notes..." : "Notes..."}

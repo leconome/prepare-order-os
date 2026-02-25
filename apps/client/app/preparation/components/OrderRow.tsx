@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatQtyLabel } from "@prepareos/data";
 import {
   formatCurrency,
   type OrderWithItems,
@@ -41,9 +42,8 @@ function OrderRow({ order }: { order: OrderWithItems }) {
 
   const itemsSummary = items
     .map((item) => {
-      const qty = parseFloat(String(item.quantity));
-      if (qty % 1 !== 0) return `${qty}kg ${item.productName}`;
-      return qty > 1 ? `${qty}x ${item.productName}` : item.productName;
+      const label = formatQtyLabel(item.quantity, item.unit);
+      return label !== "1x" ? `${label} ${item.productName}` : item.productName;
     })
     .join(", ");
 

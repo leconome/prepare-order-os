@@ -50,6 +50,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatQtyLabel } from "@prepareos/data";
 import {
   deleteOrder,
   fetchOrders,
@@ -150,7 +151,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
                 <div className="flex flex-col gap-1">
                   {order.items?.slice(0, 2).map((item) => (
                     <span key={item.id} className="text-sm">
-                      {item.quantity}x {item.productName}
+                      {formatQtyLabel(item.quantity, item.unit)} {item.productName}
                     </span>
                   ))}
                   {order.items && order.items.length > 2 && (
