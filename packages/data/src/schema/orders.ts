@@ -31,6 +31,11 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
   "picked_up",
 ]);
 
+export const discountTypeEnum = pgEnum("discount_type", [
+  "percentage",
+  "fixed",
+]);
+
 export const orders = pgTable(
   "orders",
   {
@@ -53,6 +58,13 @@ export const orders = pgTable(
     createdById: text("created_by_id").references(() => users.id),
     assignedToId: text("assigned_to_id").references(() => users.id),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    discountType: discountTypeEnum("discount_type"),
+    discountValue: decimal("discount_value", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0"),
+    discountAmount: decimal("discount_amount", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
     taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
@@ -82,7 +94,7 @@ export const orderItems = pgTable("order_items", {
     .references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull(),
   productName: varchar("product_name", { length: 200 }).notNull(),
-  quantity: integer("quantity").notNull().default(1),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   isMenu: boolean("is_menu").notNull().default(false),
@@ -173,11 +185,13 @@ export const preparationStatusSchema = z.enum([
 export const createOrderItemSchema = z.object({
   productId: z.string().uuid(),
   productName: z.string(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().positive(),
   unitPrice: z.string(),
   notes: z.string().optional(),
   menuId: z.string().uuid().optional(),
 });
+
+export const discountTypeSchema = z.enum(["percentage", "fixed"]);
 
 export const createOrderSchema = z.object({
   clientId: z.string().uuid().optional(),
@@ -189,6 +203,8 @@ export const createOrderSchema = z.object({
   // createdById is auto-filled from logged-in user, but can be overridden
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
+  discountType: discountTypeSchema.nullable().optional(),
+  discountValue: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
 });
 
@@ -203,6 +219,8 @@ export const updateOrderSchema = z.object({
   internalNote: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
+  discountType: discountTypeSchema.nullable().optional(),
+  discountValue: z.string().nullable().optional(),
   items: z.array(createOrderItemSchema).min(1).optional(),
 });
 

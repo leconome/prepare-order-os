@@ -61,6 +61,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
       stock: initialData?.stock ?? undefined,
+      unitType: (initialData as any)?.unitType ?? "piece",
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -76,6 +77,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
         stock: initialData.stock ?? undefined,
+        unitType: (initialData as any).unitType ?? "piece",
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -160,21 +162,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prix (€)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="10.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="stock"
@@ -192,6 +180,47 @@ export function ProductForm({ initialData }: ProductFormProps) {
                           field.onChange(val === "" ? null : Number(val));
                         }}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unitType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unité</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || "piece"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="piece">Pièce (à l'unité)</SelectItem>
+                        <SelectItem value="kg">Kilogramme (au poids)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prix (€)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="10.00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -24,13 +24,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  type CreateOrderItem,
   type Product,
+  type UpdateOrder,
   fetchMenus,
   fetchOrder,
   fetchProducts,
   formatCurrency,
-  updateOrderItems,
+  updateOrder,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +41,7 @@ type OrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
+  unitType?: "piece" | "kg";
 };
 
 export default function EditOrderItemsPage() {
@@ -52,6 +53,8 @@ export default function EditOrderItemsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [discountValue, setDiscountValue] = useState("");
 
   const { data: order, isLoading: orderLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -72,15 +75,20 @@ export default function EditOrderItemsPage() {
 
   // Pre-fill cart with existing order items
   useEffect(() => {
-    if (!order || initialized) return;
-    const items: OrderItem[] = (order.items ?? []).map((item) => ({
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      notes: item.notes ?? undefined,
-      menuId: item.isMenu ? item.productId : undefined,
-    }));
+    if (!order || !productsData || initialized) return;
+    const productsList = productsData?.data ?? [];
+    const items: OrderItem[] = (order.items ?? []).map((item: any) => {
+      const product = productsList.find((p: any) => p.id === item.productId);
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        quantity: typeof item.quantity === "string" ? parseFloat(item.quantity) : item.quantity,
+        unitPrice: item.unitPrice,
+        notes: item.notes ?? undefined,
+        menuId: item.isMenu ? item.productId : undefined,
+        unitType: (product as any)?.unitType || "piece",
+      };
+    });
     // Merge duplicate menu items back into single entries with summed quantity
     const merged: OrderItem[] = [];
     for (const item of items) {
@@ -95,12 +103,16 @@ export default function EditOrderItemsPage() {
       }
     }
     setOrderItems(merged);
+    if ((order as any).discountType) {
+      setDiscountType((order as any).discountType);
+      setDiscountValue((order as any).discountValue || "");
+    }
     setInitialized(true);
-  }, [order, initialized]);
+  }, [order, productsData, initialized]);
 
   const updateMutation = useMutation({
-    mutationFn: (items: CreateOrderItem[]) =>
-      updateOrderItems(orderId, { items }),
+    mutationFn: (data: UpdateOrder) =>
+      updateOrder(orderId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
@@ -109,6 +121,8 @@ export default function EditOrderItemsPage() {
   });
 
   const addProductToOrder = (product: Product) => {
+    const unitType = (product as any).unitType || "piece";
+    const increment = unitType === "kg" ? 0.5 : 1;
     const existingItem = orderItems.find(
       (item) => item.productId === product.id && !item.menuId,
     );
@@ -116,7 +130,7 @@ export default function EditOrderItemsPage() {
       setOrderItems(
         orderItems.map((item) =>
           item.productId === product.id && !item.menuId
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.round((item.quantity + increment) * 100) / 100 }
             : item,
         ),
       );
@@ -126,8 +140,9 @@ export default function EditOrderItemsPage() {
         {
           productId: product.id,
           productName: product.name,
-          quantity: 1,
+          quantity: increment,
           unitPrice: product.price,
+          unitType,
         },
       ]);
     }
@@ -164,17 +179,38 @@ export default function EditOrderItemsPage() {
   const updateItemQuantity = (key: string, delta: number) => {
     setOrderItems(
       orderItems
-        .map((item) =>
-          getItemKey(item) === key
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item,
-        )
+        .map((item) => {
+          if (getItemKey(item) !== key) return item;
+          const step = item.unitType === "kg" ? 0.1 * Math.sign(delta) : delta;
+          const newQty = Math.round((item.quantity + step) * 100) / 100;
+          return { ...item, quantity: Math.max(0, newQty) };
+        })
         .filter((item) => item.quantity > 0),
     );
   };
 
+  const setItemQuantity = (key: string, quantity: number) => {
+    if (quantity <= 0) {
+      setOrderItems(orderItems.filter((item) => getItemKey(item) !== key));
+    } else {
+      setOrderItems(
+        orderItems.map((item) =>
+          getItemKey(item) === key ? { ...item, quantity } : item,
+        ),
+      );
+    }
+  };
+
   const removeItem = (key: string) => {
     setOrderItems(orderItems.filter((item) => getItemKey(item) !== key));
+  };
+
+  const updateItemPrice = (key: string, price: string) => {
+    setOrderItems(
+      orderItems.map((item) =>
+        getItemKey(item) === key ? { ...item, unitPrice: price } : item,
+      ),
+    );
   };
 
   const updateItemNotes = (key: string, notes: string) => {
@@ -185,15 +221,31 @@ export default function EditOrderItemsPage() {
     );
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return orderItems.reduce((total, item) => {
       return total + parseFloat(item.unitPrice) * item.quantity;
     }, 0);
   };
 
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const val = parseFloat(discountValue);
+    if (!discountValue || isNaN(val) || val <= 0) return 0;
+    const amount = discountType === "percentage" ? (subtotal * val) / 100 : val;
+    return Math.min(amount, subtotal);
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() - calculateDiscount();
+  };
+
   const handleSubmit = () => {
     if (orderItems.length === 0) return;
-    updateMutation.mutate(orderItems);
+    updateMutation.mutate({
+      items: orderItems,
+      discountType: discountValue && parseFloat(discountValue) > 0 ? discountType : null,
+      discountValue: discountValue && parseFloat(discountValue) > 0 ? discountValue : null,
+    });
   };
 
   if (orderLoading) {
@@ -388,7 +440,7 @@ export default function EditOrderItemsPage() {
                                 {product.name}
                               </div>
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>{formatCurrency(product.price)}</span>
+                                <span>{formatCurrency(product.price)}{(product as any).unitType === "kg" ? "/kg" : ""}</span>
                                 {hasStock && (
                                   <span
                                     className={cn(
@@ -404,14 +456,14 @@ export default function EditOrderItemsPage() {
                                   >
                                     {remaining !== null && remaining <= 0
                                       ? "Rupture"
-                                      : `Stock: ${remaining}`}
+                                      : `Stock: ${remaining}${(product as any).unitType === "kg" ? " kg" : ""}`}
                                   </span>
                                 )}
                               </div>
                             </div>
                             {inCart && (
                               <Badge variant="default" className="ml-2 shrink-0">
-                                {inCart.quantity}
+                                {inCart.unitType === "kg" ? `${inCart.quantity} kg` : inCart.quantity}
                               </Badge>
                             )}
                           </button>
@@ -426,13 +478,13 @@ export default function EditOrderItemsPage() {
 
           {/* Cart Summary */}
           <div className="space-y-4">
-            <Card className="sticky top-4">
-              <CardHeader>
+            <Card className="sticky top-4 border-blue-200/50 shadow-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-t-lg">
                 <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
+                  <ShoppingCart className="h-5 w-5 text-blue-600" />
                   Panier
                   {orderItems.length > 0 && (
-                    <Badge variant="secondary" className="ml-auto">
+                    <Badge className="ml-auto bg-blue-600 text-white">
                       {orderItems.reduce((sum, item) => sum + item.quantity, 0)}{" "}
                       article{orderItems.length > 1 ? "s" : ""}
                     </Badge>
@@ -456,88 +508,154 @@ export default function EditOrderItemsPage() {
                         return (
                           <div
                             key={key}
-                            className="rounded-lg border p-3 space-y-2"
+                            className="rounded-lg border bg-muted/30 p-3 space-y-2"
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate flex items-center gap-2">
-                                  {item.productName}
-                                  {item.menuId && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs shrink-0"
-                                    >
-                                      Menu
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {formatCurrency(item.unitPrice)} x {item.quantity}
-                                </div>
-                              </div>
-                              <div className="text-right font-medium">
-                                {formatCurrency(
-                                  parseFloat(item.unitPrice) * item.quantity,
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
+                                {item.productName}
+                                {item.menuId && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs shrink-0"
+                                  >
+                                    Menu
+                                  </Badge>
                                 )}
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateItemQuantity(key, -1)}
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <span className="w-8 text-center text-sm font-medium">
-                                  {item.quantity}
-                                </span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateItemQuantity(key, 1)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
                               </div>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
                                 onClick={() => removeItem(key)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                            <Input
-                              placeholder={
-                                item.menuId
-                                  ? "Notes pour ce menu..."
-                                  : "Notes pour ce produit..."
-                              }
-                              value={item.notes || ""}
-                              onChange={(e) => updateItemNotes(key, e.target.value)}
-                              className="h-8 text-sm"
-                            />
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => updateItemQuantity(key, -1)}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    defaultValue={item.quantity}
+                                    key={`${key}-${item.quantity}`}
+                                    onBlur={(e) => {
+                                      const val = parseFloat(e.target.value.replace(",", "."));
+                                      if (!isNaN(val) && val > 0) {
+                                        const rounded = item.unitType === "kg" ? Math.round(val * 1000) / 1000 : Math.round(val);
+                                        setItemQuantity(key, rounded);
+                                      } else {
+                                        e.target.value = String(item.quantity);
+                                      }
+                                    }}
+                                    className="h-8 w-16 text-center font-semibold px-1"
+                                  />
+                                  {item.unitType === "kg" && (
+                                    <span className="text-xs text-muted-foreground">kg</span>
+                                  )}
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => updateItemQuantity(key, 1)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="text-right font-medium text-sm">
+                                {formatCurrency(
+                                  parseFloat(item.unitPrice) * item.quantity,
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  defaultValue={parseFloat(item.unitPrice).toFixed(2)}
+                                  key={`price-${key}-${item.unitPrice}`}
+                                  onBlur={(e) => {
+                                    const val = parseFloat(e.target.value.replace(",", "."));
+                                    if (!isNaN(val) && val >= 0) {
+                                      updateItemPrice(key, val.toFixed(2));
+                                    } else {
+                                      e.target.value = parseFloat(item.unitPrice).toFixed(2);
+                                    }
+                                  }}
+                                  className="h-5 w-14 text-center text-xs px-1 bg-white dark:bg-background"
+                                />
+                                <span>€{item.unitType === "kg" ? "/kg" : "/u"}</span>
+                              </div>
+                              <Input
+                                placeholder="Notes..."
+                                value={item.notes || ""}
+                                onChange={(e) => updateItemNotes(key, e.target.value)}
+                                className="h-5 text-xs flex-1 max-w-[60%]"
+                              />
+                            </div>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="border-t pt-4 space-y-2">
+                    <div className="border-t pt-4 space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Sous-total</span>
-                        <span>{formatCurrency(calculateTotal())}</span>
+                        <span className="font-medium">{formatCurrency(calculateSubtotal())}</span>
                       </div>
-                      <div className="flex justify-between font-medium text-lg">
+
+                      {/* Discount input */}
+                      <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2">
+                        <span className="text-sm text-muted-foreground shrink-0">Remise</span>
+                        <div className="flex items-center gap-1 flex-1">
+                          <div className="flex rounded-md border overflow-hidden h-7">
+                            <button
+                              type="button"
+                              onClick={() => setDiscountType("percentage")}
+                              className={`px-2 text-xs font-medium transition-colors ${discountType === "percentage" ? "bg-primary text-primary-foreground" : "bg-white dark:bg-background hover:bg-muted"}`}
+                            >
+                              %
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountType("fixed")}
+                              className={`px-2 text-xs font-medium transition-colors ${discountType === "fixed" ? "bg-primary text-primary-foreground" : "bg-white dark:bg-background hover:bg-muted"}`}
+                            >
+                              €
+                            </button>
+                          </div>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={discountValue}
+                            onChange={(e) => setDiscountValue(e.target.value.replace(",", "."))}
+                            className="h-7 w-20 text-center text-sm bg-white dark:bg-background"
+                          />
+                        </div>
+                        {calculateDiscount() > 0 && (
+                          <span className="text-sm text-destructive font-semibold">
+                            -{formatCurrency(calculateDiscount())}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
                         <span>Total</span>
-                        <span>{formatCurrency(calculateTotal())}</span>
+                        <span className="text-blue-700 dark:text-blue-400">{formatCurrency(calculateTotal())}</span>
                       </div>
                     </div>
 

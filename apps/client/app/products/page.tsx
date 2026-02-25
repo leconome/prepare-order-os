@@ -55,8 +55,8 @@ function ProductsTable({
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead>Prix</TableHead>
           <TableHead>Stock</TableHead>
+          <TableHead>Prix</TableHead>
           <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
@@ -133,22 +133,22 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {formatCurrency(product.price)}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link href={`/products/${product.id}`} className="block w-full">
                   {product.stock == null ? (
                     <span className="text-muted-foreground text-xs">-</span>
                   ) : product.stock === 0 ? (
                     <Badge variant="destructive">Rupture</Badge>
                   ) : product.stock <= 5 ? (
                     <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
-                      {product.stock}
+                      {product.stock}{(product as any).unitType === "kg" ? " kg" : ""}
                     </Badge>
                   ) : (
-                    <span className="text-sm">{product.stock}</span>
+                    <span className="text-sm">{product.stock}{(product as any).unitType === "kg" ? " kg" : ""}</span>
                   )}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Link href={`/products/${product.id}`} className="block w-full">
+                  {formatCurrency(product.price)}{(product as any).unitType === "kg" ? "/kg" : ""}
                 </Link>
               </TableCell>
               <TableCell>

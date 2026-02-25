@@ -1452,6 +1452,7 @@ async function seedOrders(
       await db.insert(orderItems).values(
         regularItemsToInsert.map((item) => ({
           ...item,
+          quantity: String(item.quantity),
           orderId: order.id,
         })),
       );
@@ -1465,7 +1466,7 @@ async function seedOrders(
           orderId: order.id,
           productId: menuItem.productId,
           productName: menuItem.productName,
-          quantity: menuItem.quantity,
+          quantity: String(menuItem.quantity),
           unitPrice: menuItem.unitPrice,
           totalPrice: menuItem.totalPrice,
           isMenu: true,

@@ -66,7 +66,7 @@ function ItemCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold shrink-0">
-            {item.quantity}x
+            {parseFloat(String(item.quantity)) % 1 !== 0 ? `${item.quantity}kg` : `${item.quantity}x`}
           </span>
           <span className="text-sm truncate">{item.productName}</span>
         </div>

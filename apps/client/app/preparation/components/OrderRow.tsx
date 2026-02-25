@@ -40,11 +40,11 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   const status = STATUS_BADGE[order.preparationStatus as PreparationStatus];
 
   const itemsSummary = items
-    .map((item) =>
-      item.quantity > 1
-        ? `${item.quantity}x ${item.productName}`
-        : item.productName,
-    )
+    .map((item) => {
+      const qty = parseFloat(String(item.quantity));
+      if (qty % 1 !== 0) return `${qty}kg ${item.productName}`;
+      return qty > 1 ? `${qty}x ${item.productName}` : item.productName;
+    })
     .join(", ");
 
   const statusMutation = useMutation({
