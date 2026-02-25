@@ -28,13 +28,13 @@ export default function PreparationPage() {
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["preparation-orders", filterDays, trimmedSearch],
     queryFn: () => {
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - filterDays);
-      fromDate.setHours(0, 0, 0, 0);
+      const pickupDateFrom = new Date();
+      pickupDateFrom.setDate(pickupDateFrom.getDate() - filterDays);
+      pickupDateFrom.setHours(0, 0, 0, 0);
       return fetchOrders({
         limit: 200,
-        fromDate,
-        toDate: new Date(new Date().setHours(23, 59, 59, 999)),
+        pickupDateFrom,
+        pickupDateTo: new Date(new Date().setHours(23, 59, 59, 999)),
         search: trimmedSearch || undefined,
       });
     },

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ChefHat,
   Clock,
   PackageCheck,
@@ -10,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
   Card,
@@ -18,7 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchOrders, type OrderWithItems } from "@/lib/api";
+import { fetchOrders, fetchProducts, type OrderWithItems } from "@/lib/api";
 
 // ============ HELPERS ============
 
@@ -190,6 +192,13 @@ export default function DashboardPage() {
     refetchInterval: 30_000,
   });
 
+  const { data: lowStockData, isLoading: isLoadingStock } = useQuery({
+    queryKey: ["dashboard-low-stock"],
+    queryFn: () => fetchProducts({ limit: 20, maxStock: 5, isActive: true }),
+    refetchInterval: 60_000,
+  });
+
+  const lowStockProducts = lowStockData?.data ?? [];
   const orders = data?.data ?? [];
   const stats = computeDashboardStats(orders);
   const toPrepare = stats.pending + stats.inPreparation;
@@ -260,7 +269,51 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Row 3 — Preparation breakdown + Top products */}
+        {/* Row 3 — Low stock alert */}
+        {lowStockProducts.length > 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Stock faible
+              </CardTitle>
+              <span className="text-xs text-muted-foreground">
+                {lowStockProducts.length} produit{lowStockProducts.length > 1 ? "s" : ""}
+              </span>
+            </CardHeader>
+            <CardContent>
+              {isLoadingStock ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-full" />
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {lowStockProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/products/${p.id}`}
+                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="truncate">{p.name}</span>
+                      <span
+                        className={`ml-2 font-semibold whitespace-nowrap ${
+                          p.stock === 0
+                            ? "text-red-600"
+                            : "text-amber-600"
+                        }`}
+                      >
+                        {p.stock === 0 ? "Rupture" : `${p.stock} restant${(p.stock ?? 0) > 1 ? "s" : ""}`}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Row 4 — Preparation breakdown + Top products */}
         <div className="grid gap-4 md:grid-cols-2">
           {/* Preparation breakdown */}
           <Card>

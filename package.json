@@ -18,7 +18,8 @@
     "s3:init": "pnpm --filter store s3:init",
     "db:deploy": "pnpm db:migrate && pnpm s3:init && pnpm db:seed",
     "db:studio": "pnpm --filter store db:studio",
-    "db:seed": "pnpm --filter store db:seed"
+    "db:seed": "pnpm --filter store db:seed",
+    "create-admin": "pnpm --filter store create-admin"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

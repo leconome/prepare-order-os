@@ -6,7 +6,7 @@ export type AuthUser = {
   email: string;
   name: string | null;
   role: string;
-  tenantId: string;
+  tenantId: string | null;
 };
 
 export type AuthVariables = {
@@ -38,11 +38,16 @@ export const authMiddleware: MiddlewareHandler = async (
   }
 
   const user = session.user as Record<string, unknown>;
-  const userTenantId = user.tenantId as string;
+  const userTenantId = (user.tenantId as string) ?? null;
 
-  // Cross-tenant guard: user must belong to the current tenant
+  // Cross-tenant guard: tenant-scoped users must belong to the current tenant.
+  // Platform admins (tenantId = null) can access any tenant.
   const currentTenantId = c.get("tenantId") as string | undefined;
-  if (currentTenantId && userTenantId !== currentTenantId) {
+  if (
+    currentTenantId &&
+    userTenantId !== null &&
+    userTenantId !== currentTenantId
+  ) {
     return c.json({ error: "Forbidden: tenant mismatch" }, 403);
   }
 
@@ -68,10 +73,14 @@ export const optionalAuthMiddleware: MiddlewareHandler = async (
 
   if (session) {
     const user = session.user as Record<string, unknown>;
-    const userTenantId = user.tenantId as string;
+    const userTenantId = (user.tenantId as string) ?? null;
 
     const currentTenantId = c.get("tenantId") as string | undefined;
-    if (currentTenantId && userTenantId !== currentTenantId) {
+    if (
+      currentTenantId &&
+      userTenantId !== null &&
+      userTenantId !== currentTenantId
+    ) {
       return c.json({ error: "Forbidden: tenant mismatch" }, 403);
     }
 

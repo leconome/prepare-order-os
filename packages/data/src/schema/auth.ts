@@ -30,9 +30,10 @@ export const users = pgTable(
     pin: varchar("pin", { length: 255 }),
     // Active status (for disabling accounts)
     isActive: boolean("is_active").notNull().default(true),
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id, { onDelete: "cascade" }),
+    // Nullable: platform admins have no tenant, only owners/staff do
+    tenantId: uuid("tenant_id").references(() => tenants.id, {
+      onDelete: "cascade",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -43,7 +44,9 @@ export const users = pgTable(
   (table) => [
     uniqueIndex("users_tenant_pin_unique")
       .on(table.tenantId, table.pin)
-      .where(sql`${table.pin} IS NOT NULL`),
+      .where(
+        sql`${table.tenantId} IS NOT NULL AND ${table.pin} IS NOT NULL`,
+      ),
     index("users_tenant_id_idx").on(table.tenantId),
   ],
 );

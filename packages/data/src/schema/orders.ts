@@ -203,6 +203,7 @@ export const updateOrderSchema = z.object({
   internalNote: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
+  items: z.array(createOrderItemSchema).min(1).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -218,6 +219,8 @@ export const orderFiltersSchema = z.object({
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
   pickupDate: z.coerce.date().optional(),
+  pickupDateFrom: z.coerce.date().optional(),
+  pickupDateTo: z.coerce.date().optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
   page: z.coerce.number().int().positive().default(1),

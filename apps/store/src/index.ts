@@ -16,6 +16,7 @@ import tenantsRoutes from "./routes/tenants.js";
 import smsRoutes from "./routes/sms.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
+import docsRoutes from "./routes/docs.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
@@ -55,15 +56,16 @@ app.use(
 // Public routes — no tenant middleware needed
 app.route("/api/health", health);
 app.route("/api/images", images);
+app.route("/api/docs", docsRoutes);
+
+// Auth routes — no tenant needed (Better Auth handles email/password globally)
+app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
 
 // Tenant middleware — all routes below are tenant-scoped
 app.use("/api/*", tenantMiddleware);
-
-// Routes
-app.route("/api/auth", authRoutes);
 app.route("/api/orders", orders);
 app.route("/api/products", products);
 app.route("/api/categories", categories);
