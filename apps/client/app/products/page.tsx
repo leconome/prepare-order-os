@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { UNIT_CONFIG, parseQty } from "@prepareos/data";
 import {
   type Category,
   fetchCategories,
@@ -55,8 +56,8 @@ function ProductsTable({
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead>Prix</TableHead>
           <TableHead>Stock</TableHead>
+          <TableHead>Prix</TableHead>
           <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
@@ -133,22 +134,22 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {formatCurrency(product.price)}
+                  {product.stock == null ? (
+                    <span className="text-muted-foreground text-xs">-</span>
+                  ) : parseQty(product.stock) === 0 ? (
+                    <Badge variant="destructive">Rupture</Badge>
+                  ) : parseQty(product.stock) <= 5 ? (
+                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
+                      {parseQty(product.stock)} <span className="font-normal">{UNIT_CONFIG[product.unitType].suffix || "u"}</span>
+                    </Badge>
+                  ) : (
+                    <span className="text-sm">{parseQty(product.stock)} <span className="text-muted-foreground text-xs">{UNIT_CONFIG[product.unitType].suffix || "u"}</span></span>
+                  )}
                 </Link>
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {product.stock == null ? (
-                    <span className="text-muted-foreground text-xs">-</span>
-                  ) : product.stock === 0 ? (
-                    <Badge variant="destructive">Rupture</Badge>
-                  ) : product.stock <= 5 ? (
-                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
-                      {product.stock}
-                    </Badge>
-                  ) : (
-                    <span className="text-sm">{product.stock}</span>
-                  )}
+                  {formatCurrency(product.price)}<span className="text-muted-foreground text-xs">{UNIT_CONFIG[product.unitType].priceSuffix}</span>
                 </Link>
               </TableCell>
               <TableCell>

@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatQtyLabel } from "@prepareos/data";
 import {
   formatCurrency,
   type OrderWithItems,
@@ -40,11 +41,10 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   const status = STATUS_BADGE[order.preparationStatus as PreparationStatus];
 
   const itemsSummary = items
-    .map((item) =>
-      item.quantity > 1
-        ? `${item.quantity}x ${item.productName}`
-        : item.productName,
-    )
+    .map((item) => {
+      const label = formatQtyLabel(item.quantity, item.unit);
+      return label !== "1x" ? `${label} ${item.productName}` : item.productName;
+    })
     .join(", ");
 
   const statusMutation = useMutation({
@@ -61,10 +61,12 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   };
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => router.push(`/preparation/${order.id}`)}
-      className="grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/preparation/${order.id}`); }}
+      className="grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors hover:bg-accent/50 cursor-pointer"
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
@@ -162,7 +164,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           </SelectContent>
         </Select>
       </div>
-    </button>
+    </div>
   );
 }
 

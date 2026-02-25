@@ -7,6 +7,7 @@ import type {
   CreateClient,
   CreateMenu,
   CreateOrder,
+  CreateOrderItem,
   CreateProduct,
   CreateStaff,
   GrantCredits,
@@ -139,6 +140,16 @@ export async function updateOrderStatus(
   data: UpdateOrderStatus,
 ): Promise<OrderWithItems> {
   return fetchApi<OrderWithItems>(`/orders/${orderId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateOrderItems(
+  orderId: string,
+  data: { items: CreateOrderItem[] },
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(`/orders/${orderId}/items`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
@@ -641,6 +652,7 @@ export type {
   OrderMenuItem,
   OrderFilters,
   CreateOrder,
+  CreateOrderItem,
   UpdateOrder,
   UpdateOrderStatus,
   Product,

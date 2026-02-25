@@ -12,6 +12,7 @@ import {
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { parseQty } from "@prepareos/data";
 import {
   fetchClients,
   fetchOrders,
@@ -89,7 +90,7 @@ function computeStats(orders: OrderWithItems[]) {
       if (!productCounts[key]) {
         productCounts[key] = { name: item.productName, qty: 0, revenue: 0 };
       }
-      productCounts[key].qty += item.quantity;
+      productCounts[key].qty += parseQty(item.quantity);
       productCounts[key].revenue += parseFloat(item.totalPrice);
     }
   }

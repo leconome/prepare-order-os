@@ -3,11 +3,14 @@ import {
   type CreateOrder,
   type CreateOrderItem,
   type OrderFilters,
+  type Unit,
   orderItems,
   orderMenuItems,
   orders,
   products,
+  stockDeduction,
   type UpdateOrder,
+  type UpdateOrderItems,
   type UpdateOrderStatus,
 } from "@prepareos/data";
 import {
@@ -27,6 +30,27 @@ import { db, type Database } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
 
+function calculateTotals(
+  subtotal: number,
+  discountType?: string | null,
+  discountValue?: string | null,
+) {
+  let discountAmount = 0;
+  if (discountType && discountValue) {
+    const val = parseFloat(discountValue);
+    if (!isNaN(val) && val > 0) {
+      discountAmount =
+        discountType === "percentage" ? (subtotal * val) / 100 : val;
+      discountAmount = Math.min(discountAmount, subtotal);
+    }
+  }
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const taxRate = 0.2;
+  const taxTotal = subtotalAfterDiscount * taxRate;
+  const total = subtotalAfterDiscount + taxTotal;
+  return { discountAmount, taxTotal, total };
+}
+
 type TxOrDb = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /**
@@ -37,7 +61,8 @@ async function restoreStockForItems(
   tenantId: string,
   items: {
     productId: string;
-    quantity: number;
+    quantity: string | number;
+    unit?: Unit;
     isMenu: boolean;
     menuItems?: { productId: string; quantity: number }[];
   }[],
@@ -49,7 +74,7 @@ async function restoreStockForItems(
         await tx
           .update(products)
           .set({
-            stock: sql`${products.stock} + ${menuItem.quantity}`,
+            stock: sql`${products.stock} + ${Number(menuItem.quantity)}`,
             updatedAt: new Date(),
           })
           .where(
@@ -57,14 +82,16 @@ async function restoreStockForItems(
               eq(products.id, menuItem.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
+              eq(products.unitType, "piece"),
             ),
           );
       }
     } else {
+      const unit = item.unit ?? "piece";
       await tx
         .update(products)
         .set({
-          stock: sql`${products.stock} + ${item.quantity}`,
+          stock: sql`${products.stock} + ${stockDeduction(item.quantity, unit)}`,
           updatedAt: new Date(),
         })
         .where(
@@ -72,6 +99,7 @@ async function restoreStockForItems(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
+            eq(products.unitType, unit),
           ),
         );
     }
@@ -103,6 +131,7 @@ async function insertItemsAndDeductStock(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
+      unit: item.unit ?? "piece" as const,
       isMenu: false,
       notes: item.notes ?? null,
     };
@@ -115,6 +144,7 @@ async function insertItemsAndDeductStock(
     quantity: number;
     unitPrice: string;
     totalPrice: string;
+    unit: "piece";
     isMenu: boolean;
     notes: string | null;
     menuProducts: {
@@ -139,6 +169,7 @@ async function insertItemsAndDeductStock(
         quantity: 1,
         unitPrice: menuReq.unitPrice,
         totalPrice: unitPrice.toFixed(2),
+        unit: "piece" as const,
         isMenu: true,
         notes: menuReq.notes ?? null,
         menuProducts: menu.products.map((mp) => ({
@@ -155,15 +186,17 @@ async function insertItemsAndDeductStock(
     await tx.insert(orderItems).values(
       regularItemsToInsert.map((item) => ({
         ...item,
+        quantity: String(item.quantity),
         orderId,
       })),
     );
 
     for (const item of regularItemsToInsert) {
+      const itemQty = stockDeduction(item.quantity, item.unit);
       const result = await tx
         .update(products)
         .set({
-          stock: sql`${products.stock} - ${item.quantity}`,
+          stock: sql`${products.stock} - ${itemQty}`,
           updatedAt: new Date(),
         })
         .where(
@@ -171,26 +204,31 @@ async function insertItemsAndDeductStock(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
-            gte(products.stock, item.quantity),
+            eq(products.unitType, item.unit),
+            gte(products.stock, String(itemQty)),
           ),
         )
         .returning({ id: products.id });
 
-      // If stock is tracked but insufficient, the update matched 0 rows
-      const hasStock = await tx
-        .select({ stock: products.stock })
-        .from(products)
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-          ),
-        );
-      if (hasStock.length > 0 && result.length === 0) {
-        throw new Error(
-          `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
-        );
+      // If stock is tracked and units match but insufficient, the update matched 0 rows
+      if (result.length === 0) {
+        const hasStock = await tx
+          .select({ stock: products.stock, unitType: products.unitType })
+          .from(products)
+          .where(
+            and(
+              eq(products.id, item.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+              eq(products.unitType, item.unit),
+            ),
+          );
+        // Only throw if units match but stock is insufficient (unit mismatch → skip silently)
+        if (hasStock.length > 0) {
+          throw new Error(
+            `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+          );
+        }
       }
     }
   }
@@ -200,7 +238,7 @@ async function insertItemsAndDeductStock(
     const { menuProducts: menuProds, ...itemData } = menuItem;
     const [insertedItem] = await tx
       .insert(orderItems)
-      .values({ ...itemData, orderId })
+      .values({ ...itemData, quantity: String(itemData.quantity), orderId })
       .returning();
 
     if (menuProds.length > 0) {
@@ -225,25 +263,29 @@ async function insertItemsAndDeductStock(
               eq(products.id, mp.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
-              gte(products.stock, mp.quantity),
+              eq(products.unitType, "piece"),
+              gte(products.stock, String(mp.quantity)),
             ),
           )
           .returning({ id: products.id });
 
-        const hasStock = await tx
-          .select({ stock: products.stock })
-          .from(products)
-          .where(
-            and(
-              eq(products.id, mp.productId),
-              eq(products.tenantId, tenantId),
-              isNotNull(products.stock),
-            ),
-          );
-        if (hasStock.length > 0 && result.length === 0) {
-          throw new Error(
-            `Stock insuffisant pour "${mp.productName}" (stock: ${hasStock[0].stock}, demandé: ${mp.quantity})`,
-          );
+        if (result.length === 0) {
+          const hasStock = await tx
+            .select({ stock: products.stock, unitType: products.unitType })
+            .from(products)
+            .where(
+              and(
+                eq(products.id, mp.productId),
+                eq(products.tenantId, tenantId),
+                isNotNull(products.stock),
+                eq(products.unitType, "piece"),
+              ),
+            );
+          if (hasStock.length > 0) {
+            throw new Error(
+              `Stock insuffisant pour "${mp.productName}" (stock: ${hasStock[0].stock}, demandé: ${mp.quantity})`,
+            );
+          }
         }
       }
     }
@@ -463,14 +505,19 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
     data.items,
   );
 
-  const taxRate = 0.2; // 20% VAT
-  const taxTotal = subtotal * taxRate;
-  const total = subtotal + taxTotal;
+  const { discountAmount, taxTotal, total } = calculateTotals(
+    subtotal,
+    data.discountType,
+    data.discountValue,
+  );
 
   await db
     .update(orders)
     .set({
       subtotal: subtotal.toFixed(2),
+      discountType: data.discountType ?? null,
+      discountValue: data.discountValue ?? "0",
+      discountAmount: discountAmount.toFixed(2),
       taxTotal: taxTotal.toFixed(2),
       total: total.toFixed(2),
     })
@@ -505,6 +552,10 @@ export async function updateOrder(
     updateData.assignedToId = data.assignedToId;
   if (data.smsNotifiedAt !== undefined)
     updateData.smsNotifiedAt = data.smsNotifiedAt;
+  if (data.discountType !== undefined)
+    updateData.discountType = data.discountType;
+  if (data.discountValue !== undefined)
+    updateData.discountValue = data.discountValue ?? "0";
 
   const newItems = data.items;
   if (newItems) {
@@ -530,14 +581,27 @@ export async function updateOrder(
         tx,
       );
 
-      // 5. Recalculate totals
-      const taxRate = 0.2;
-      const taxTotal = subtotal * taxRate;
-      const total = subtotal + taxTotal;
+      // 5. Recalculate totals with discount
+      // Use discount from data if provided, otherwise fetch existing order discount
+      let discType = data.discountType;
+      let discValue = data.discountValue;
+      if (discType === undefined || discValue === undefined) {
+        const existingOrder = await tx.query.orders.findFirst({
+          where: eq(orders.id, id),
+        });
+        if (discType === undefined) discType = existingOrder?.discountType;
+        if (discValue === undefined) discValue = existingOrder?.discountValue;
+      }
+      const { discountAmount, taxTotal, total } = calculateTotals(
+        subtotal,
+        discType,
+        discValue,
+      );
 
       // 6. Auto-reset preparation status since items changed
       updateData.preparationStatus = "pending";
       updateData.subtotal = subtotal.toFixed(2);
+      updateData.discountAmount = discountAmount.toFixed(2);
       updateData.taxTotal = taxTotal.toFixed(2);
       updateData.total = total.toFixed(2);
 
@@ -546,13 +610,200 @@ export async function updateOrder(
         .set(updateData)
         .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
     });
+  } else if (data.discountType !== undefined || data.discountValue !== undefined) {
+    // Discount changed without item changes — recalculate totals from existing subtotal
+    const existingOrder = await db.query.orders.findFirst({
+      where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
+    });
+    if (existingOrder) {
+      const subtotal = parseFloat(existingOrder.subtotal);
+      const discType = data.discountType !== undefined ? data.discountType : existingOrder.discountType;
+      const discValue = data.discountValue !== undefined ? data.discountValue : existingOrder.discountValue;
+      const { discountAmount, taxTotal, total } = calculateTotals(subtotal, discType, discValue);
+      updateData.discountAmount = discountAmount.toFixed(2);
+      updateData.taxTotal = taxTotal.toFixed(2);
+      updateData.total = total.toFixed(2);
+    }
+    await db
+      .update(orders)
+      .set(updateData)
+      .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
   } else {
-    // Metadata-only update (no item changes)
+    // Metadata-only update (no item or discount changes)
     await db
       .update(orders)
       .set(updateData)
       .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
   }
+
+  return getOrderById(tenantId, id);
+}
+
+export async function updateOrderItems(
+  tenantId: string,
+  id: string,
+  data: UpdateOrderItems,
+) {
+  // 1. Get existing items to restore stock
+  const existingItems = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, id),
+    with: { menuItems: true },
+  });
+
+  // 2. Restore stock for old items
+  await restoreStockForItems(tenantId, existingItems);
+
+  // 3. Delete old items (cascade deletes orderMenuItems too)
+  await db.delete(orderItems).where(eq(orderItems.orderId, id));
+
+  // 4. Insert new items (same logic as createOrder)
+  let subtotal = 0;
+
+  const regularItems = data.items.filter((item) => !item.menuId);
+  const menuItemRequests = data.items.filter((item) => item.menuId);
+
+  const regularItemsToInsert = regularItems.map((item) => {
+    const totalPrice = Number(item.unitPrice) * item.quantity;
+    subtotal += totalPrice;
+    return {
+      productId: item.productId,
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: totalPrice.toFixed(2),
+      unit: item.unit ?? "piece" as const,
+      isMenu: false,
+      notes: item.notes ?? null,
+    };
+  });
+
+  const menuItemsToInsert: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: string;
+    totalPrice: string;
+    unit: "piece";
+    isMenu: boolean;
+    notes: string | null;
+    menuProducts: {
+      productId: string;
+      productName: string;
+      quantity: number;
+    }[];
+  }[] = [];
+
+  for (const menuReq of menuItemRequests) {
+    const menu = await getMenuById(tenantId, menuReq.menuId!);
+    if (!menu) continue;
+
+    const unitPrice = Number(menuReq.unitPrice);
+    subtotal += unitPrice * menuReq.quantity;
+
+    for (let i = 0; i < menuReq.quantity; i++) {
+      menuItemsToInsert.push({
+        productId: menuReq.productId,
+        productName: menuReq.productName,
+        quantity: 1,
+        unitPrice: menuReq.unitPrice,
+        totalPrice: unitPrice.toFixed(2),
+        unit: "piece" as const,
+        isMenu: true,
+        notes: menuReq.notes ?? null,
+        menuProducts: menu.products.map((mp) => ({
+          productId: mp.product.id,
+          productName: mp.product.name,
+          quantity: mp.quantity,
+        })),
+      });
+    }
+  }
+
+  // 5. Insert regular items
+  if (regularItemsToInsert.length > 0) {
+    await db.insert(orderItems).values(
+      regularItemsToInsert.map((item) => ({
+        ...item,
+        quantity: String(item.quantity),
+        orderId: id,
+      })),
+    );
+
+    for (const item of regularItemsToInsert) {
+      await db
+        .update(products)
+        .set({
+          stock: sql`${products.stock} - ${stockDeduction(item.quantity, item.unit)}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(products.id, item.productId),
+            eq(products.tenantId, tenantId),
+            isNotNull(products.stock),
+            eq(products.unitType, item.unit),
+          ),
+        );
+    }
+  }
+
+  // 6. Insert menu items + sub-items
+  for (const menuItem of menuItemsToInsert) {
+    const { menuProducts: menuProds, ...itemData } = menuItem;
+    const [insertedItem] = await db
+      .insert(orderItems)
+      .values({ ...itemData, quantity: String(itemData.quantity), orderId: id })
+      .returning();
+
+    if (menuProds.length > 0) {
+      await db.insert(orderMenuItems).values(
+        menuProds.map((mp) => ({
+          orderItemId: insertedItem.id,
+          productId: mp.productId,
+          productName: mp.productName,
+          quantity: mp.quantity,
+        })),
+      );
+
+      for (const mp of menuProds) {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${mp.quantity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, mp.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+              eq(products.unitType, "piece"),
+            ),
+          );
+      }
+    }
+  }
+
+  // 7. Recalculate totals (preserve existing discount)
+  const existingOrder = await db.query.orders.findFirst({
+    where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
+  });
+  const { discountAmount, taxTotal, total } = calculateTotals(
+    subtotal,
+    existingOrder?.discountType,
+    existingOrder?.discountValue,
+  );
+
+  await db
+    .update(orders)
+    .set({
+      subtotal: subtotal.toFixed(2),
+      discountAmount: discountAmount.toFixed(2),
+      taxTotal: taxTotal.toFixed(2),
+      total: total.toFixed(2),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
 
   return getOrderById(tenantId, id);
 }

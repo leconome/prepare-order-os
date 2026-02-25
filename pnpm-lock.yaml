@@ -109,7 +109,7 @@ importers:
   apps/store:
     dependencies:
       '@asteasolutions/zod-to-openapi':
-        specifier: '7'
+        specifier: ^7.3.4
         version: 7.3.4(zod@3.25.76)
       '@aws-sdk/client-s3':
         specifier: ^3.985.0

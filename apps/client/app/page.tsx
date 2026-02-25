@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { parseQty } from "@prepareos/data";
 import { fetchOrders, fetchProducts, type OrderWithItems } from "@/lib/api";
 
 // ============ HELPERS ============
@@ -45,7 +46,7 @@ function computeDashboardStats(orders: OrderWithItems[]) {
   for (const order of orders) {
     if (order.preparationStatus === "picked_up") continue;
     for (const item of order.items || []) {
-      if (!item.isPrepared) unpreparedItems += item.quantity;
+      if (!item.isPrepared) unpreparedItems += parseQty(item.quantity);
     }
   }
 
@@ -57,7 +58,7 @@ function computeDashboardStats(orders: OrderWithItems[]) {
       if (!productCounts[key]) {
         productCounts[key] = { name: item.productName, qty: 0 };
       }
-      productCounts[key].qty += item.quantity;
+      productCounts[key].qty += parseQty(item.quantity);
     }
   }
   const topProducts = Object.values(productCounts)
@@ -298,12 +299,12 @@ export default function DashboardPage() {
                       <span className="truncate">{p.name}</span>
                       <span
                         className={`ml-2 font-semibold whitespace-nowrap ${
-                          p.stock === 0
+                          parseQty(p.stock ?? 0) === 0
                             ? "text-red-600"
                             : "text-amber-600"
                         }`}
                       >
-                        {p.stock === 0 ? "Rupture" : `${p.stock} restant${(p.stock ?? 0) > 1 ? "s" : ""}`}
+                        {parseQty(p.stock ?? 0) === 0 ? "Rupture" : `${parseQty(p.stock ?? 0)} restant${parseQty(p.stock ?? 0) > 1 ? "s" : ""}`}
                       </span>
                     </Link>
                   ))}
