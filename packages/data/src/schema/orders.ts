@@ -15,6 +15,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
 import { clients, type Client } from "./clients.js";
+import { unitTypeEnum, unitTypeSchema } from "./products.js";
 import { tenants } from "./tenants.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -97,6 +98,7 @@ export const orderItems = pgTable("order_items", {
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  unit: unitTypeEnum("unit").notNull().default("piece"),
   isMenu: boolean("is_menu").notNull().default(false),
   isPrepared: boolean("is_prepared").notNull().default(false),
   notes: text("notes"),
@@ -187,6 +189,7 @@ export const createOrderItemSchema = z.object({
   productName: z.string(),
   quantity: z.number().positive(),
   unitPrice: z.string(),
+  unit: unitTypeSchema.default("piece"),
   notes: z.string().optional(),
   menuId: z.string().uuid().optional(),
 });

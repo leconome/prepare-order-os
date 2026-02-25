@@ -13,10 +13,11 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
+import { UNITS } from "../units.js";
 import { categories } from "./categories.js";
 import { tenants } from "./tenants.js";
 
-export const unitTypeEnum = pgEnum("unit_type", ["piece", "kg"]);
+export const unitTypeEnum = pgEnum("unit_type", UNITS);
 
 export const products = pgTable(
   "products",
@@ -27,7 +28,7 @@ export const products = pgTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     categoryId: uuid("category_id").references(() => categories.id),
     imageUrl: text("image_url"),
-    stock: integer("stock"),
+    stock: decimal("stock", { precision: 10, scale: 3 }),
     unitType: unitTypeEnum("unit_type").notNull().default("piece"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -59,8 +60,8 @@ export type NewProduct = typeof products.$inferInsert;
 export const insertProductSchema = createInsertSchema(products);
 export const selectProductSchema = createSelectSchema(products);
 
-// Unit type schema
-export const unitTypeSchema = z.enum(["piece", "kg"]);
+// Unit type schema (derived from shared UNITS constant)
+export const unitTypeSchema = z.enum(UNITS);
 
 // Custom schemas for API
 export const createProductSchema = z.object({
@@ -69,7 +70,7 @@ export const createProductSchema = z.object({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
-  stock: z.number().int().min(0).nullable().optional(),
+  stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.default("piece"),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
@@ -84,7 +85,7 @@ export const updateProductSchema = z.object({
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
-  stock: z.number().int().min(0).nullable().optional(),
+  stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
