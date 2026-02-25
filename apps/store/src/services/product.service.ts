@@ -27,7 +27,7 @@ export async function listProducts(tenantId: string, filters: ProductFilters) {
 
   if (maxStock !== undefined) {
     conditions.push(isNotNull(products.stock));
-    conditions.push(lte(products.stock, maxStock));
+    conditions.push(lte(products.stock, String(maxStock)));
   }
 
   const whereClause = and(...conditions);
@@ -89,7 +89,7 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
       price: data.price,
       categoryId: data.categoryId ?? null,
       imageUrl: data.imageUrl ?? null,
-      stock: data.stock ?? null,
+      stock: data.stock != null ? String(data.stock) : null,
       unitType: data.unitType ?? "piece",
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
@@ -110,7 +110,7 @@ export async function updateProduct(tenantId: string, id: string, data: UpdatePr
   if (data.price !== undefined) updateData.price = data.price;
   if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
-  if (data.stock !== undefined) updateData.stock = data.stock;
+  if (data.stock !== undefined) updateData.stock = data.stock != null ? String(data.stock) : null;
   if (data.unitType !== undefined) updateData.unitType = data.unitType;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;

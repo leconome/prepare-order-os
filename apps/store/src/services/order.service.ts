@@ -3,10 +3,12 @@ import {
   type CreateOrder,
   type CreateOrderItem,
   type OrderFilters,
+  type Unit,
   orderItems,
   orderMenuItems,
   orders,
   products,
+  stockDeduction,
   type UpdateOrder,
   type UpdateOrderItems,
   type UpdateOrderStatus,
@@ -60,6 +62,7 @@ async function restoreStockForItems(
   items: {
     productId: string;
     quantity: string | number;
+    unit?: Unit;
     isMenu: boolean;
     menuItems?: { productId: string; quantity: number }[];
   }[],
@@ -79,14 +82,16 @@ async function restoreStockForItems(
               eq(products.id, menuItem.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
+              eq(products.unitType, "piece"),
             ),
           );
       }
     } else {
+      const unit = item.unit ?? "piece";
       await tx
         .update(products)
         .set({
-          stock: sql`${products.stock} + ${Math.round(Number(item.quantity))}`,
+          stock: sql`${products.stock} + ${stockDeduction(item.quantity, unit)}`,
           updatedAt: new Date(),
         })
         .where(
@@ -94,6 +99,7 @@ async function restoreStockForItems(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
+            eq(products.unitType, unit),
           ),
         );
     }
@@ -125,6 +131,7 @@ async function insertItemsAndDeductStock(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
+      unit: item.unit ?? "piece" as const,
       isMenu: false,
       notes: item.notes ?? null,
     };
@@ -137,6 +144,7 @@ async function insertItemsAndDeductStock(
     quantity: number;
     unitPrice: string;
     totalPrice: string;
+    unit: "piece";
     isMenu: boolean;
     notes: string | null;
     menuProducts: {
@@ -161,6 +169,7 @@ async function insertItemsAndDeductStock(
         quantity: 1,
         unitPrice: menuReq.unitPrice,
         totalPrice: unitPrice.toFixed(2),
+        unit: "piece" as const,
         isMenu: true,
         notes: menuReq.notes ?? null,
         menuProducts: menu.products.map((mp) => ({
@@ -183,7 +192,7 @@ async function insertItemsAndDeductStock(
     );
 
     for (const item of regularItemsToInsert) {
-      const itemQty = Math.round(Number(item.quantity));
+      const itemQty = stockDeduction(item.quantity, item.unit);
       const result = await tx
         .update(products)
         .set({
@@ -195,26 +204,31 @@ async function insertItemsAndDeductStock(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
-            gte(products.stock, itemQty),
+            eq(products.unitType, item.unit),
+            gte(products.stock, String(itemQty)),
           ),
         )
         .returning({ id: products.id });
 
-      // If stock is tracked but insufficient, the update matched 0 rows
-      const hasStock = await tx
-        .select({ stock: products.stock })
-        .from(products)
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-          ),
-        );
-      if (hasStock.length > 0 && result.length === 0) {
-        throw new Error(
-          `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
-        );
+      // If stock is tracked and units match but insufficient, the update matched 0 rows
+      if (result.length === 0) {
+        const hasStock = await tx
+          .select({ stock: products.stock, unitType: products.unitType })
+          .from(products)
+          .where(
+            and(
+              eq(products.id, item.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+              eq(products.unitType, item.unit),
+            ),
+          );
+        // Only throw if units match but stock is insufficient (unit mismatch → skip silently)
+        if (hasStock.length > 0) {
+          throw new Error(
+            `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+          );
+        }
       }
     }
   }
@@ -249,25 +263,29 @@ async function insertItemsAndDeductStock(
               eq(products.id, mp.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
-              gte(products.stock, mp.quantity),
+              eq(products.unitType, "piece"),
+              gte(products.stock, String(mp.quantity)),
             ),
           )
           .returning({ id: products.id });
 
-        const hasStock = await tx
-          .select({ stock: products.stock })
-          .from(products)
-          .where(
-            and(
-              eq(products.id, mp.productId),
-              eq(products.tenantId, tenantId),
-              isNotNull(products.stock),
-            ),
-          );
-        if (hasStock.length > 0 && result.length === 0) {
-          throw new Error(
-            `Stock insuffisant pour "${mp.productName}" (stock: ${hasStock[0].stock}, demandé: ${mp.quantity})`,
-          );
+        if (result.length === 0) {
+          const hasStock = await tx
+            .select({ stock: products.stock, unitType: products.unitType })
+            .from(products)
+            .where(
+              and(
+                eq(products.id, mp.productId),
+                eq(products.tenantId, tenantId),
+                isNotNull(products.stock),
+                eq(products.unitType, "piece"),
+              ),
+            );
+          if (hasStock.length > 0) {
+            throw new Error(
+              `Stock insuffisant pour "${mp.productName}" (stock: ${hasStock[0].stock}, demandé: ${mp.quantity})`,
+            );
+          }
         }
       }
     }
@@ -633,39 +651,7 @@ export async function updateOrderItems(
   });
 
   // 2. Restore stock for old items
-  for (const item of existingItems) {
-    if (item.isMenu && item.menuItems) {
-      for (const menuItem of item.menuItems) {
-        await db
-          .update(products)
-          .set({
-            stock: sql`${products.stock} + ${Number(menuItem.quantity)}`,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(products.id, menuItem.productId),
-              eq(products.tenantId, tenantId),
-              isNotNull(products.stock),
-            ),
-          );
-      }
-    } else {
-      await db
-        .update(products)
-        .set({
-          stock: sql`${products.stock} + ${Math.round(Number(item.quantity))}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-          ),
-        );
-    }
-  }
+  await restoreStockForItems(tenantId, existingItems);
 
   // 3. Delete old items (cascade deletes orderMenuItems too)
   await db.delete(orderItems).where(eq(orderItems.orderId, id));
@@ -685,6 +671,7 @@ export async function updateOrderItems(
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
+      unit: item.unit ?? "piece" as const,
       isMenu: false,
       notes: item.notes ?? null,
     };
@@ -696,6 +683,7 @@ export async function updateOrderItems(
     quantity: number;
     unitPrice: string;
     totalPrice: string;
+    unit: "piece";
     isMenu: boolean;
     notes: string | null;
     menuProducts: {
@@ -719,6 +707,7 @@ export async function updateOrderItems(
         quantity: 1,
         unitPrice: menuReq.unitPrice,
         totalPrice: unitPrice.toFixed(2),
+        unit: "piece" as const,
         isMenu: true,
         notes: menuReq.notes ?? null,
         menuProducts: menu.products.map((mp) => ({
@@ -744,7 +733,7 @@ export async function updateOrderItems(
       await db
         .update(products)
         .set({
-          stock: sql`${products.stock} - ${Math.round(Number(item.quantity))}`,
+          stock: sql`${products.stock} - ${stockDeduction(item.quantity, item.unit)}`,
           updatedAt: new Date(),
         })
         .where(
@@ -752,6 +741,7 @@ export async function updateOrderItems(
             eq(products.id, item.productId),
             eq(products.tenantId, tenantId),
             isNotNull(products.stock),
+            eq(products.unitType, item.unit),
           ),
         );
     }
@@ -787,6 +777,7 @@ export async function updateOrderItems(
               eq(products.id, mp.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
+              eq(products.unitType, "piece"),
             ),
           );
       }
