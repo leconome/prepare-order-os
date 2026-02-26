@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Calendar,
   CalendarIcon,
+  ChefHat,
   Coffee,
   FileText,
   Check,
@@ -173,6 +174,7 @@ function orderToFormValues(order: {
   pickupTimeEnd?: string | null;
   clientNote?: string | null;
   internalNote?: string | null;
+  createdById?: string | null;
   assignedToId?: string | null;
 }): UpdateOrder {
   return {
@@ -182,6 +184,7 @@ function orderToFormValues(order: {
     pickupTimeEnd: order.pickupTimeEnd ?? null,
     clientNote: order.clientNote ?? null,
     internalNote: order.internalNote ?? null,
+    createdById: order.createdById ?? null,
     assignedToId: order.assignedToId ?? null,
   };
 }
@@ -232,6 +235,7 @@ export default function OrderDetailPage() {
       pickupTimeEnd: null,
       clientNote: null,
       internalNote: null,
+      createdById: null,
       assignedToId: null,
     },
   });
@@ -693,23 +697,41 @@ export default function OrderDetailPage() {
                       <Package className="h-5 w-5" />
                       Articles (
                       {isEditingItems
-                        ? editableItems.reduce(
-                            (sum, i) => sum + i.quantity,
-                            0,
-                          )
+                        ? editableItems.length
                         : order.items?.length || 0}
                       )
                     </CardTitle>
-                    {!isEditingItems && canEditItems && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={enterItemEditMode}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Modifier
-                      </Button>
+                    {!isEditingItems && (
+                      <div className="flex items-center gap-2">
+                        {canEditItems && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={enterItemEditMode}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Modifier
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (order.preparationStatus === "pending") {
+                              updateStatusMutation.mutate(
+                                { preparationStatus: "in_preparation" },
+                                { onSuccess: () => router.push(`/preparation/${order.id}`) },
+                              );
+                            } else {
+                              router.push(`/preparation/${order.id}`);
+                            }
+                          }}
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <ChefHat className="mr-2 h-4 w-4" />
+                          {order.preparationStatus === "pending" ? "Lancer la préparation" : "Voir la préparation"}
+                        </Button>
+                      </div>
                     )}
                     {isEditingItems && (
                       <Button
@@ -732,7 +754,7 @@ export default function OrderDetailPage() {
                           <TabsTrigger value="produits" className="flex-1">
                             Produits
                             {(() => {
-                              const count = editableItems.filter((i) => !i.menuId).reduce((s, i) => s + i.quantity, 0);
+                              const count = editableItems.filter((i) => !i.menuId).length;
                               return count > 0 ? (
                                 <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                                   {count}
@@ -743,7 +765,7 @@ export default function OrderDetailPage() {
                           <TabsTrigger value="menus" className="flex-1">
                             Menus
                             {(() => {
-                              const count = editableItems.filter((i) => !!i.menuId).reduce((s, i) => s + i.quantity, 0);
+                              const count = editableItems.filter((i) => !!i.menuId).length;
                               return count > 0 ? (
                                 <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                                   {count}
@@ -960,19 +982,19 @@ export default function OrderDetailPage() {
                                     </Button>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-9 w-9"
                                         onClick={() =>
                                           updateItemQuantity(key, -1)
                                         }
                                       >
-                                        <Minus className="h-3 w-3" />
+                                        <Minus className="h-4 w-4" />
                                       </Button>
-                                      <div className="flex items-center gap-1">
+                                      <div className="flex items-center gap-1.5">
                                         <Input
                                           type="text"
                                           inputMode="decimal"
@@ -987,22 +1009,22 @@ export default function OrderDetailPage() {
                                               e.target.value = String(item.quantity);
                                             }
                                           }}
-                                          className="h-8 w-16 text-center font-semibold px-1"
+                                          className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
                                         />
-                                        {UNIT_CONFIG[item.unit].suffix && (
-                                          <span className="text-xs text-muted-foreground">{UNIT_CONFIG[item.unit].suffix}</span>
-                                        )}
+                                        <span className="text-sm font-semibold text-muted-foreground">
+                                          {UNIT_CONFIG[item.unit].suffix || "x"}
+                                        </span>
                                       </div>
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-9 w-9"
                                         onClick={() =>
                                           updateItemQuantity(key, 1)
                                         }
                                       >
-                                        <Plus className="h-3 w-3" />
+                                        <Plus className="h-4 w-4" />
                                       </Button>
                                     </div>
                                     <div className="text-right font-medium text-sm">
@@ -1113,35 +1135,37 @@ export default function OrderDetailPage() {
                       )}
                     </div>
                   ) : order.items && order.items.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {order.items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-start justify-between rounded-lg border p-3"
+                          className="flex items-center gap-3 rounded-lg border p-3"
                         >
-                          <div className="space-y-1">
-                            <div className="font-medium">
-                              {item.productName}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {item.productName}
+                              </span>
                               {item.isMenu && (
-                                <Badge
-                                  variant="outline"
-                                  className="ml-2 text-xs"
-                                >
+                                <Badge variant="outline" className="text-xs shrink-0">
                                   Menu
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatCurrency(item.unitPrice)} x {formatQtyLabel(item.quantity, item.unit)}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              <span>{formatCurrency(item.unitPrice)}{UNIT_CONFIG[item.unit ?? "piece"].priceSuffix}</span>
+                              {item.notes && (
+                                <span className="italic truncate">- {item.notes}</span>
+                              )}
                             </div>
-                            {item.notes && (
-                              <div className="text-sm text-muted-foreground italic">
-                                Note: {item.notes}
-                              </div>
-                            )}
                           </div>
-                          <div className="text-right font-medium">
-                            {formatCurrency(item.totalPrice)}
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold text-base">
+                              {formatQtyLabel(item.quantity, item.unit)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatCurrency(item.totalPrice)}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1588,21 +1612,32 @@ export default function OrderDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {order.createdBy && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        <UserStar className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-muted-foreground">
-                          Créée par
-                        </div>
-                        <div className="font-medium">
-                          {order.createdBy.name}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <FormField
+                    control={form.control}
+                    name="createdById"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prise par</FormLabel>
+                        <Select
+                          value={field.value ?? ""}
+                          onValueChange={(v) => field.onChange(v || null)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner un membre" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {staffData?.data.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.name || user.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="assignedToId"

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UNIT_CONFIG, formatQtyLabel, parseQty, roundQty, type Unit, createClientSchema, createOrderSchema } from "@prepareos/data";
+import { UNIT_CONFIG, formatQtyLabel, formatWeightLabel, parseQty, roundQty, type Unit, createClientSchema, createOrderSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -172,12 +172,13 @@ export default function NewOrderPage() {
 
   const form = useForm({
     resolver: zodResolver(
-      createOrderSchema.omit({ items: true, createdById: true }).extend({
+      createOrderSchema.omit({ items: true }).extend({
         pickupDate: createOrderSchema.shape.pickupDate,
         pickupTimeStart: createOrderSchema.shape.pickupTimeStart,
         pickupTimeEnd: createOrderSchema.shape.pickupTimeEnd,
         clientNote: createOrderSchema.shape.clientNote,
         internalNote: createOrderSchema.shape.internalNote,
+        createdById: createOrderSchema.shape.createdById,
         assignedToId: createOrderSchema.shape.assignedToId,
       })
     ),
@@ -187,6 +188,7 @@ export default function NewOrderPage() {
       pickupTimeEnd: "",
       clientNote: "",
       internalNote: "",
+      createdById: "",
       assignedToId: "",
     },
   });
@@ -346,6 +348,7 @@ export default function NewOrderPage() {
       pickupTimeEnd: data.pickupTimeEnd || undefined,
       clientNote: data.clientNote || undefined,
       internalNote: data.internalNote || undefined,
+      createdById: data.createdById || undefined,
       assignedToId: data.assignedToId || undefined,
       discountType: discountValue && parseFloat(discountValue) > 0 ? discountType : null,
       discountValue: discountValue && parseFloat(discountValue) > 0 ? discountValue : undefined,
@@ -801,6 +804,37 @@ export default function NewOrderPage() {
 
                     <FormField
                       control={form.control}
+                      name="createdById"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Prise par</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sélectionner un membre" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {staffData?.data.map((user) => (
+                                <SelectItem
+                                  key={user.id}
+                                  value={user.id}
+                                >
+                                  {user.name || user.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
                       name="assignedToId"
                       render={({ field }) => (
                         <FormItem>
@@ -878,7 +912,7 @@ export default function NewOrderPage() {
                   Panier
                   {orderItems.length > 0 && (
                     <Badge className="ml-auto bg-blue-600 text-white">
-                      {orderItems.reduce((sum, item) => sum + item.quantity, 0)}{" "}
+                      {orderItems.length}{" "}
                       article{orderItems.length > 1 ? "s" : ""}
                     </Badge>
                   )}
@@ -923,17 +957,17 @@ export default function NewOrderPage() {
                               </Button>
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => updateItemQuantity(key, -1)}
                                 >
-                                  <Minus className="h-3 w-3" />
+                                  <Minus className="h-4 w-4" />
                                 </Button>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -948,20 +982,20 @@ export default function NewOrderPage() {
                                         e.target.value = String(item.quantity);
                                       }
                                     }}
-                                    className="h-8 w-16 text-center font-semibold px-1"
+                                    className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
                                   />
-                                  {UNIT_CONFIG[item.unit].suffix && (
-                                    <span className="text-xs text-muted-foreground">{UNIT_CONFIG[item.unit].suffix}</span>
-                                  )}
+                                  <span className="text-sm font-semibold text-muted-foreground">
+                                    {UNIT_CONFIG[item.unit].suffix || "x"}
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => updateItemQuantity(key, 1)}
                                 >
-                                  <Plus className="h-3 w-3" />
+                                  <Plus className="h-4 w-4" />
                                 </Button>
                               </div>
                               <div className="text-right font-medium text-sm">

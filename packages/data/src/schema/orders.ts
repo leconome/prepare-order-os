@@ -220,6 +220,7 @@ export const updateOrderSchema = z.object({
   pickupTimeEnd: z.string().nullable().optional(),
   clientNote: z.string().nullable().optional(),
   internalNote: z.string().nullable().optional(),
+  createdById: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),

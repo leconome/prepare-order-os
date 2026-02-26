@@ -417,7 +417,7 @@ export default function PreparationDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 pb-1">
               <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="text-sm font-medium">A preparer</span>
+              <span className="text-sm font-medium">À préparer</span>
               <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                 {toPrepare.length}
               </Badge>

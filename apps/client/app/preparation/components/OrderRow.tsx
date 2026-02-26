@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, MessageSquareText, UserRound } from "lucide-react";
+import { Calendar, Clock, MessageSquareText, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -82,6 +82,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
             </span>
           </span>
 
+          <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
+            <Calendar className="h-3 w-3" />
+            {new Intl.DateTimeFormat("fr-FR", {
+              day: "numeric",
+              month: "short",
+            }).format(new Date(order.createdAt))}
+          </span>
+
           {pickupTime && (
             <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
               <Clock className="h-3 w-3" />
@@ -133,7 +141,11 @@ function OrderRow({ order }: { order: OrderWithItems }) {
       </div>
 
       {/* ── Statut (col 9–10) ── */}
-      <div className="col-span-2 flex gap-2 flex-col">
+      <div
+        className="col-span-2 flex gap-2 flex-col"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-1 shrink-0">
           <Progress value={progressPercent} className="h-1.5 w-full" />
           <span className="text-[11px] text-muted-foreground tabular-nums">
@@ -151,7 +163,6 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         >
           <SelectTrigger
             className={`shrink-0 gap-1 px-2 w-full py-0.5 text-xs font-medium transition-all active:scale-95 ${status.className}`}
-            onPointerDown={(e) => e.stopPropagation()}
           >
             <SelectValue />
           </SelectTrigger>

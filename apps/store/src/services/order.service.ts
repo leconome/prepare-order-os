@@ -548,6 +548,8 @@ export async function updateOrder(
   if (data.clientNote !== undefined) updateData.clientNote = data.clientNote;
   if (data.internalNote !== undefined)
     updateData.internalNote = data.internalNote;
+  if (data.createdById !== undefined)
+    updateData.createdById = data.createdById;
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
   if (data.smsNotifiedAt !== undefined)
