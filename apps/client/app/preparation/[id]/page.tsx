@@ -139,7 +139,14 @@ export default function PreparationDetailPage() {
   };
 
   const togglePayment = () => {
-    const next = order?.paymentStatus === "paid" ? "pending" : "paid";
+    const cycle = {
+      pending: "partially_paid",
+      partially_paid: "paid",
+      paid: "partially_paid",
+      refunded: "pending",
+    } as const;
+    const current = order?.paymentStatus ?? "pending";
+    const next = cycle[current] ?? "pending";
     statusMutation.mutate({ paymentStatus: next });
   };
 
@@ -217,7 +224,7 @@ export default function PreparationDetailPage() {
               <div className="flex items-center gap-3">
                 <Link
                   href={`/orders/${order.id}`}
-                  className="font-mono font-bold text-lg hover:underline"
+                  className="font-mono font-bold text-lg underline underline-offset-2 text-primary"
                 >
                   #{order.ticketNumber}
                 </Link>
@@ -312,23 +319,30 @@ export default function PreparationDetailPage() {
                 className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
                   order.paymentStatus === "paid"
                     ? "bg-green-50"
-                    : "bg-background"
+                    : order.paymentStatus === "partially_paid"
+                      ? "bg-amber-50"
+                      : "bg-background"
                 }`}
               >
                 <Checkbox
-                  checked={order.paymentStatus === "paid"}
+                  checked={order.paymentStatus === "paid" ? true : order.paymentStatus === "partially_paid" ? "indeterminate" : false}
                   onCheckedChange={() => togglePayment()}
                   disabled={statusMutation.isPending}
-                  className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                  className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
                 />
                 <span
                   className={`text-sm font-medium ${
                     order.paymentStatus === "paid"
                       ? "text-green-700"
-                      : "text-gray-700"
+                      : order.paymentStatus === "partially_paid"
+                        ? "text-amber-700"
+                        : "text-gray-700"
                   }`}
                 >
                   {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+                  {order.paymentStatus === "partially_paid" && parseFloat(order.paidAmount || "0") > 0 && (
+                    <span className="text-xs font-normal">({formatCurrency(order.paidAmount)})</span>
+                  )}
                 </span>
               </label>
 
@@ -372,7 +386,8 @@ export default function PreparationDetailPage() {
                   onClick={() =>
                     statusMutation.mutate({ preparationStatus: "picked_up" })
                   }
-                  disabled={statusMutation.isPending}
+                  disabled={statusMutation.isPending || order.paymentStatus !== "paid"}
+                  title={order.paymentStatus !== "paid" ? "Le paiement doit être complet avant de marquer comme récupéré" : undefined}
                 >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   Récupéré
@@ -511,7 +526,8 @@ export default function PreparationDetailPage() {
               onClick={() =>
                 statusMutation.mutate({ preparationStatus: "picked_up" })
               }
-              disabled={statusMutation.isPending}
+              disabled={statusMutation.isPending || order.paymentStatus !== "paid"}
+              title={order.paymentStatus !== "paid" ? "Le paiement doit être complet avant de marquer comme récupéré" : undefined}
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Marquer comme récupéré

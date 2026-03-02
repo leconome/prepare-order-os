@@ -56,7 +56,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   });
 
   const togglePayment = () => {
-    const next = order.paymentStatus === "paid" ? "pending" : "paid";
+    const cycle = {
+      pending: "partially_paid",
+      partially_paid: "paid",
+      paid: "partially_paid",
+      refunded: "pending",
+    } as const;
+    const current = order.paymentStatus ?? "pending";
+    const next = cycle[current] ?? "pending";
     statusMutation.mutate({ paymentStatus: next });
   };
 
@@ -71,7 +78,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
         <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-sm shrink-0">
+          <span className="font-mono font-bold text-sm shrink-0 underline underline-offset-2 text-primary">
             #{order.ticketNumber}
           </span>
 
@@ -117,25 +124,34 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         </span>
         <label
           className={`flex items-center justify-center gap-2 w-full cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-            order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
+            order.paymentStatus === "paid"
+              ? "bg-green-50"
+              : order.paymentStatus === "partially_paid"
+                ? "bg-amber-50"
+                : "bg-background"
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
           <Checkbox
-            checked={order.paymentStatus === "paid"}
+            checked={order.paymentStatus === "paid" ? true : order.paymentStatus === "partially_paid" ? "indeterminate" : false}
             onCheckedChange={() => togglePayment()}
             disabled={statusMutation.isPending}
-            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
           />
           <span
             className={`text-xs font-medium ${
               order.paymentStatus === "paid"
                 ? "text-green-700"
-                : "text-gray-700"
+                : order.paymentStatus === "partially_paid"
+                  ? "text-amber-700"
+                  : "text-gray-700"
             }`}
           >
             {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+            {order.paymentStatus === "partially_paid" && parseFloat(order.paidAmount || "0") > 0 && (
+              <span className="font-normal">({formatCurrency(order.paidAmount)})</span>
+            )}
           </span>
         </label>
       </div>
@@ -168,8 +184,13 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           </SelectTrigger>
           <SelectContent>
             {Object.entries(STATUS_BADGE).map(([key, val]) => (
-              <SelectItem key={key} value={key}>
+              <SelectItem
+                key={key}
+                value={key}
+                disabled={key === "picked_up" && order.paymentStatus !== "paid"}
+              >
                 {val.label}
+                {key === "picked_up" && order.paymentStatus !== "paid" && " (paiement requis)"}
               </SelectItem>
             ))}
           </SelectContent>

@@ -74,6 +74,9 @@ export const orders = pgTable(
     total: decimal("total", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
+    paidAmount: decimal("paid_amount", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
@@ -225,12 +228,14 @@ export const updateOrderSchema = z.object({
   smsNotifiedAt: z.coerce.date().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().nullable().optional(),
+  paidAmount: z.string().nullable().optional(),
   items: z.array(createOrderItemSchema).min(1).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
+  paidAmount: z.string().optional(),
 });
 
 export const orderFiltersSchema = z.object({

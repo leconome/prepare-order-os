@@ -558,6 +558,8 @@ export async function updateOrder(
     updateData.discountType = data.discountType;
   if (data.discountValue !== undefined)
     updateData.discountValue = data.discountValue ?? "0";
+  if (data.paidAmount !== undefined)
+    updateData.paidAmount = data.paidAmount ?? "0.00";
 
   const newItems = data.items;
   if (newItems) {
@@ -823,6 +825,8 @@ export async function updateOrderStatus(
     updateData.paymentStatus = data.paymentStatus;
   if (data.preparationStatus !== undefined)
     updateData.preparationStatus = data.preparationStatus;
+  if (data.paidAmount !== undefined)
+    updateData.paidAmount = data.paidAmount;
 
   await db
     .update(orders)

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   CalendarIcon,
@@ -495,6 +496,7 @@ export default function OrderDetailPage() {
     mutationFn: (data: {
       paymentStatus?: string;
       preparationStatus?: string;
+      paidAmount?: string;
     }) => updateOrderStatus(orderId, data as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
@@ -679,6 +681,22 @@ export default function OrderDetailPage() {
             )}
           </div>
         </div>
+
+        {order.paymentStatus === "partially_paid" && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              Paiement partiel — reste{" "}
+              <span className="font-semibold">
+                {formatCurrency(String(Math.max(0, parseFloat(order.total) - parseFloat(order.paidAmount || "0"))))}
+              </span>
+              {" "}à encaisser
+              {parseFloat(order.paidAmount || "0") > 0 && (
+                <span className="text-amber-600"> ({formatCurrency(order.paidAmount)} reçu)</span>
+              )}
+            </span>
+          </div>
+        )}
 
         {updateOrderMutation.isError && (
           <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
@@ -1747,6 +1765,28 @@ export default function OrderDetailPage() {
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                       )}
                     </div>
+                    {order.paymentStatus === "partially_paid" && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={order.total}
+                          placeholder="0.00"
+                          defaultValue={parseFloat(order.paidAmount || "0") > 0 ? order.paidAmount : ""}
+                          onBlur={(e) => {
+                            const val = e.target.value;
+                            if (val && val !== (order.paidAmount || "0")) {
+                              updateStatusMutation.mutate({ paidAmount: val });
+                            }
+                          }}
+                          className="w-full"
+                        />
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">
+                          / {formatCurrency(order.total)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
