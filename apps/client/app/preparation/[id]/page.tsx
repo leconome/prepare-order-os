@@ -208,12 +208,6 @@ export default function PreparationDetailPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/orders/${orderId}`}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Modifier les articles
-            </Link>
-          </Button>
         </div>
 
         {/* Header card */}
@@ -325,7 +319,13 @@ export default function PreparationDetailPage() {
                 }`}
               >
                 <Checkbox
-                  checked={order.paymentStatus === "paid" ? true : order.paymentStatus === "partially_paid" ? "indeterminate" : false}
+                  checked={
+                    order.paymentStatus === "paid"
+                      ? true
+                      : order.paymentStatus === "partially_paid"
+                        ? "indeterminate"
+                        : false
+                  }
                   onCheckedChange={() => togglePayment()}
                   disabled={statusMutation.isPending}
                   className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
@@ -340,9 +340,12 @@ export default function PreparationDetailPage() {
                   }`}
                 >
                   {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                  {order.paymentStatus === "partially_paid" && parseFloat(order.paidAmount || "0") > 0 && (
-                    <span className="text-xs font-normal">({formatCurrency(order.paidAmount)})</span>
-                  )}
+                  {order.paymentStatus === "partially_paid" &&
+                    parseFloat(order.paidAmount || "0") > 0 && (
+                      <span className="text-xs font-normal">
+                        ({formatCurrency(order.paidAmount)})
+                      </span>
+                    )}
                 </span>
               </label>
 
@@ -386,8 +389,14 @@ export default function PreparationDetailPage() {
                   onClick={() =>
                     statusMutation.mutate({ preparationStatus: "picked_up" })
                   }
-                  disabled={statusMutation.isPending || order.paymentStatus !== "paid"}
-                  title={order.paymentStatus !== "paid" ? "Le paiement doit être complet avant de marquer comme récupéré" : undefined}
+                  disabled={
+                    statusMutation.isPending || order.paymentStatus !== "paid"
+                  }
+                  title={
+                    order.paymentStatus !== "paid"
+                      ? "Le paiement doit être complet avant de marquer comme récupéré"
+                      : undefined
+                  }
                 >
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   Récupéré
@@ -526,8 +535,14 @@ export default function PreparationDetailPage() {
               onClick={() =>
                 statusMutation.mutate({ preparationStatus: "picked_up" })
               }
-              disabled={statusMutation.isPending || order.paymentStatus !== "paid"}
-              title={order.paymentStatus !== "paid" ? "Le paiement doit être complet avant de marquer comme récupéré" : undefined}
+              disabled={
+                statusMutation.isPending || order.paymentStatus !== "paid"
+              }
+              title={
+                order.paymentStatus !== "paid"
+                  ? "Le paiement doit être complet avant de marquer comme récupéré"
+                  : undefined
+              }
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Marquer comme récupéré
