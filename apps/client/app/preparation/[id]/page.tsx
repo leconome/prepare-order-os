@@ -209,7 +209,7 @@ export default function PreparationDetailPage() {
             Retour
           </Button>
           <Button variant="outline" size="sm" asChild>
-            <Link href={`/orders/${orderId}/edit`}>
+            <Link href={`/orders/${orderId}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Modifier les articles
             </Link>

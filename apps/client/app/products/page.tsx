@@ -1,5 +1,6 @@
 "use client";
 
+import { parseQty, UNIT_CONFIG } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
 import { ImageIcon, Plus, RefreshCw, X } from "lucide-react";
 import Image from "next/image";
@@ -19,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { UNIT_CONFIG, parseQty } from "@prepareos/data";
 import {
   type Category,
   fetchCategories,
@@ -37,7 +37,7 @@ function ProductsTable({
 }) {
   const categoryMap = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
-    [categories]
+    [categories],
   );
 
   if (products.length === 0) {
@@ -140,16 +140,27 @@ function ProductsTable({
                     <Badge variant="destructive">Rupture</Badge>
                   ) : parseQty(product.stock) <= 5 ? (
                     <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
-                      {parseQty(product.stock)} <span className="font-normal">{UNIT_CONFIG[product.unitType].suffix || "u"}</span>
+                      {parseQty(product.stock)}{" "}
+                      <span className="font-normal">
+                        {UNIT_CONFIG[product.unitType].suffix || "u"}
+                      </span>
                     </Badge>
                   ) : (
-                    <span className="text-sm">{parseQty(product.stock)} <span className="text-muted-foreground text-xs">{UNIT_CONFIG[product.unitType].suffix || "u"}</span></span>
+                    <span className="text-sm">
+                      {parseQty(product.stock)}{" "}
+                      <span className="text-muted-foreground text-xs">
+                        {UNIT_CONFIG[product.unitType].suffix || "u"}
+                      </span>
+                    </span>
                   )}
                 </Link>
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {formatCurrency(product.price)}<span className="text-muted-foreground text-xs">{UNIT_CONFIG[product.unitType].priceSuffix}</span>
+                  {formatCurrency(product.price)}
+                  <span className="text-muted-foreground text-xs">
+                    {UNIT_CONFIG[product.unitType].priceSuffix}
+                  </span>
                 </Link>
               </TableCell>
               <TableCell>
@@ -187,7 +198,7 @@ const PAGE_SIZE = 20;
 
 export default function ProductsPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    null
+    null,
   );
   const [page, setPage] = useState(1);
 
@@ -220,7 +231,10 @@ export default function ProductsPage() {
             Filtrer par catégorie:
           </span>
           <button
-            onClick={() => { setSelectedCategoryId(null); setPage(1); }}
+            onClick={() => {
+              setSelectedCategoryId(null);
+              setPage(1);
+            }}
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
               selectedCategoryId === null
                 ? "bg-primary text-primary-foreground"
@@ -234,7 +248,7 @@ export default function ProductsPage() {
               key={category.id}
               onClick={() => {
                 setSelectedCategoryId(
-                  selectedCategoryId === category.id ? null : category.id
+                  selectedCategoryId === category.id ? null : category.id,
                 );
                 setPage(1);
               }}
@@ -298,7 +312,11 @@ export default function ProductsPage() {
               />
               Actualiser
             </Button>
-            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button
+              size="sm"
+              asChild
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+            >
               <Link href="/products/create">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouveau produit
