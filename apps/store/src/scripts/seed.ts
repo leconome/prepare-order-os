@@ -570,6 +570,12 @@ const MENUS: Array<{
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+
+const dayAfterTomorrow = new Date(today);
+dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
 // Menu orders — orders that include at least one menu
 type MenuOrderItem = { menuName: string; quantity: number };
 type ProductOrderItem = {
@@ -620,7 +626,7 @@ const MENU_ORDERS: SeedOrder[] = [
     paymentStatus: "pending",
     preparationStatus: "pending",
     clientNote: "2 plateaux chèvre pour buffet",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "09:00",
     pickupTimeEnd: "12:00",
   },
@@ -672,7 +678,7 @@ const MENU_ORDERS: SeedOrder[] = [
     paymentStatus: "pending",
     preparationStatus: "pending",
     clientNote: "Commande traiteur - 2 plateaux premium",
-    pickupDate: today,
+    pickupDate: dayAfterTomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -732,7 +738,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Soirée chèvre entre amis",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -771,6 +777,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Pour faire une tartiflette - récupération samedi",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -811,7 +820,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Retrait prévu vendredi matin",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "09:00",
     pickupTimeEnd: "12:00",
   },
@@ -833,7 +842,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Chèvres assortis pour apéro",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -864,7 +873,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Dégustation de bleus",
-    pickupDate: today,
+    pickupDate: dayAfterTomorrow,
     pickupTimeStart: "12:00",
     pickupTimeEnd: "14:00",
   },
@@ -875,6 +884,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Pour tartiflette de 8 personnes",
+    pickupDate: tomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -957,6 +969,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Frais du jour",
+    pickupDate: tomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -966,6 +981,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Soirée raclette / fondue entre amis",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -1039,6 +1057,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Rocamadour au miel pour cocktail",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -1095,6 +1116,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Tartiflette géante - fête des voisins",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -1161,6 +1185,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Sélection pâtes molles complète",
+    pickupDate: tomorrow,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
   },
   {
     items: [
@@ -1204,6 +1231,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Mont d'Or au four pour groupe",
+    pickupDate: tomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [

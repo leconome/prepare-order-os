@@ -27,7 +27,8 @@
     "rules": {
       "recommended": true,
       "a11y": {
-        "noLabelWithoutControl": "off"
+        "noLabelWithoutControl": "off",
+        "useButtonType": "off"
       },
       "suspicious": {
         "noArrayIndexKey": "warn"

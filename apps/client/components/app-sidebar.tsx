@@ -29,7 +29,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
 } from "@/components/ui/sidebar";
 import { fetchTenantSettings } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -53,14 +52,14 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    title: "Commandes",
-    url: "/orders",
-    icon: ShoppingCart,
-  },
-  {
     title: "Préparation",
     url: "/preparation",
     icon: ChefHat,
+  },
+  {
+    title: "Commandes",
+    url: "/orders",
+    icon: ShoppingCart,
   },
   {
     title: "Clients",
@@ -132,16 +131,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 via-indigo-500/5 to-violet-500/5 dark:from-blue-500/10 dark:via-indigo-500/10 dark:to-violet-600/10 pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-br from-sky-400/5 to-transparent dark:from-sky-400/10 pointer-events-none" />
 
-      <SidebarHeader className="border-b border-sidebar-border/50 relative">
+      <SidebarHeader className="border-b border-sidebar-border/50 relative group-data-[collapsible=icon]:p-0">
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
             <Store className="h-4 w-4" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent group-data-[collapsible=icon]:hidden">
+          <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
+            <span className="font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
               PrepareOS
             </span>
-            <p className="text-xs">{shopName}</p>
+            <p className="text-xs truncate">{shopName}</p>
           </div>
         </div>
       </SidebarHeader>
@@ -262,12 +261,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip={user?.email ?? "User"}
-              className="h-auto py-2"
+              className="h-auto group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0!"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
                 {user?.name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
               </div>
-              <div className="flex flex-col items-start gap-0.5 overflow-hidden">
+              <div className="flex flex-col items-start gap-0.5 overflow-hidden group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-medium">
                   {user?.name ?? user?.email ?? "User"}
                 </span>
@@ -294,7 +293,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   );
 }

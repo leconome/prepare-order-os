@@ -17,6 +17,9 @@ import smsRoutes from "./routes/sms.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import docsRoutes from "./routes/docs.js";
+import { tenants } from "@prepareos/data";
+import { inArray } from "drizzle-orm";
+import { db } from "./db/index.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
@@ -49,7 +52,7 @@ app.use(
     },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN", "X-Dev-Tenant"],
   }),
 );
 
@@ -63,6 +66,28 @@ app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
+
+// Dev-only: list available tenants (no auth, no tenant middleware)
+if (process.env.STAGE === "dev") {
+  app.get("/api/dev/tenants", async (c) => {
+    const slugs = (process.env.DEV_TENANT_SLUGS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (slugs.length === 0) {
+      return c.json({ tenants: [] });
+    }
+    const rows = await db
+      .select({ id: tenants.id, name: tenants.name, slug: tenants.slug })
+      .from(tenants)
+      .where(inArray(tenants.slug, slugs));
+    // Keep the order from the env var
+    const sorted = slugs
+      .map((s) => rows.find((r) => r.slug === s))
+      .filter(Boolean);
+    return c.json({ tenants: sorted });
+  });
+}
 
 // Tenant middleware — all routes below are tenant-scoped
 app.use("/api/*", tenantMiddleware);

@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -41,7 +42,7 @@ export const orders = pgTable(
   "orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
+    ticketNumber: varchar("ticket_number", { length: 20 }).notNull(),
     // Reference to client
     clientId: uuid("client_id").references(() => clients.id),
     paymentStatus: paymentStatusEnum("payment_status")
@@ -88,7 +89,10 @@ export const orders = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("orders_tenant_id_idx").on(table.tenantId)],
+  (table) => [
+    index("orders_tenant_id_idx").on(table.tenantId),
+    unique("orders_tenant_ticket_unique").on(table.tenantId, table.ticketNumber),
+  ],
 );
 
 export const orderItems = pgTable("order_items", {

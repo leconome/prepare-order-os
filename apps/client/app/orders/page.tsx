@@ -1,5 +1,6 @@
 "use client";
 
+import { formatQtyLabel } from "@prepareos/data";
 import {
   keepPreviousData,
   useMutation,
@@ -20,7 +21,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -50,7 +50,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatQtyLabel } from "@prepareos/data";
 import {
   deleteOrder,
   fetchOrders,
@@ -79,7 +78,6 @@ function formatPickupDate(order: OrderWithItems): string | null {
 }
 
 const ORDER_TABS = [
-  { key: "all", label: "Toutes", status: undefined },
   { key: "pending", label: "En attente", status: "pending" as const },
   {
     key: "in_preparation",
@@ -88,6 +86,7 @@ const ORDER_TABS = [
   },
   { key: "ready", label: "Prêt", status: "ready" as const },
   { key: "picked_up", label: "Récupéré", status: "picked_up" as const },
+  { key: "all", label: "Toutes", status: undefined },
 ];
 
 function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
@@ -158,7 +157,8 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
                 <div className="flex flex-col gap-1">
                   {order.items?.slice(0, 2).map((item) => (
                     <span key={item.id} className="text-sm">
-                      {formatQtyLabel(item.quantity, item.unit)} {item.productName}
+                      {formatQtyLabel(item.quantity, item.unit)}{" "}
+                      {item.productName}
                     </span>
                   ))}
                   {order.items && order.items.length > 2 && (
@@ -272,7 +272,7 @@ const PAGE_SIZE = 20;
 export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("pending");
   const trimmedSearch = search.trim();
 
   const activeStatus = ORDER_TABS.find((t) => t.key === activeTab)?.status;

@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:reset": "tsx src/scripts/reset.ts",
-    "db:seed": "tsx src/scripts/seed.ts",
+    "db:seed": "tsx src/scripts/seed.ts && tsx src/scripts/seed-glacerie.ts",
     "s3:init": "tsx src/scripts/init-s3.ts",
     "typecheck": "tsc --noEmit",
     "create-admin": "tsx src/scripts/create-admin.ts"

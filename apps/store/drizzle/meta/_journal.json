@@ -106,6 +106,13 @@
       "when": 1772035000000,
       "tag": "0014_peaceful_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1772533706809,
+      "tag": "0015_hard_korath",
+      "breakpoints": true
     }
   ]
 }
