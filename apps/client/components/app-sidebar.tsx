@@ -53,14 +53,14 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    title: "Commandes",
-    url: "/orders",
-    icon: ShoppingCart,
-  },
-  {
     title: "Préparation",
     url: "/preparation",
     icon: ChefHat,
+  },
+  {
+    title: "Commandes",
+    url: "/orders",
+    icon: ShoppingCart,
   },
   {
     title: "Clients",
