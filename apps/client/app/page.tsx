@@ -4,14 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ChefHat,
-  Clock,
   PackageCheck,
   Rocket,
-  ShoppingCart,
-  Wallet,
 } from "lucide-react";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
   Card,
@@ -20,8 +18,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { parseQty } from "@prepareos/data";
-import { fetchOrders, fetchProducts, type OrderWithItems } from "@/lib/api";
+import { parseQty, formatQtyLabel } from "@prepareos/data";
+import { fetchOrders, fetchProducts, formatCurrency, type OrderWithItems } from "@/lib/api";
 
 // ============ HELPERS ============
 
@@ -79,102 +77,99 @@ function computeDashboardStats(orders: OrderWithItems[]) {
 
 // ============ COMPONENTS ============
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  description,
-  loading,
-  iconColor,
-  iconBg,
-}: {
-  title: string;
-  value: string;
-  icon: React.ElementType;
-  description?: string;
-  loading?: boolean;
-  iconColor?: string;
-  iconBg?: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className={`rounded-lg p-2 ${iconBg || "bg-muted"}`}>
-          <Icon className={`h-4 w-4 ${iconColor || "text-muted-foreground"}`} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <>
-            <div className="text-2xl font-bold">{value}</div>
-            {description && (
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function TrackerCard({
+function OrderTable({
   title,
   icon: Icon,
-  current,
+  orders,
   total,
-  label,
   loading,
-  color,
+  emptyMessage,
   iconColor,
-  iconBg,
+  strikeStatuses,
 }: {
   title: string;
   icon: React.ElementType;
-  current: number;
+  orders: OrderWithItems[];
   total: number;
-  label: string;
   loading?: boolean;
-  color?: string;
+  emptyMessage: string;
   iconColor?: string;
-  iconBg?: string;
+  strikeStatuses?: string[];
 }) {
-  const pct = total > 0 ? (current / total) * 100 : 0;
+  const router = useRouter();
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className={`rounded-lg p-2 ${iconBg || "bg-muted"}`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Icon className={`h-4 w-4 ${iconColor || "text-muted-foreground"}`} />
-        </div>
+          {title}
+        </CardTitle>
+        <span className="text-sm font-semibold text-muted-foreground">
+          {orders.length}/{total}
+        </span>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-20" />
-            <Skeleton className="h-2 w-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            {emptyMessage}
+          </p>
         ) : (
-          <div className="space-y-3">
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">{current}</span>
-              <span className="text-lg text-muted-foreground">/ {total}</span>
-            </div>
-            <div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                <span>{label}</span>
-                <span className="font-medium">{Math.round(pct)}%</span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${color || "bg-primary"}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
+          <div className="space-y-1.5">
+            {orders.map((order) => {
+              const pickupTime =
+                order.pickupTimeStart && order.pickupTimeEnd
+                  ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
+                  : order.pickupTimeStart || null;
+
+              const itemsSummary = (order.items ?? [])
+                .slice(0, 3)
+                .map((item) => {
+                  const label = formatQtyLabel(item.quantity, item.unit);
+                  return label !== "1x" ? `${label} ${item.productName}` : item.productName;
+                })
+                .join(", ");
+
+              const remaining = (order.items?.length ?? 0) - 3;
+              const isStruck = strikeStatuses?.includes(order.preparationStatus);
+
+              return (
+                <button
+                  key={order.id}
+                  type="button"
+                  onClick={() => router.push(`/preparation/${order.id}`)}
+                  className={`flex items-center gap-3 w-full rounded-md border px-3 py-2 text-left text-sm transition-colors cursor-pointer ${isStruck ? "opacity-50 line-through" : "hover:bg-muted/50"}`}
+                >
+                  <span className="font-mono font-bold shrink-0">
+                    #{order.ticketNumber}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium">
+                        {order.client?.name ?? "---"}
+                      </span>
+                      {pickupTime && (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {pickupTime}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {itemsSummary}{remaining > 0 ? ` +${remaining}` : ""}
+                    </div>
+                  </div>
+                  <span className="font-medium shrink-0">
+                    {formatCurrency(order.total)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </CardContent>
@@ -189,7 +184,7 @@ export default function DashboardPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-today"],
-    queryFn: () => fetchOrders({ limit: 200, fromDate: today.from, toDate: today.to }),
+    queryFn: () => fetchOrders({ limit: 200, pickupDateFrom: today.from, pickupDateTo: today.to }),
     refetchInterval: 30_000,
   });
 
@@ -202,71 +197,32 @@ export default function DashboardPage() {
   const lowStockProducts = lowStockData?.data ?? [];
   const orders = data?.data ?? [];
   const stats = computeDashboardStats(orders);
-  const toPrepare = stats.pending + stats.inPreparation;
-  const readyTotal = stats.ready + stats.pickedUp;
-
   return (
     <DashboardLayout
       title="Dashboard"
       description="Vue d'ensemble de votre journée"
     >
       <div className="space-y-6">
-        {/* Row 1 — Key metrics */}
+        {/* Order tables: À préparer + À récupérer */}
         <div className="grid gap-4 md:grid-cols-2">
-          <StatCard
-            title="Commandes du jour"
-            value={orders.length.toString()}
-            icon={ShoppingCart}
-            description={`${toPrepare} en cours · ${stats.ready} prête${stats.ready > 1 ? "s" : ""} · ${stats.pickedUp} retirée${stats.pickedUp > 1 ? "s" : ""}`}
-            loading={isLoading}
-            iconColor="text-blue-600 dark:text-blue-400"
-            iconBg="bg-blue-500/10"
-          />
-          <StatCard
-            title="Articles à préparer"
-            value={stats.unpreparedItems.toString()}
-            icon={ChefHat}
-            description="Items non préparés"
-            loading={isLoading}
-            iconColor="text-amber-600 dark:text-amber-400"
-            iconBg="bg-amber-500/10"
-          />
-        </div>
-
-        {/* Row 2 — Tracker cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <TrackerCard
+          <OrderTable
             title="À préparer"
-            icon={Clock}
-            current={toPrepare}
+            icon={ChefHat}
+            orders={orders.filter((o) => o.preparationStatus === "pending" || o.preparationStatus === "in_preparation")}
             total={orders.length}
-            label={`${stats.pending} en attente · ${stats.inPreparation} en cours`}
             loading={isLoading}
-            color="bg-amber-500"
+            emptyMessage="Aucune commande à préparer"
             iconColor="text-amber-600 dark:text-amber-400"
-            iconBg="bg-amber-500/10"
           />
-          <TrackerCard
-            title="Retraits"
+          <OrderTable
+            title="À récupérer"
             icon={PackageCheck}
-            current={stats.pickedUp}
-            total={readyTotal}
-            label={readyTotal > 0 ? `${stats.ready} en attente de retrait` : "Aucune commande prête"}
-            loading={isLoading}
-            color="bg-emerald-500"
-            iconColor="text-emerald-600 dark:text-emerald-400"
-            iconBg="bg-emerald-500/10"
-          />
-          <TrackerCard
-            title="Paiements"
-            icon={Wallet}
-            current={stats.paid}
+            orders={orders.filter((o) => o.preparationStatus === "ready" || o.preparationStatus === "picked_up")}
             total={orders.length}
-            label={stats.unpaid > 0 ? `${stats.unpaid} impayée${stats.unpaid > 1 ? "s" : ""}` : "Tout est réglé"}
             loading={isLoading}
-            color="bg-blue-500"
-            iconColor="text-blue-600 dark:text-blue-400"
-            iconBg="bg-blue-500/10"
+            emptyMessage="Aucune commande prête"
+            iconColor="text-emerald-600 dark:text-emerald-400"
+            strikeStatuses={["picked_up"]}
           />
         </div>
 

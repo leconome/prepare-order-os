@@ -119,6 +119,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
           <TableRow>
             <TableHead className="w-24">Ticket</TableHead>
             <TableHead>Client</TableHead>
+            <TableHead>Créée le</TableHead>
             <TableHead>Retrait</TableHead>
             <TableHead>Articles</TableHead>
             <TableHead>Préparation</TableHead>
@@ -141,6 +142,12 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
                 {order.client?.name ?? (
                   <span className="text-muted-foreground">—</span>
                 )}
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {new Intl.DateTimeFormat("fr-FR", {
+                  day: "numeric",
+                  month: "short",
+                }).format(new Date(order.createdAt))}
               </TableCell>
               <TableCell>
                 {formatPickupDate(order) ?? (

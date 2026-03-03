@@ -33,7 +33,7 @@ import {
   updateOrder,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { UNIT_CONFIG, formatQtyLabel, lineTotal, roundQty, parseQty, type Unit } from "@prepareos/data";
+import { UNIT_CONFIG, formatQtyLabel, roundQty, parseQty, type Unit } from "@prepareos/data";
 
 type OrderItem = {
   productId: string;
@@ -307,7 +307,7 @@ export default function EditOrderItemsPage() {
                   <CardTitle className="text-base flex items-center gap-2">
                     Menus
                     {(() => {
-                      const count = orderItems.filter((i) => !!i.menuId).reduce((s, i) => s + i.quantity, 0);
+                      const count = orderItems.filter((i) => !!i.menuId).length;
                       return count > 0 ? (
                         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                           {count}
@@ -363,7 +363,7 @@ export default function EditOrderItemsPage() {
                   <Search className="h-5 w-5" />
                   Produits
                   {(() => {
-                    const count = orderItems.filter((i) => !i.menuId).reduce((s, i) => s + i.quantity, 0);
+                    const count = orderItems.filter((i) => !i.menuId).length;
                     return count > 0 ? (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                         {count}
@@ -487,7 +487,7 @@ export default function EditOrderItemsPage() {
                   Panier
                   {orderItems.length > 0 && (
                     <Badge className="ml-auto bg-blue-600 text-white">
-                      {orderItems.reduce((sum, item) => sum + item.quantity, 0)}{" "}
+                      {orderItems.length}{" "}
                       article{orderItems.length > 1 ? "s" : ""}
                     </Badge>
                   )}
@@ -535,17 +535,17 @@ export default function EditOrderItemsPage() {
                               </Button>
                             </div>
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => updateItemQuantity(key, -1)}
                                 >
-                                  <Minus className="h-3 w-3" />
+                                  <Minus className="h-4 w-4" />
                                 </Button>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5">
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -560,20 +560,20 @@ export default function EditOrderItemsPage() {
                                         e.target.value = String(item.quantity);
                                       }
                                     }}
-                                    className="h-8 w-16 text-center font-semibold px-1"
+                                    className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
                                   />
-                                  {UNIT_CONFIG[item.unit].suffix && (
-                                    <span className="text-xs text-muted-foreground">{UNIT_CONFIG[item.unit].suffix}</span>
-                                  )}
+                                  <span className="text-sm font-semibold text-muted-foreground">
+                                    {UNIT_CONFIG[item.unit].suffix || "x"}
+                                  </span>
                                 </div>
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => updateItemQuantity(key, 1)}
                                 >
-                                  <Plus className="h-3 w-3" />
+                                  <Plus className="h-4 w-4" />
                                 </Button>
                               </div>
                               <div className="text-right font-medium text-sm">

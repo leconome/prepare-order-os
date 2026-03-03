@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, MessageSquareText, UserRound } from "lucide-react";
+import { Calendar, Clock, MessageSquareText, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -56,7 +56,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
   });
 
   const togglePayment = () => {
-    const next = order.paymentStatus === "paid" ? "pending" : "paid";
+    const cycle = {
+      pending: "partially_paid",
+      partially_paid: "paid",
+      paid: "partially_paid",
+      refunded: "pending",
+    } as const;
+    const current = order.paymentStatus ?? "pending";
+    const next = cycle[current] ?? "pending";
     statusMutation.mutate({ paymentStatus: next });
   };
 
@@ -71,7 +78,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
         <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-sm shrink-0">
+          <span className="font-mono font-bold text-sm shrink-0 underline underline-offset-2 text-primary">
             #{order.ticketNumber}
           </span>
 
@@ -80,6 +87,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
             <span className="truncate max-w-32">
               {order?.client?.name ?? "---"}
             </span>
+          </span>
+
+          <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
+            <Calendar className="h-3 w-3" />
+            {new Intl.DateTimeFormat("fr-FR", {
+              day: "numeric",
+              month: "short",
+            }).format(new Date(order.createdAt))}
           </span>
 
           {pickupTime && (
@@ -109,31 +124,44 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         </span>
         <label
           className={`flex items-center justify-center gap-2 w-full cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-            order.paymentStatus === "paid" ? "bg-green-50" : "bg-background"
+            order.paymentStatus === "paid"
+              ? "bg-green-50"
+              : order.paymentStatus === "partially_paid"
+                ? "bg-amber-50"
+                : "bg-background"
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
           <Checkbox
-            checked={order.paymentStatus === "paid"}
+            checked={order.paymentStatus === "paid" ? true : order.paymentStatus === "partially_paid" ? "indeterminate" : false}
             onCheckedChange={() => togglePayment()}
             disabled={statusMutation.isPending}
-            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
           />
           <span
             className={`text-xs font-medium ${
               order.paymentStatus === "paid"
                 ? "text-green-700"
-                : "text-gray-700"
+                : order.paymentStatus === "partially_paid"
+                  ? "text-amber-700"
+                  : "text-gray-700"
             }`}
           >
             {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
+            {order.paymentStatus === "partially_paid" && parseFloat(order.paidAmount || "0") > 0 && (
+              <span className="font-normal">({formatCurrency(order.paidAmount)})</span>
+            )}
           </span>
         </label>
       </div>
 
       {/* ── Statut (col 9–10) ── */}
-      <div className="col-span-2 flex gap-2 flex-col">
+      <div
+        className="col-span-2 flex gap-2 flex-col"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-1 shrink-0">
           <Progress value={progressPercent} className="h-1.5 w-full" />
           <span className="text-[11px] text-muted-foreground tabular-nums">
@@ -151,14 +179,18 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         >
           <SelectTrigger
             className={`shrink-0 gap-1 px-2 w-full py-0.5 text-xs font-medium transition-all active:scale-95 ${status.className}`}
-            onPointerDown={(e) => e.stopPropagation()}
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(STATUS_BADGE).map(([key, val]) => (
-              <SelectItem key={key} value={key}>
+              <SelectItem
+                key={key}
+                value={key}
+                disabled={key === "picked_up" && order.paymentStatus !== "paid"}
+              >
                 {val.label}
+                {key === "picked_up" && order.paymentStatus !== "paid" && " (paiement requis)"}
               </SelectItem>
             ))}
           </SelectContent>

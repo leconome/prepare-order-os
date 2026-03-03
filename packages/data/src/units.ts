@@ -75,6 +75,23 @@ export function formatQtyLabel(
   return `${Math.round(qty)}x`;
 }
 
+/** Human-friendly weight label: "500 g", "1,2 kg", "3x" */
+export function formatWeightLabel(
+  raw: string | number,
+  unit: Unit = "piece",
+): string {
+  const qty = parseQty(raw);
+  if (unit === "kg") {
+    if (qty < 1) {
+      const grams = Math.round(qty * 1000);
+      return `${grams} g`;
+    }
+    const formatted = qty.toFixed(3).replace(/\.?0+$/, "").replace(".", ",");
+    return `${formatted} kg`;
+  }
+  return `${Math.round(qty)}x`;
+}
+
 /** Get the stock deduction amount (integer for pieces, raw for kg) */
 export function stockDeduction(
   qty: string | number,
