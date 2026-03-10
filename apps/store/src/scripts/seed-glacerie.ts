@@ -6,6 +6,7 @@ import {
   orderItems,
   orderMenuItems,
   orders,
+  pointsOfSale,
   products,
   tenants,
   ticketCounters,
@@ -1110,8 +1111,40 @@ async function clearTenantData(tenantId: string) {
   await db.delete(menus).where(eq(menus.tenantId, tenantId));
   await db.delete(products).where(eq(products.tenantId, tenantId));
   await db.delete(categories).where(eq(categories.tenantId, tenantId));
+  await db.delete(pointsOfSale).where(eq(pointsOfSale.tenantId, tenantId));
   await db.delete(clients).where(eq(clients.tenantId, tenantId));
   console.log("  Data cleared for tenant");
+}
+
+async function seedPointsOfSale(tenantId: string) {
+  console.log("📍 Seeding points of sale...");
+  const posData = [
+    {
+      name: "Comptoir Glacerie",
+      description: "Point de vente principal en boutique",
+      type: "permanent_pos" as const,
+      sortOrder: 1,
+      tenantId,
+    },
+    {
+      name: "Terrasse",
+      description: "Service en terrasse",
+      type: "permanent_pos" as const,
+      sortOrder: 2,
+      tenantId,
+    },
+    {
+      name: "Retrait plage",
+      description: "Point de retrait côté plage",
+      address: "Promenade du Port",
+      type: "pickup_location" as const,
+      sortOrder: 3,
+      tenantId,
+    },
+  ];
+  const inserted = await db.insert(pointsOfSale).values(posData).returning();
+  console.log(`✅ Created ${inserted.length} points of sale`);
+  return inserted;
 }
 
 async function seedCategories(tenantId: string) {
@@ -1206,6 +1239,7 @@ async function seedOrders(
   productList: (typeof products.$inferSelect)[],
   menuList: (typeof menus.$inferSelect)[],
   clientList: (typeof clients.$inferSelect)[],
+  posList: (typeof pointsOfSale.$inferSelect)[],
 ) {
   console.log("🧾 Seeding orders...");
 
@@ -1226,7 +1260,7 @@ async function seedOrders(
 
   let orderCount = 0;
 
-  async function createSeedOrder(orderData: SeedOrder, clientId?: string) {
+  async function createSeedOrder(orderData: SeedOrder, clientId?: string, posId?: string) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1321,6 +1355,7 @@ async function seedOrders(
         preparationStatus: orderData.preparationStatus,
         clientNote: orderData.clientNote ?? null,
         clientId: clientId ?? null,
+        posId: posId ?? null,
         pickupDate: orderData.pickupDate ?? null,
         pickupTimeStart: orderData.pickupTimeStart ?? null,
         pickupTimeEnd: orderData.pickupTimeEnd ?? null,
@@ -1372,12 +1407,14 @@ async function seedOrders(
 
   for (let i = 0; i < SAMPLE_ORDERS.length; i++) {
     const cl = clientList[i % clientList.length];
-    await createSeedOrder(SAMPLE_ORDERS[i], cl?.id);
+    const pos = posList.length > 0 ? posList[i % posList.length] : undefined;
+    await createSeedOrder(SAMPLE_ORDERS[i], cl?.id, pos?.id);
   }
 
   for (let i = 0; i < MENU_ORDERS.length; i++) {
     const cl = clientList[(SAMPLE_ORDERS.length + i) % clientList.length];
-    await createSeedOrder(MENU_ORDERS[i], cl?.id);
+    const pos = posList.length > 0 ? posList[(SAMPLE_ORDERS.length + i) % posList.length] : undefined;
+    await createSeedOrder(MENU_ORDERS[i], cl?.id, pos?.id);
   }
 
   console.log(
@@ -1465,7 +1502,8 @@ async function main() {
     const categoryList = await seedCategories(tenantId);
     const productList = await seedProducts(tenantId, categoryList);
     const menuList = await seedMenus(tenantId, productList);
-    await seedOrders(tenantId, productList, menuList, clientList);
+    const posList = await seedPointsOfSale(tenantId);
+    await seedOrders(tenantId, productList, menuList, clientList, posList);
 
     console.log(`\n🎉 Seed completed successfully!`);
     console.log("\nSummary:");
@@ -1475,6 +1513,7 @@ async function main() {
     console.log(`  - ${categoryList.length} categories`);
     console.log(`  - ${productList.length} products`);
     console.log(`  - ${MENUS.length} menus`);
+    console.log(`  - ${posList.length} points of sale`);
     console.log(`  - ${SAMPLE_ORDERS.length + MENU_ORDERS.length} orders`);
   } catch (error) {
     console.error("❌ Seed failed:", error);

@@ -127,6 +127,13 @@
       "when": 1772535000000,
       "tag": "0017_add_default_qty",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773137509977,
+      "tag": "0018_simple_richard_fisk",
+      "breakpoints": true
     }
   ]
 }

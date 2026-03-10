@@ -98,6 +98,12 @@ const managementNavigation = [
     icon: UserStar,
     roles: ["admin", "owner"],
   },
+  {
+    title: "Points de vente",
+    url: "/points-of-sale",
+    icon: Store,
+    roles: ["admin", "owner"],
+  },
 ];
 
 const secondaryNavigation = [

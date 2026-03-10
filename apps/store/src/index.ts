@@ -16,6 +16,7 @@ import tenantsRoutes from "./routes/tenants.js";
 import smsRoutes from "./routes/sms.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
+import pointsOfSaleRoutes from "./routes/points-of-sale.js";
 import docsRoutes from "./routes/docs.js";
 import { tenants } from "@prepareos/data";
 import { inArray } from "drizzle-orm";
@@ -99,6 +100,7 @@ app.route("/api/users", usersRoutes);
 app.route("/api/clients", clientsRoutes);
 app.route("/api/tenants", tenantsRoutes);
 app.route("/api/sms", smsRoutes);
+app.route("/api/points-of-sale", pointsOfSaleRoutes);
 app.route("/api/uploads", uploads);
 
 // Root route

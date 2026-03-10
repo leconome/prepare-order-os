@@ -19,6 +19,7 @@ import {
   type UpdateOrderStatus,
   updateOrderStatus,
 } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
 import { PAYMENT_LABELS } from "@/lib/constants";
 import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
@@ -113,6 +114,12 @@ function OrderRow({ order }: { order: OrderWithItems }) {
               <Clock className="h-3 w-3" />
               {pickupTime}
             </span>
+          )}
+
+          {order.pointOfSale && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+              {order.pointOfSale.name}
+            </Badge>
           )}
         </div>
 

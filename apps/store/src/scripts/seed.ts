@@ -6,6 +6,7 @@ import {
   orderItems,
   orderMenuItems,
   orders,
+  pointsOfSale,
   products,
   tenants,
   ticketCounters,
@@ -1326,6 +1327,7 @@ async function clearDatabase() {
   await db.delete(orderMenuItems);
   await db.delete(orderItems);
   await db.delete(orders);
+  await db.delete(pointsOfSale);
   await db.delete(ticketCounters);
   await db.delete(menuProducts);
   await db.delete(menus);
@@ -1335,6 +1337,37 @@ async function clearDatabase() {
   // Don't delete users with BetterAuth accounts, only seed users
   // We'll upsert staff instead
   console.log("✅ Database cleared");
+}
+
+async function seedPointsOfSale(tenantId: string) {
+  console.log("📍 Seeding points of sale...");
+  const posData = [
+    {
+      name: "Comptoir principal",
+      description: "Point de vente permanent en boutique",
+      type: "permanent_pos" as const,
+      sortOrder: 1,
+      tenantId,
+    },
+    {
+      name: "Marché du samedi",
+      description: "Stand au marché hebdomadaire",
+      address: "Place du Marché, Centre-ville",
+      type: "pickup_location" as const,
+      sortOrder: 2,
+      tenantId,
+    },
+    {
+      name: "Retrait Drive",
+      description: "Retrait commande en ligne sur le parking",
+      type: "pickup_location" as const,
+      sortOrder: 3,
+      tenantId,
+    },
+  ];
+  const inserted = await db.insert(pointsOfSale).values(posData).returning();
+  console.log(`✅ Created ${inserted.length} points of sale`);
+  return inserted;
 }
 
 async function seedCategories(tenantId: string) {
@@ -1430,6 +1463,7 @@ async function seedOrders(
   productList: (typeof products.$inferSelect)[],
   menuList: (typeof menus.$inferSelect)[],
   clientList: (typeof clients.$inferSelect)[],
+  posList: (typeof pointsOfSale.$inferSelect)[],
 ) {
   console.log("🧾 Seeding orders...");
 
@@ -1452,7 +1486,7 @@ async function seedOrders(
 
   let orderCount = 0;
 
-  async function createSeedOrder(orderData: SeedOrder, clientId?: string) {
+  async function createSeedOrder(orderData: SeedOrder, clientId?: string, posId?: string) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1552,6 +1586,7 @@ async function seedOrders(
         preparationStatus: orderData.preparationStatus,
         clientNote: orderData.clientNote ?? null,
         clientId: clientId ?? null,
+        posId: posId ?? null,
         pickupDate: orderData.pickupDate ?? null,
         pickupTimeStart: orderData.pickupTimeStart ?? null,
         pickupTimeEnd: orderData.pickupTimeEnd ?? null,
@@ -1603,16 +1638,18 @@ async function seedOrders(
     orderCount++;
   }
 
-  // Seed regular orders — distribute clients round-robin
+  // Seed regular orders — distribute clients & POS round-robin
   for (let i = 0; i < SAMPLE_ORDERS.length; i++) {
     const client = clientList[i % clientList.length];
-    await createSeedOrder(SAMPLE_ORDERS[i], client?.id);
+    const pos = posList.length > 0 ? posList[i % posList.length] : undefined;
+    await createSeedOrder(SAMPLE_ORDERS[i], client?.id, pos?.id);
   }
 
-  // Seed menu orders — continue distributing clients
+  // Seed menu orders — continue distributing clients & POS
   for (let i = 0; i < MENU_ORDERS.length; i++) {
     const client = clientList[(SAMPLE_ORDERS.length + i) % clientList.length];
-    await createSeedOrder(MENU_ORDERS[i], client?.id);
+    const pos = posList.length > 0 ? posList[(SAMPLE_ORDERS.length + i) % posList.length] : undefined;
+    await createSeedOrder(MENU_ORDERS[i], client?.id, pos?.id);
   }
 
   console.log(
@@ -1698,16 +1735,18 @@ async function main() {
 
     const staffList = await seedStaff(tenantId);
     const clientList = await seedClients(tenantId);
+    const posList = await seedPointsOfSale(tenantId);
     const categoryList = await seedCategories(tenantId);
     const productList = await seedProducts(tenantId, categoryList);
     const menuList = await seedMenus(tenantId, productList);
-    await seedOrders(tenantId, productList, menuList, clientList);
+    await seedOrders(tenantId, productList, menuList, clientList, posList);
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("\nSummary:");
     console.log(`  - Tenant: fromagerie (${tenantId})`);
     console.log(`  - ${staffList.length} staff members`);
     console.log(`  - ${clientList.length} clients`);
+    console.log(`  - ${posList.length} points of sale`);
     console.log(`  - ${categoryList.length} categories`);
     console.log(`  - ${productList.length} products`);
     console.log(`  - ${MENUS.length} menus`);

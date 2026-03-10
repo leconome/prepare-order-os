@@ -50,6 +50,9 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -63,6 +66,7 @@ import {
   createOrder,
   fetchClients,
   fetchMenus,
+  fetchPointsOfSale,
   fetchStaff,
   fetchProducts,
   formatCurrency,
@@ -150,6 +154,12 @@ export default function NewOrderPage() {
     queryFn: () => fetchClients({ limit: 20, search: clientSearchQuery || undefined }),
   });
 
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale-active"],
+    queryFn: () => fetchPointsOfSale({ isActive: true, limit: 100 }),
+  });
+  const pointsOfSale = posData?.data ?? [];
+
   // Quick client creation form
   const clientForm = useForm({
     resolver: zodResolver(createClientSchema),
@@ -190,6 +200,7 @@ export default function NewOrderPage() {
       internalNote: "",
       createdById: "",
       assignedToId: "",
+      posId: undefined,
     },
   });
 
@@ -350,6 +361,7 @@ export default function NewOrderPage() {
       internalNote: data.internalNote || undefined,
       createdById: data.createdById || undefined,
       assignedToId: data.assignedToId || undefined,
+      posId: data.posId || undefined,
       discountType: discountValue && parseFloat(discountValue) > 0 ? discountType : null,
       discountValue: discountValue && parseFloat(discountValue) > 0 ? discountValue : undefined,
     };
@@ -988,6 +1000,48 @@ export default function NewOrderPage() {
                         ))}
                       </div>
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="posId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Point de vente</FormLabel>
+                          <Select
+                            onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
+                            value={field.value ?? "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Aucun" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Aucun</SelectItem>
+                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de vente</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <div className="grid grid-cols-2 gap-2">
                       <FormField
