@@ -171,7 +171,7 @@ export default function DashboardPage() {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                      <span className="text-muted-foreground">{stats.done} terminée{stats.done !== 1 ? "s" : ""}</span>
+                      <span className="text-muted-foreground">{stats.done} récupérée{stats.done !== 1 ? "s" : ""}</span>
                     </span>
                   </div>
                 </div>
