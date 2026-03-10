@@ -153,14 +153,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
       </SidebarHeader>
       <SidebarContent className="relative">
-        <div className="px-3 pt-3 group-data-[collapsible=icon]:px-1.5">
+        <div className="px-2 pt-2 group-data-[collapsible=icon]:px-1.5">
           <Button
             asChild
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-sm group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
-            size="sm"
+            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0"
           >
             <Link href="/orders/new">
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 group-data-[collapsible=icon]:mr-0" />
               <span className="group-data-[collapsible=icon]:hidden">Nouvelle commande</span>
             </Link>
           </Button>
