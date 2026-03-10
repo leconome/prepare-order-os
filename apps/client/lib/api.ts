@@ -360,7 +360,7 @@ export async function deleteCategory(categoryId: string): Promise<void> {
 
 // ============ MENUS ============
 
-export type MenusResponse = PaginatedResponse<Menu>;
+export type MenusResponse = PaginatedResponse<MenuWithProducts>;
 
 export async function fetchMenus(
   params?: Partial<MenuFilters>,

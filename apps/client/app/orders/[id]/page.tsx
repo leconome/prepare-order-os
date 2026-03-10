@@ -344,9 +344,14 @@ export default function OrderDetailPage() {
     id: string;
     name: string;
     price: string | null;
+    products: { product: { price: string }; quantity: number }[];
   }) => {
     const existing = editableItems.find((item) => item.menuId === menu.id);
-    const menuPrice = menu.price || "0";
+    const productsTotal = menu.products.reduce(
+      (sum, mp) => sum + parseFloat(mp.product.price) * mp.quantity,
+      0,
+    );
+    const menuPrice = menu.price || productsTotal.toFixed(2);
     if (existing) {
       setEditableItems(
         editableItems.map((item) =>
@@ -514,6 +519,7 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
     },
   });
 
@@ -522,6 +528,7 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
       setIsEditingItems(false);
       setEditableItems([]);
       setProductSearchQuery("");
@@ -532,6 +539,7 @@ export default function OrderDetailPage() {
     mutationFn: () => deleteOrder(orderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
       router.push("/orders");
     },
   });
@@ -946,9 +954,18 @@ export default function OrderDetailPage() {
                                         </Badge>
                                       </div>
                                       <div className="text-sm text-muted-foreground">
-                                        {menu.price
-                                          ? formatCurrency(menu.price)
-                                          : "Prix variable"}
+                                        {formatCurrency(
+                                          menu.price ||
+                                            menu.products
+                                              .reduce(
+                                                (sum, mp) =>
+                                                  sum +
+                                                  parseFloat(mp.product.price) *
+                                                    mp.quantity,
+                                                0,
+                                              )
+                                              .toFixed(2),
+                                        )}
                                       </div>
                                     </div>
                                     {inCart && (

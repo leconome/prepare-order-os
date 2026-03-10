@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   createClientSchema,
   createOrderSchema,
@@ -177,7 +178,12 @@ export default function NewOrderPage() {
 
   // Quick client creation form
   const clientForm = useForm({
-    resolver: zodResolver(createClientSchema),
+    resolver: zodResolver(
+      createClientSchema.extend({
+        phone: z.preprocess((v) => (v === "" ? undefined : v), createClientSchema.shape.phone),
+        email: z.preprocess((v) => (v === "" ? undefined : v), createClientSchema.shape.email),
+      }),
+    ),
     defaultValues: {
       name: "",
       phone: "",
@@ -278,10 +284,15 @@ export default function NewOrderPage() {
     id: string;
     name: string;
     price: string | null;
+    products: { product: { price: string }; quantity: number }[];
   }) => {
     const existingItem = orderItems.find((item) => item.menuId === menu.id);
-    // Calculate menu price: use explicit price or "0" (backend resolves from products)
-    const menuPrice = menu.price || "0";
+    // Calculate menu price: use explicit price, or sum of product prices * quantities
+    const productsTotal = menu.products.reduce(
+      (sum, mp) => sum + parseFloat(mp.product.price) * mp.quantity,
+      0,
+    );
+    const menuPrice = menu.price || productsTotal.toFixed(2);
     if (existingItem) {
       setOrderItems(
         orderItems.map((item) =>
@@ -399,7 +410,11 @@ export default function NewOrderPage() {
   });
 
   const handleQuickClientCreate = clientForm.handleSubmit((data) => {
-    createClientMutation.mutate(data as CreateClient);
+    createClientMutation.mutate({
+      ...data,
+      phone: data.phone || undefined,
+      email: data.email || undefined,
+    } as CreateClient);
   });
 
   return (
@@ -451,9 +466,18 @@ export default function NewOrderPage() {
                               </Badge>
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {menu.price
-                                ? formatCurrency(menu.price)
-                                : "Prix variable"}
+                              {formatCurrency(
+                                menu.price ||
+                                  menu.products
+                                    .reduce(
+                                      (sum, mp) =>
+                                        sum +
+                                        parseFloat(mp.product.price) *
+                                          mp.quantity,
+                                      0,
+                                    )
+                                    .toFixed(2),
+                              )}
                             </div>
                           </div>
                           {inCart && (
