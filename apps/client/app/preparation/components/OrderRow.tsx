@@ -1,8 +1,16 @@
 "use client";
 
+import { formatQtyLabel } from "@prepareos/data";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Calendar, Clock, MessageSquareText, UserRound } from "lucide-react";
+import {
+  AlertTriangle,
+  Calendar,
+  Clock,
+  MessageSquareText,
+  UserRound,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -12,14 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatQtyLabel } from "@prepareos/data";
 import {
   formatCurrency,
   type OrderWithItems,
   type UpdateOrderStatus,
   updateOrderStatus,
 } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 import { PAYMENT_LABELS } from "@/lib/constants";
 import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
@@ -80,9 +86,12 @@ function OrderRow({ order }: { order: OrderWithItems }) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => router.push(`/preparation/${order.id}`)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/preparation/${order.id}`); }}
-      className={`grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
+      onClick={() => router.push(`/orders/${order.id}?view=preparation`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ")
+          router.push(`/orders/${order.id}?view=preparation`);
+      }}
+      className={`grid grid-cols-10 gap-2 items-center w-full border-b bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
@@ -99,8 +108,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           </span>
 
           {order.pickupDate && (
-            <span className={`text-xs flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
-              {isOverdue ? <AlertTriangle className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
+            <span
+              className={`text-xs flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
+            >
+              {isOverdue ? (
+                <AlertTriangle className="h-3 w-3" />
+              ) : (
+                <Calendar className="h-3 w-3" />
+              )}
               {isOverdue && "En retard · "}
               {new Intl.DateTimeFormat("fr-FR", {
                 day: "numeric",
@@ -117,7 +132,10 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           )}
 
           {order.pointOfSale && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 shrink-0"
+            >
               {order.pointOfSale.name}
             </Badge>
           )}
@@ -152,7 +170,13 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           onKeyDown={(e) => e.stopPropagation()}
         >
           <Checkbox
-            checked={order.paymentStatus === "paid" ? true : order.paymentStatus === "partially_paid" ? "indeterminate" : false}
+            checked={
+              order.paymentStatus === "paid"
+                ? true
+                : order.paymentStatus === "partially_paid"
+                  ? "indeterminate"
+                  : false
+            }
             onCheckedChange={() => togglePayment()}
             disabled={statusMutation.isPending}
             className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
@@ -167,9 +191,12 @@ function OrderRow({ order }: { order: OrderWithItems }) {
             }`}
           >
             {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-            {order.paymentStatus === "partially_paid" && parseFloat(order.paidAmount || "0") > 0 && (
-              <span className="font-normal">({formatCurrency(order.paidAmount)})</span>
-            )}
+            {order.paymentStatus === "partially_paid" &&
+              parseFloat(order.paidAmount || "0") > 0 && (
+                <span className="font-normal">
+                  ({formatCurrency(order.paidAmount)})
+                </span>
+              )}
           </span>
         </label>
       </div>
@@ -208,7 +235,9 @@ function OrderRow({ order }: { order: OrderWithItems }) {
                 disabled={key === "picked_up" && order.paymentStatus !== "paid"}
               >
                 {val.label}
-                {key === "picked_up" && order.paymentStatus !== "paid" && " (paiement requis)"}
+                {key === "picked_up" &&
+                  order.paymentStatus !== "paid" &&
+                  " (paiement requis)"}
               </SelectItem>
             ))}
           </SelectContent>

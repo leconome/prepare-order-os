@@ -34,8 +34,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -66,6 +66,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -100,6 +101,9 @@ import {
   getPreparationBadgeVariant,
 } from "@/lib/helpers";
 import { cn } from "@/lib/utils";
+import { ItemCard } from "./components/ItemCard";
+import { MenuItemCard } from "./components/MenuItemCard";
+import { computeProgress } from "./helpers";
 
 const editOrderSchema = updateOrderSchema.omit({
   paymentStatus: true,
@@ -199,6 +203,7 @@ function orderToFormValues(order: {
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orderId = params.id as string;
   const queryClient = useQueryClient();
 
@@ -277,6 +282,10 @@ export default function OrderDetailPage() {
     queryFn: () =>
       fetchClients({ limit: 20, search: clientSearchQuery || undefined }),
   });
+
+  // View mode: "produits" (read-only item list) or "preparation" (two-column prep layout)
+  const [viewMode, setViewMode] = useState<"produits" | "preparation">("produits");
+  const viewModeInitialized = useRef(false);
 
   // Item editing state
   const [isEditingItems, setIsEditingItems] = useState(false);
@@ -510,6 +519,15 @@ export default function OrderDetailPage() {
     setSelectedClient(order.client ?? null);
   }, [order, form]);
 
+  // Auto-set view mode based on preparation status or search param (only on first load)
+  useEffect(() => {
+    if (!order || viewModeInitialized.current) return;
+    viewModeInitialized.current = true;
+    if (searchParams.get("view") === "preparation" || ["in_preparation", "ready"].includes(order.preparationStatus)) {
+      setViewMode("preparation");
+    }
+  }, [order, searchParams]);
+
   const updateStatusMutation = useMutation({
     mutationFn: (data: {
       paymentStatus?: string;
@@ -734,7 +752,7 @@ export default function OrderDetailPage() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
-                      Articles (
+                      Produits (
                       {isEditingItems
                         ? editableItems.length
                         : order.items?.length || 0}
@@ -742,7 +760,7 @@ export default function OrderDetailPage() {
                     </CardTitle>
                     {!isEditingItems && (
                       <div className="flex items-center gap-2">
-                        {canEditItems && (
+                        {viewMode === "produits" && canEditItems && (
                           <Button
                             type="button"
                             variant="outline"
@@ -753,23 +771,34 @@ export default function OrderDetailPage() {
                             Modifier
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            if (order.preparationStatus === "pending") {
-                              updateStatusMutation.mutate(
-                                { preparationStatus: "in_preparation" },
-                                { onSuccess: () => router.push(`/preparation/${order.id}`) },
-                              );
-                            } else {
-                              router.push(`/preparation/${order.id}`);
-                            }
-                          }}
-                          disabled={updateStatusMutation.isPending}
-                        >
-                          <ChefHat className="mr-2 h-4 w-4" />
-                          {order.preparationStatus === "pending" ? "Lancer la préparation" : "Voir la préparation"}
-                        </Button>
+                        {viewMode === "produits" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (order.preparationStatus === "pending") {
+                                updateStatusMutation.mutate(
+                                  { preparationStatus: "in_preparation" },
+                                  { onSuccess: () => setViewMode("preparation") },
+                                );
+                              } else {
+                                setViewMode("preparation");
+                              }
+                            }}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            <ChefHat className="mr-2 h-4 w-4" />
+                            {order.preparationStatus === "pending" ? "Lancer la préparation" : "Préparation"}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewMode("produits")}
+                          >
+                            <Package className="mr-2 h-4 w-4" />
+                            Produits
+                          </Button>
+                        )}
                       </div>
                     )}
                     {isEditingItems && (
@@ -784,6 +813,19 @@ export default function OrderDetailPage() {
                       </Button>
                     )}
                   </div>
+                  {viewMode === "preparation" && !isEditingItems && order.items && order.items.length > 0 && (() => {
+                    const { totalUnits, preparedUnits } = computeProgress(order.items);
+                    const pct = totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
+                    return (
+                      <div className="space-y-1.5 mt-2">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{preparedUnits} / {totalUnits} éléments préparés</span>
+                          <span>{Math.round(pct)}%</span>
+                        </div>
+                        <Progress value={pct} className="h-3" />
+                      </div>
+                    );
+                  })()}
                 </CardHeader>
                 <CardContent>
                   {isEditingItems ? (
@@ -1182,6 +1224,66 @@ export default function OrderDetailPage() {
                         </div>
                       )}
                     </div>
+                  ) : viewMode === "preparation" && order.items && order.items.length > 0 ? (
+                    (() => {
+                      const items = order.items ?? [];
+                      const toPrepare = items.filter((i) => !i.isPrepared);
+                      const prepared = items.filter((i) => i.isPrepared);
+                      return (
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* To prepare column */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                              <span className="h-2 w-2 rounded-full bg-amber-400" />
+                              À préparer
+                              {toPrepare.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">{toPrepare.length}</Badge>
+                              )}
+                            </div>
+                            {toPrepare.length > 0 ? (
+                              <div className="space-y-2">
+                                {toPrepare.map((item) =>
+                                  item.isMenu ? (
+                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                  ) : (
+                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={false} />
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                Tous les articles sont préparés
+                              </div>
+                            )}
+                          </div>
+                          {/* Prepared column */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                              Prêt
+                              {prepared.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">{prepared.length}</Badge>
+                              )}
+                            </div>
+                            {prepared.length > 0 ? (
+                              <div className="space-y-2">
+                                {prepared.map((item) =>
+                                  item.isMenu ? (
+                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                  ) : (
+                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={true} />
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                Aucun article préparé
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
                   ) : order.items && order.items.length > 0 ? (
                     <div className="space-y-2">
                       {order.items.map((item) => (
