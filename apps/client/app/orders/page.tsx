@@ -54,6 +54,7 @@ import {
   deleteOrder,
   fetchOrders,
   formatCurrency,
+  formatDateWithAgo,
   type OrdersResponse,
   type OrderWithItems,
 } from "@/lib/api";
@@ -118,7 +119,7 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
           <TableRow>
             <TableHead className="w-24">Ticket</TableHead>
             <TableHead>Client</TableHead>
-            <TableHead>Créée le</TableHead>
+            <TableHead>Créée</TableHead>
             <TableHead>Retrait</TableHead>
             <TableHead>Articles</TableHead>
             <TableHead>Préparation</TableHead>
@@ -142,11 +143,15 @@ function OrdersTable({ orders }: { orders: OrderWithItems[] }) {
                   <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {new Intl.DateTimeFormat("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                }).format(new Date(order.createdAt))}
+              <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                {(() => {
+                  const { full, ago } = formatDateWithAgo(order.createdAt);
+                  return (
+                    <>
+                      <span className="text-xs">{ago}</span>
+                    </>
+                  );
+                })()}
               </TableCell>
               <TableCell>
                 {formatPickupDate(order) ?? (
