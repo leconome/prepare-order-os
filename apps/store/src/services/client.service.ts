@@ -61,6 +61,7 @@ export async function createClient(tenantId: string, data: CreateClient) {
     .insert(clients)
     .values({
       name: data.name,
+      type: data.type ?? "particulier",
       phone: data.phone ?? null,
       email: data.email ?? null,
       notes: data.notes ?? null,
@@ -77,6 +78,7 @@ export async function updateClient(tenantId: string, id: string, data: UpdateCli
   };
 
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.type !== undefined) updateData.type = data.type;
   if (data.phone !== undefined) updateData.phone = data.phone;
   if (data.email !== undefined) updateData.email = data.email;
   if (data.notes !== undefined) updateData.notes = data.notes;

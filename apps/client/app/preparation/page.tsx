@@ -135,18 +135,17 @@ function PreparationPageContent() {
           </div>
         ) : (
           <Tabs defaultValue={defaultTab}>
-            <TabsList className="w-full h-12">
+            <TabsList>
               {tabData.map((tab) => (
                 <TabsTrigger
                   key={tab.key}
                   value={tab.key}
-                  className="flex-1 h-full text-base gap-2"
                 >
                   <tab.icon className="h-4 w-4" />
                   {tab.label}
                   <Badge
                     variant="secondary"
-                    className="ml-1 text-xs h-5 px-1.5"
+                    className="ml-1.5 text-xs h-5 px-1.5"
                   >
                     {tab.orders.length}
                   </Badge>
@@ -166,8 +165,8 @@ function PreparationPageContent() {
                   </div>
                 ) : (
                   <div className="rounded-lg overflow-hidden border-2">
-                    {tab.orders.map((order) => (
-                      <OrderRow key={order.id} order={order} />
+                    {tab.orders.map((order, index) => (
+                      <OrderRow key={order.id} order={order} even={index % 2 === 0} />
                     ))}
                   </div>
                 )}

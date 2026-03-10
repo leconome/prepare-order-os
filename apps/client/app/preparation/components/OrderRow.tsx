@@ -27,7 +27,7 @@ import {
 import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
 
-function OrderRow({ order }: { order: OrderWithItems }) {
+function OrderRow({ order, even = false }: { order: OrderWithItems; even?: boolean }) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -76,7 +76,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         if (e.key === "Enter" || e.key === " ")
           router.push(`/orders/${order.id}?view=preparation`);
       }}
-      className={`grid grid-cols-8 gap-2 items-center w-full border-b bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
+      className={`grid grid-cols-8 gap-2 items-center w-full border-b py-2 px-4 text-sm text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : even ? "bg-card" : "bg-muted/30"} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">

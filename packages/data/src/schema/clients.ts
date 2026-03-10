@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   text,
@@ -10,11 +11,17 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { tenants } from "./tenants.js";
 
+export const clientTypeEnum = pgEnum("client_type", [
+  "particulier",
+  "professionnel",
+]);
+
 export const clients = pgTable(
   "clients",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 200 }).notNull(),
+    type: clientTypeEnum("type").notNull().default("particulier"),
     phone: varchar("phone", { length: 20 }),
     email: varchar("email", { length: 255 }),
     notes: text("notes"),
@@ -40,8 +47,11 @@ export const insertClientSchema = createInsertSchema(clients);
 export const selectClientSchema = createSelectSchema(clients);
 
 // Custom schemas for API
+export const clientTypeSchema = z.enum(["particulier", "professionnel"]);
+
 export const createClientSchema = z.object({
   name: z.string().min(1).max(200),
+  type: clientTypeSchema.optional(),
   phone: z.string().max(20).optional(),
   email: z.string().email().max(255).optional(),
   notes: z.string().max(1000).optional(),
@@ -49,6 +59,7 @@ export const createClientSchema = z.object({
 
 export const updateClientSchema = z.object({
   name: z.string().min(1).max(200).optional(),
+  type: clientTypeSchema.optional(),
   phone: z.string().max(20).nullable().optional(),
   email: z.string().email().max(255).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
