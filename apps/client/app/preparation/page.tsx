@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ import { OrderRow } from "./components/OrderRow";
 import { type PreparationStatus, TABS } from "./constants";
 
 export default function PreparationPage() {
+  return (
+    <Suspense>
+      <PreparationPageContent />
+    </Suspense>
+  );
+}
+
+function PreparationPageContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
