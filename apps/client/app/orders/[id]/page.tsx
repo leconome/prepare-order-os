@@ -60,6 +60,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
   SelectLabel,
   SelectSeparator,
   SelectTrigger,
@@ -1724,22 +1725,22 @@ export default function OrderDetailPage() {
                           <SelectContent>
                             <SelectItem value="none">Aucun</SelectItem>
                             {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
-                              <>
+                              <SelectGroup>
                                 <SelectSeparator />
                                 <SelectLabel>Points de vente</SelectLabel>
                                 {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
                                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                 ))}
-                              </>
+                              </SelectGroup>
                             )}
                             {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
-                              <>
+                              <SelectGroup>
                                 <SelectSeparator />
                                 <SelectLabel>Points de retrait</SelectLabel>
                                 {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
                                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                 ))}
-                              </>
+                              </SelectGroup>
                             )}
                           </SelectContent>
                         </Select>
