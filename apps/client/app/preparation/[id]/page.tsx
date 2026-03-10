@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   Check,
@@ -192,6 +193,14 @@ export default function PreparationDetailPage() {
       ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
       : order.pickupTimeStart || null;
 
+  const isOverdue = (() => {
+    if (!order.pickupDate) return false;
+    if (order.preparationStatus === "picked_up") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(order.pickupDate) < today;
+  })();
+
   return (
     <DashboardLayout
       title={`Commande #${order.ticketNumber}`}
@@ -232,6 +241,17 @@ export default function PreparationDetailPage() {
                     <div className="flex items-center gap-1">
                       <UserRound className="h-3.5 w-3.5" />
                       {order.client.name}
+                    </div>
+                  )}
+                  {order.pickupDate && (
+                    <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                      {isOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : <Calendar className="h-3.5 w-3.5" />}
+                      {isOverdue ? "En retard · " : "Retrait "}
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      }).format(new Date(order.pickupDate))}
                     </div>
                   )}
                   {pickupTime && (

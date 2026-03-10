@@ -314,7 +314,7 @@ export default function OrderDetailPage() {
 
   const addProductToOrder = (product: Product) => {
     const unitType = product.unitType || "piece";
-    const increment = UNIT_CONFIG[unitType].defaultQty;
+    const increment = product.defaultQty ? parseQty(product.defaultQty) : UNIT_CONFIG[unitType].defaultQty;
     const existing = editableItems.find(
       (item) => item.productId === product.id && !item.menuId,
     );

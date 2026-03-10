@@ -1,11 +1,11 @@
 export const FILTER_DAYS_OPTIONS = [
   { value: "0", label: "Aujourd'hui uniquement" },
-  { value: "1", label: "Aujourd'hui + 1 jour avant" },
-  { value: "2", label: "Aujourd'hui + 2 jours avant" },
-  { value: "3", label: "Aujourd'hui + 3 jours avant" },
-  { value: "7", label: "Aujourd'hui + 7 jours avant" },
-  { value: "14", label: "Aujourd'hui + 14 jours avant" },
-  { value: "30", label: "Aujourd'hui + 30 jours avant" },
+  { value: "1", label: "Aujourd'hui ± 1 jour" },
+  { value: "2", label: "Aujourd'hui ± 2 jours" },
+  { value: "3", label: "Aujourd'hui ± 3 jours" },
+  { value: "7", label: "Aujourd'hui ± 7 jours" },
+  { value: "14", label: "Aujourd'hui ± 14 jours" },
+  { value: "30", label: "Aujourd'hui ± 30 jours" },
 ];
 
 export const SMS_STATUS_LABELS: Record<string, string> = {

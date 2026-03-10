@@ -30,6 +30,7 @@ export const products = pgTable(
     imageUrl: text("image_url"),
     stock: decimal("stock", { precision: 10, scale: 3 }),
     unitType: unitTypeEnum("unit_type").notNull().default("piece"),
+    defaultQty: decimal("default_qty", { precision: 10, scale: 3 }),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     tenantId: uuid("tenant_id")
@@ -72,6 +73,7 @@ export const createProductSchema = z.object({
   imageUrl: z.string().url().nullish().or(z.literal("")),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.default("piece"),
+  defaultQty: z.number().positive().nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -87,6 +89,7 @@ export const updateProductSchema = z.object({
   imageUrl: z.string().url().nullish().or(z.literal("")),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.optional(),
+  defaultQty: z.number().positive().nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });

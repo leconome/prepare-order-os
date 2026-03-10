@@ -38,28 +38,41 @@ function PreparationPageContent() {
   const trimmedSearch = search.trim();
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["preparation-orders", filterDays, trimmedSearch],
-    queryFn: () => {
-      const pickupDateFrom = new Date();
-      pickupDateFrom.setDate(pickupDateFrom.getDate() - filterDays);
-      pickupDateFrom.setHours(0, 0, 0, 0);
-      return fetchOrders({
+    queryKey: ["preparation-orders", trimmedSearch],
+    queryFn: () =>
+      fetchOrders({
         limit: 200,
-        pickupDateFrom,
-        pickupDateTo: new Date(new Date().setHours(23, 59, 59, 999)),
         search: trimmedSearch || undefined,
-      });
-    },
+      }),
     refetchInterval: 30000,
   });
 
-  const orders = data?.data ?? [];
+  const allOrders = data?.data ?? [];
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Show future orders + past orders unless already picked up
+  const orders = allOrders.filter((o) => {
+    const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
+    if (!pickup || pickup >= todayStart) return true;
+    return o.preparationStatus !== "picked_up";
+  });
 
   const tabData = TABS.map((tab) => ({
     ...tab,
-    orders: orders.filter((o) =>
-      tab.statuses.includes(o.preparationStatus as PreparationStatus),
-    ),
+    orders: orders
+      .filter((o) =>
+        tab.statuses.includes(o.preparationStatus as PreparationStatus),
+      )
+      .sort((a, b) => {
+        // picked_up orders go last
+        const pa = a.preparationStatus === "picked_up" ? 1 : 0;
+        const pb = b.preparationStatus === "picked_up" ? 1 : 0;
+        if (pa !== pb) return pa - pb;
+        const da = a.pickupDate ? new Date(a.pickupDate).getTime() : 0;
+        const db = b.pickupDate ? new Date(b.pickupDate).getTime() : 0;
+        return da - db;
+      }),
   }));
 
   return (

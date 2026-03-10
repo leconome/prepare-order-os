@@ -62,6 +62,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
       imageUrl: initialData?.imageUrl ?? "",
       stock: initialData?.stock != null ? parseQty(initialData.stock) : undefined,
       unitType: initialData?.unitType ?? "piece",
+      defaultQty: initialData?.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -78,6 +79,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
         imageUrl: initialData.imageUrl ?? "",
         stock: initialData.stock != null ? parseQty(initialData.stock) : undefined,
         unitType: initialData.unitType ?? "piece",
+        defaultQty: initialData.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -206,6 +208,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                       <SelectContent>
                         <SelectItem value="piece">Pièce (à l'unité)</SelectItem>
                         <SelectItem value="kg">Kilogramme (au poids)</SelectItem>
+                        <SelectItem value="litre">Litre (au volume)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -213,6 +216,33 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="defaultQty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantité par défaut</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step={unitConfig.step}
+                      placeholder={String(unitConfig.defaultQty)}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === "" ? null : Number(val));
+                      }}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Quantité ajoutée au panier par défaut ({unitConfig.defaultQty} {unitConfig.suffix || "unité"} si vide)
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

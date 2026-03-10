@@ -228,7 +228,7 @@ export default function NewOrderPage() {
 
   const addProductToOrder = (product: Product) => {
     const unitType = product.unitType || "piece";
-    const increment = UNIT_CONFIG[unitType].defaultQty;
+    const increment = product.defaultQty ? parseQty(product.defaultQty) : UNIT_CONFIG[unitType].defaultQty;
     const existingItem = orderItems.find(
       (item) => item.productId === product.id && !item.menuId
     );
@@ -354,7 +354,7 @@ export default function NewOrderPage() {
     const orderData: CreateOrder = {
       items: orderItems,
       clientId: selectedClient?.id || undefined,
-      pickupDate: data.pickupDate || undefined,
+      pickupDate: data.pickupDate,
       pickupTimeStart: data.pickupTimeStart || undefined,
       pickupTimeEnd: data.pickupTimeEnd || undefined,
       clientNote: data.clientNote || undefined,
@@ -539,427 +539,11 @@ export default function NewOrderPage() {
               </CardContent>
             </Card>
 
-            {/* Client Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <UserRound className="h-5 w-5" />
-                  Client
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!showNewClientForm ? (
-                  <div className="space-y-3">
-                    {/* Selected client display */}
-                    {selectedClient && (
-                      <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
-                            {selectedClient.name[0]?.toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium">{selectedClient.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {selectedClient.phone || selectedClient.email || "Aucun contact"}
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedClient(null)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Client search */}
-                    {!selectedClient && (
-                      <>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            placeholder="Rechercher un client..."
-                            value={clientSearchQuery}
-                            onChange={(e) => setClientSearchQuery(e.target.value)}
-                            className="pl-10"
-                          />
-                        </div>
-
-                        {/* Client list */}
-                        {clientsData?.data && clientsData.data.length > 0 && (
-                          <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border p-2">
-                            {clientsData.data.map((client) => (
-                              <button
-                                key={client.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedClient(client);
-                                  setClientSearchQuery("");
-                                }}
-                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
-                              >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs">
-                                  {client.name[0]?.toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">{client.name}</div>
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {client.phone || client.email || "Aucun contact"}
-                                  </div>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {clientSearchQuery && clientsData?.data?.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-2">
-                            Aucun client trouvé
-                          </p>
-                        )}
-                      </>
-                    )}
-
-                    {/* New client button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setShowNewClientForm(true)}
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Nouveau client
-                    </Button>
-                  </div>
-                ) : (
-                  /* Quick client creation form */
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Nouveau client</h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowNewClientForm(false);
-                          clientForm.reset();
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-medium">Nom *</label>
-                        <Input
-                          placeholder="Nom du client"
-                          {...clientForm.register("name")}
-                        />
-                        {clientForm.formState.errors.name && (
-                          <p className="text-xs text-destructive mt-1">
-                            {clientForm.formState.errors.name.message}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Téléphone</label>
-                        <Input
-                          placeholder="06 12 34 56 78"
-                          {...clientForm.register("phone")}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Email</label>
-                        <Input
-                          type="email"
-                          placeholder="client@example.com"
-                          {...clientForm.register("email")}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          setShowNewClientForm(false);
-                          clientForm.reset();
-                        }}
-                      >
-                        Annuler
-                      </Button>
-                      <Button
-                        type="button"
-                        className="flex-1"
-                        disabled={createClientMutation.isPending}
-                        onClick={handleQuickClientCreate}
-                      >
-                        {createClientMutation.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Check className="mr-2 h-4 w-4" />
-                        )}
-                        Créer
-                      </Button>
-                    </div>
-
-                    {createClientMutation.isError && (
-                      <p className="text-sm text-destructive">
-                        Erreur: {(createClientMutation.error as Error).message}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Order Details Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Détails de la commande</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Form {...form}>
-                  <form className="space-y-4">
-                    {/* Date picker */}
-                    <FormField
-                      control={form.control}
-                      name="pickupDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Date de retrait</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? (
-                                    format(field.value, "EEEE d MMMM yyyy", { locale: fr })
-                                  ) : (
-                                    <span>Choisir une date</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              className="w-auto p-0"
-                              align="start"
-                            >
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                disabled={(date) =>
-                                  date < new Date(new Date().setHours(0, 0, 0, 0))
-                                }
-                                initialFocus
-                                locale={fr}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Time intervals */}
-                    <div className="space-y-2">
-                      <FormLabel>Créneau de retrait</FormLabel>
-                      <div className="grid grid-cols-3 gap-3">
-                        {TIME_INTERVALS.map((interval) => (
-                          <button
-                            key={interval.id}
-                            type="button"
-                            onClick={() => handleIntervalSelect(interval)}
-                            className={cn(
-                              "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all hover:scale-[1.02]",
-                              selectedInterval === interval.id
-                                ? "border-transparent bg-gradient-to-br text-white shadow-lg " + interval.color
-                                : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/50"
-                            )}
-                          >
-                            <div className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-full",
-                              selectedInterval === interval.id
-                                ? "bg-white/20"
-                                : "bg-gradient-to-br " + interval.color + " text-white"
-                            )}>
-                              {interval.icon}
-                            </div>
-                            <div className="text-center">
-                              <div className="font-semibold">{interval.label}</div>
-                              <div className={cn(
-                                "text-xs",
-                                selectedInterval === interval.id
-                                  ? "text-white/80"
-                                  : "text-muted-foreground"
-                              )}>
-                                {interval.timeStart} - {interval.timeEnd}
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="posId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Point de vente</FormLabel>
-                          <Select
-                            onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
-                            value={field.value ?? "none"}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Aucun" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="none">Aucun</SelectItem>
-                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
-                                <SelectGroup>
-                                  <SelectSeparator />
-                                  <SelectLabel>Points de vente</SelectLabel>
-                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
-                                <SelectGroup>
-                                  <SelectSeparator />
-                                  <SelectLabel>Points de retrait</SelectLabel>
-                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="createdById"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Prise par</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner un membre" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {staffData?.data.map((user) => (
-                                <SelectItem
-                                  key={user.id}
-                                  value={user.id}
-                                >
-                                  {user.name || user.email}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="assignedToId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Assigné à</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Sélectionner un membre" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {staffData?.data.map((user) => (
-                                <SelectItem
-                                  key={user.id}
-                                  value={user.id}
-                                >
-                                  {user.name || user.email}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="clientNote"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Note client</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Instructions du client..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="internalNote"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Note interne</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Notes internes (non visibles par le client)..."
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Order Summary */}
+          {/* Right column: Cart, Client, Order Details */}
           <div className="space-y-4">
-            <Card className="sticky top-4 border-blue-200/50 shadow-sm">
+            <Card className="border-blue-200/50 shadow-sm">
               <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-t-lg">
                 <CardTitle className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5 text-blue-600" />
@@ -1089,21 +673,6 @@ export default function NewOrderPage() {
                       })}
                     </div>
 
-                    {/* Selected client in summary */}
-                    {selectedClient && (
-                      <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
-                        <UserRound className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium truncate">{selectedClient.name}</div>
-                          {(selectedClient.phone || selectedClient.email) && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {selectedClient.phone || selectedClient.email}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
                     <div className="border-t pt-4 space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Sous-total</span>
@@ -1152,30 +721,454 @@ export default function NewOrderPage() {
                       </div>
                     </div>
 
-                    <Button
-                      onClick={onSubmit}
-                      disabled={
-                        orderItems.length === 0 || createOrderMutation.isPending
-                      }
-                      className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-                    >
-                      {createOrderMutation.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                      )}
-                      Créer la commande
-                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-                    {createOrderMutation.isError && (
-                      <p className="text-sm text-destructive text-center">
-                        Erreur: {(createOrderMutation.error as Error).message}
+            {/* Client Selection */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <UserRound className="h-4 w-4" />
+                  Client
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!showNewClientForm ? (
+                  <div className="space-y-3">
+                    {selectedClient && (
+                      <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs text-white shrink-0">
+                            {selectedClient.name[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{selectedClient.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {selectedClient.phone || selectedClient.email || "Aucun contact"}
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setSelectedClient(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {!selectedClient && (
+                      <>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Rechercher un client..."
+                            value={clientSearchQuery}
+                            onChange={(e) => setClientSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+
+                        {clientsData?.data && clientsData.data.length > 0 && (
+                          <div className="max-h-[150px] overflow-y-auto space-y-1 rounded-lg border p-2">
+                            {clientsData.data.map((client) => (
+                              <button
+                                key={client.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedClient(client);
+                                  setClientSearchQuery("");
+                                }}
+                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted transition-colors"
+                              >
+                                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs">
+                                  {client.name[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-sm truncate">{client.name}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {client.phone || client.email || "Aucun contact"}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {clientSearchQuery && clientsData?.data?.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-2">
+                            Aucun client trouvé
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setShowNewClientForm(true)}
+                    >
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Nouveau client
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Nouveau client</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setShowNewClientForm(false);
+                          clientForm.reset();
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs font-medium">Nom *</label>
+                        <Input
+                          placeholder="Nom du client"
+                          className="h-8"
+                          {...clientForm.register("name")}
+                        />
+                        {clientForm.formState.errors.name && (
+                          <p className="text-xs text-destructive mt-1">
+                            {clientForm.formState.errors.name.message}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium">Téléphone</label>
+                        <Input
+                          placeholder="06 12 34 56 78"
+                          className="h-8"
+                          {...clientForm.register("phone")}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium">Email</label>
+                        <Input
+                          type="email"
+                          placeholder="client@example.com"
+                          className="h-8"
+                          {...clientForm.register("email")}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => {
+                          setShowNewClientForm(false);
+                          clientForm.reset();
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1"
+                        disabled={createClientMutation.isPending}
+                        onClick={handleQuickClientCreate}
+                      >
+                        {createClientMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Créer
+                      </Button>
+                    </div>
+
+                    {createClientMutation.isError && (
+                      <p className="text-sm text-destructive">
+                        Erreur: {(createClientMutation.error as Error).message}
                       </p>
                     )}
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Order Details */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Détails</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form className="space-y-3">
+                    <FormField
+                      control={form.control}
+                      name="pickupDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel className="text-xs">Date de retrait</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "EEE d MMM yyyy", { locale: fr })
+                                  ) : (
+                                    <span>Choisir une date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
+                            >
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date < new Date(new Date().setHours(0, 0, 0, 0))
+                                }
+                                initialFocus
+                                locale={fr}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-1">
+                      <FormLabel className="text-xs">Créneau de retrait</FormLabel>
+                      <div className="grid grid-cols-3 gap-2">
+                        {TIME_INTERVALS.map((interval) => (
+                          <button
+                            key={interval.id}
+                            type="button"
+                            onClick={() => handleIntervalSelect(interval)}
+                            className={cn(
+                              "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all text-xs",
+                              selectedInterval === interval.id
+                                ? "border-transparent bg-gradient-to-br text-white shadow-md " + interval.color
+                                : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/50"
+                            )}
+                          >
+                            <div className={cn(
+                              "flex h-7 w-7 items-center justify-center rounded-full",
+                              selectedInterval === interval.id
+                                ? "bg-white/20"
+                                : "bg-gradient-to-br " + interval.color + " text-white"
+                            )}>
+                              {interval.icon}
+                            </div>
+                            <div className="font-semibold">{interval.label}</div>
+                            <div className={cn(
+                              "text-[10px]",
+                              selectedInterval === interval.id
+                                ? "text-white/80"
+                                : "text-muted-foreground"
+                            )}>
+                              {interval.timeStart}-{interval.timeEnd}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="posId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Point de vente</FormLabel>
+                          <Select
+                            onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
+                            value={field.value ?? "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Aucun" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Aucun</SelectItem>
+                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de vente</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="createdById"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Prise par</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Choisir..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {staffData?.data.map((user) => (
+                                  <SelectItem
+                                    key={user.id}
+                                    value={user.id}
+                                  >
+                                    {user.name || user.email}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="assignedToId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Assigné à</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Choisir..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {staffData?.data.map((user) => (
+                                  <SelectItem
+                                    key={user.id}
+                                    value={user.id}
+                                  >
+                                    {user.name || user.email}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="clientNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Note client</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Instructions du client..."
+                              className="min-h-[60px] text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="internalNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Note interne</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Notes internes..."
+                              className="min-h-[60px] text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* Submit */}
+            <Button
+              onClick={onSubmit}
+              disabled={
+                orderItems.length === 0 || createOrderMutation.isPending
+              }
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              size="lg"
+            >
+              {createOrderMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="mr-2 h-4 w-4" />
+              )}
+              Créer la commande
+            </Button>
+
+            {createOrderMutation.isError && (
+              <p className="text-sm text-destructive text-center">
+                Erreur: {(createOrderMutation.error as Error).message}
+              </p>
+            )}
           </div>
         </div>
       </div>
