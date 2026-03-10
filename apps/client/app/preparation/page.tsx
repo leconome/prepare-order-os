@@ -45,6 +45,7 @@ function PreparationPageContent() {
         search: trimmedSearch || undefined,
       }),
     refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const allOrders = data?.data ?? [];

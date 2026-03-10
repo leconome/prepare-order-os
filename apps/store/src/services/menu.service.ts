@@ -31,14 +31,25 @@ export async function listMenus(tenantId: string, filters: MenuFilters) {
       limit,
       offset,
       orderBy: [asc(menus.sortOrder), asc(menus.name)],
+      with: {
+        menuProducts: {
+          with: { product: true },
+          orderBy: [asc(menuProducts.sortOrder)],
+        },
+      },
     }),
     db.select({ count: sql<number>`count(*)` }).from(menus).where(whereClause),
   ]);
 
   const total = Number(countResult[0]?.count ?? 0);
 
+  const menusWithProducts = data.map(({ menuProducts: mp, ...menu }) => ({
+    ...menu,
+    products: mp.map(({ product, quantity }) => ({ product, quantity })),
+  }));
+
   return {
-    data,
+    data: menusWithProducts,
     pagination: {
       page,
       limit,
