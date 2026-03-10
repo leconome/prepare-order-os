@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -203,6 +203,7 @@ function orderToFormValues(order: {
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orderId = params.id as string;
   const queryClient = useQueryClient();
 
@@ -518,14 +519,14 @@ export default function OrderDetailPage() {
     setSelectedClient(order.client ?? null);
   }, [order, form]);
 
-  // Auto-set view mode based on preparation status (only on first load)
+  // Auto-set view mode based on preparation status or search param (only on first load)
   useEffect(() => {
     if (!order || viewModeInitialized.current) return;
     viewModeInitialized.current = true;
-    if (["in_preparation", "ready"].includes(order.preparationStatus)) {
+    if (searchParams.get("view") === "preparation" || ["in_preparation", "ready"].includes(order.preparationStatus)) {
       setViewMode("preparation");
     }
-  }, [order]);
+  }, [order, searchParams]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (data: {

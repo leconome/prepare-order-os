@@ -26,7 +26,9 @@ function PreparationPageContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const defaultTab = TABS.some((t) => t.key === tabParam) ? (tabParam as string) : "to_prepare";
+  const defaultTab = TABS.some((t) => t.key === tabParam)
+    ? (tabParam as string)
+    : "to_prepare";
   const [search, setSearch] = useState("");
 
   const { data: tenant } = useQuery({
@@ -135,7 +137,11 @@ function PreparationPageContent() {
           <Tabs defaultValue={defaultTab}>
             <TabsList className="w-full h-12">
               {tabData.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key} className="flex-1 h-full text-base gap-2">
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  className="flex-1 h-full text-base gap-2"
+                >
                   <tab.icon className="h-4 w-4" />
                   {tab.label}
                   <Badge
@@ -160,7 +166,7 @@ function PreparationPageContent() {
                     Aucune commande
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="rounded-lg overflow-hidden border-2">
                     {tab.orders.map((order) => (
                       <OrderRow key={order.id} order={order} />
                     ))}
