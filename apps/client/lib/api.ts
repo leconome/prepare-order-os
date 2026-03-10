@@ -736,6 +736,33 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date));
 }
 
+export function formatDateWithAgo(date: string | Date): {
+  full: string;
+  ago: string;
+} {
+  const d = new Date(date);
+  const full = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  let ago: string;
+  if (seconds < 60) ago = "à l'instant";
+  else if (seconds < 3600)
+    ago = `il y a ${Math.floor(seconds / 60)} min`;
+  else if (seconds < 86400)
+    ago = `il y a ${Math.floor(seconds / 3600)}h`;
+  else if (seconds < 2592000)
+    ago = `il y a ${Math.floor(seconds / 86400)}j`;
+  else ago = `il y a ${Math.floor(seconds / 2592000)} mois`;
+
+  return { full, ago };
+}
+
 // Re-export types for convenience
 export type {
   Order,
