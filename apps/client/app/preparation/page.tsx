@@ -111,13 +111,14 @@ export default function PreparationPage() {
           </div>
         ) : (
           <Tabs defaultValue={defaultTab}>
-            <TabsList>
+            <TabsList className="w-full h-12">
               {tabData.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key}>
+                <TabsTrigger key={tab.key} value={tab.key} className="flex-1 h-full text-base gap-2">
+                  <tab.icon className="h-4 w-4" />
                   {tab.label}
                   <Badge
                     variant="secondary"
-                    className="ml-1.5 text-xs h-5 px-1.5"
+                    className="ml-1 text-xs h-5 px-1.5"
                   >
                     {tab.orders.length}
                   </Badge>
