@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const UNITS = ["piece", "kg"] as const;
+export const UNITS = ["piece", "kg", "litre"] as const;
 
 export const unitSchema = z.enum(UNITS);
 export type Unit = z.infer<typeof unitSchema>;
@@ -29,6 +29,15 @@ export const UNIT_CONFIG: Record<Unit, UnitConfig> = {
     label: "Kilogramme (au poids)",
     suffix: "kg",
     priceSuffix: "/kg",
+    precision: 3,
+    step: 0.1,
+    defaultQty: 0.5,
+    integerStock: false,
+  },
+  litre: {
+    label: "Litre (au volume)",
+    suffix: "L",
+    priceSuffix: "/L",
     precision: 3,
     step: 0.1,
     defaultQty: 0.5,
@@ -75,7 +84,7 @@ export function formatQtyLabel(
   return `${Math.round(qty)}x`;
 }
 
-/** Human-friendly weight label: "500 g", "1,2 kg", "3x" */
+/** Human-friendly weight label: "500 g", "1,2 kg", "50 cL", "1,2 L", "3x" */
 export function formatWeightLabel(
   raw: string | number,
   unit: Unit = "piece",
@@ -88,6 +97,14 @@ export function formatWeightLabel(
     }
     const formatted = qty.toFixed(3).replace(/\.?0+$/, "").replace(".", ",");
     return `${formatted} kg`;
+  }
+  if (unit === "litre") {
+    if (qty < 1) {
+      const cl = Math.round(qty * 100);
+      return `${cl} cL`;
+    }
+    const formatted = qty.toFixed(3).replace(/\.?0+$/, "").replace(".", ",");
+    return `${formatted} L`;
   }
   return `${Math.round(qty)}x`;
 }

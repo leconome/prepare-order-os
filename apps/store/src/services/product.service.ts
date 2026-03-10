@@ -91,6 +91,7 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
       imageUrl: data.imageUrl ?? null,
       stock: data.stock != null ? String(data.stock) : null,
       unitType: data.unitType ?? "piece",
+      defaultQty: data.defaultQty != null ? String(data.defaultQty) : null,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
       tenantId,
@@ -112,6 +113,7 @@ export async function updateProduct(tenantId: string, id: string, data: UpdatePr
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
   if (data.stock !== undefined) updateData.stock = data.stock != null ? String(data.stock) : null;
   if (data.unitType !== undefined) updateData.unitType = data.unitType;
+  if (data.defaultQty !== undefined) updateData.defaultQty = data.defaultQty != null ? String(data.defaultQty) : null;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 
