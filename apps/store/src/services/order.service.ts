@@ -307,6 +307,7 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
     pickupDateTo,
     fromDate,
     toDate,
+    posId,
     page = 1,
     limit = 20,
   } = filters;
@@ -359,6 +360,10 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
 
   if (assignedToId) {
     conditions.push(eq(orders.assignedToId, assignedToId));
+  }
+
+  if (posId) {
+    conditions.push(eq(orders.posId, posId));
   }
 
   if (pickupDate) {
@@ -423,6 +428,13 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
             name: true,
           },
         },
+        pointOfSale: {
+          columns: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
       },
     }),
     db.select({ count: sql<number>`count(*)` }).from(orders).where(whereClause),
@@ -473,6 +485,13 @@ export async function getOrderById(tenantId: string, id: string) {
           name: true,
         },
       },
+      pointOfSale: {
+        columns: {
+          id: true,
+          name: true,
+          type: true,
+        },
+      },
     },
   });
 }
@@ -492,6 +511,7 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       internalNote: data.internalNote ?? null,
       createdById: data.createdById ?? null,
       assignedToId: data.assignedToId ?? null,
+      posId: data.posId ?? null,
       subtotal: "0.00",
       taxTotal: "0.00",
       total: "0.00",
@@ -552,6 +572,7 @@ export async function updateOrder(
     updateData.createdById = data.createdById;
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
+  if (data.posId !== undefined) updateData.posId = data.posId;
   if (data.smsNotifiedAt !== undefined)
     updateData.smsNotifiedAt = data.smsNotifiedAt;
   if (data.discountType !== undefined)
