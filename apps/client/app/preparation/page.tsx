@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,9 @@ import { type PreparationStatus, TABS } from "./constants";
 
 export default function PreparationPage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const defaultTab = TABS.some((t) => t.key === tabParam) ? (tabParam as string) : "to_prepare";
   const [search, setSearch] = useState("");
 
   const { data: tenant } = useQuery({
@@ -106,7 +110,7 @@ export default function PreparationPage() {
             ))}
           </div>
         ) : (
-          <Tabs defaultValue="to_prepare">
+          <Tabs defaultValue={defaultTab}>
             <TabsList>
               {tabData.map((tab) => (
                 <TabsTrigger key={tab.key} value={tab.key}>

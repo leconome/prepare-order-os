@@ -8,13 +8,8 @@ const TABS = [
   },
   {
     key: "ready",
-    label: "Prêt",
-    statuses: ["ready"] as PreparationStatus[],
-  },
-  {
-    key: "picked_up",
-    label: "Récupéré",
-    statuses: ["picked_up"] as PreparationStatus[],
+    label: "À récupérer",
+    statuses: ["ready", "picked_up"] as PreparationStatus[],
   },
 ];
 
