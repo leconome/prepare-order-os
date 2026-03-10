@@ -16,6 +16,10 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
 import { clients, type Client } from "./clients.js";
+import {
+  pointsOfSale,
+  type PointOfSale,
+} from "./points-of-sale.js";
 import { unitTypeEnum, unitTypeSchema } from "./products.js";
 import { tenants } from "./tenants.js";
 
@@ -59,6 +63,9 @@ export const orders = pgTable(
     // References to users table (text ID from better-auth)
     createdById: text("created_by_id").references(() => users.id),
     assignedToId: text("assigned_to_id").references(() => users.id),
+    posId: uuid("pos_id").references(() => pointsOfSale.id, {
+      onDelete: "set null",
+    }),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
@@ -143,6 +150,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [users.id],
     relationName: "assignedOrders",
   }),
+  pointOfSale: one(pointsOfSale, {
+    fields: [orders.posId],
+    references: [pointsOfSale.id],
+  }),
   items: many(orderItems),
 }));
 
@@ -213,6 +224,7 @@ export const createOrderSchema = z.object({
   // createdById is auto-filled from logged-in user, but can be overridden
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
+  posId: z.string().uuid().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
@@ -229,6 +241,7 @@ export const updateOrderSchema = z.object({
   internalNote: z.string().nullable().optional(),
   createdById: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  posId: z.string().uuid().nullable().optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().nullable().optional(),
@@ -249,6 +262,7 @@ export const orderFiltersSchema = z.object({
   preparationStatus: preparationStatusSchema.optional(),
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
+  posId: z.string().uuid().optional(),
   pickupDate: z.coerce.date().optional(),
   pickupDateFrom: z.coerce.date().optional(),
   pickupDateTo: z.coerce.date().optional(),
@@ -261,6 +275,9 @@ export const orderFiltersSchema = z.object({
 // Client reference type (minimal info for display)
 export type ClientRef = Pick<Client, "id" | "name" | "phone" | "email">;
 
+// Point of sale reference type (minimal info for display)
+export type PointOfSaleRef = Pick<PointOfSale, "id" | "name" | "type">;
+
 // Types
 export type OrderItemWithMenuItems = OrderItem & {
   menuItems?: OrderMenuItem[];
@@ -270,6 +287,7 @@ export type OrderWithItems = Order & {
   client?: ClientRef | null;
   createdBy?: UserRef;
   assignedTo?: UserRef;
+  pointOfSale?: PointOfSaleRef | null;
 };
 export type PaymentStatusType = z.infer<typeof paymentStatusSchema>;
 export type PreparationStatusType = z.infer<typeof preparationStatusSchema>;
