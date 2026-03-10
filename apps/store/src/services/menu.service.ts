@@ -1,4 +1,4 @@
-import { eq, and, sql, asc, inArray } from "drizzle-orm";
+import { eq, and, ilike, sql, asc, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   menus,
@@ -10,10 +10,14 @@ import {
 } from "@prepareos/data";
 
 export async function listMenus(tenantId: string, filters: MenuFilters) {
-  const { isActive, page = 1, limit = 20 } = filters;
+  const { search, isActive, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
   const conditions = [eq(menus.tenantId, tenantId)];
+
+  if (search) {
+    conditions.push(ilike(menus.name, `%${search}%`));
+  }
 
   if (isActive !== undefined) {
     conditions.push(eq(menus.isActive, isActive));

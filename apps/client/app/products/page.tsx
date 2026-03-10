@@ -2,7 +2,7 @@
 
 import { parseQty, UNIT_CONFIG } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
-import { ImageIcon, Plus, RefreshCw, X } from "lucide-react";
+import { ImageIcon, Plus, RefreshCw, Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -11,6 +11,7 @@ import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -201,6 +202,8 @@ export default function ProductsPage() {
     null,
   );
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const trimmedSearch = search.trim();
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -208,12 +211,13 @@ export default function ProductsPage() {
   });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["products", selectedCategoryId, page],
+    queryKey: ["products", selectedCategoryId, page, trimmedSearch],
     queryFn: () =>
       fetchProducts({
         page,
         limit: PAGE_SIZE,
         categoryId: selectedCategoryId ?? undefined,
+        search: trimmedSearch || undefined,
       }),
   });
 
@@ -225,6 +229,29 @@ export default function ProductsPage() {
       description="Gérez votre catalogue de produits"
     >
       <div className="space-y-4">
+        {/* Search bar */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un produit..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {/* Category filters */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground mr-2">

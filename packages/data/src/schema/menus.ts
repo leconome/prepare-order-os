@@ -106,6 +106,7 @@ export const updateMenuSchema = z.object({
 });
 
 export const menuFiltersSchema = z.object({
+  search: z.string().optional(),
   isActive: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),

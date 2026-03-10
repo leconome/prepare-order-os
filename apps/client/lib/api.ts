@@ -317,6 +317,7 @@ export async function fetchCategories(
   if (params?.parentId) searchParams.set("parentId", params.parentId);
   if (params?.isActive !== undefined)
     searchParams.set("isActive", String(params.isActive));
+  if (params?.search) searchParams.set("search", params.search);
 
   const query = searchParams.toString();
   return fetchApi<CategoriesResponse>(`/categories${query ? `?${query}` : ""}`);
@@ -371,6 +372,7 @@ export async function fetchMenus(
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.isActive !== undefined)
     searchParams.set("isActive", String(params.isActive));
+  if (params?.search) searchParams.set("search", params.search);
 
   const query = searchParams.toString();
   return fetchApi<MenusResponse>(`/menus${query ? `?${query}` : ""}`);

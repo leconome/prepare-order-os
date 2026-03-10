@@ -78,6 +78,7 @@ export const updateCategorySchema = z.object({
 });
 
 export const categoryFiltersSchema = z.object({
+  search: z.string().optional(),
   parentId: z.string().uuid().nullable().optional(),
   isActive: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().default(1),
