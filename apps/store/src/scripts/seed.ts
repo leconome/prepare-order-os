@@ -6,6 +6,7 @@ import {
   orderItems,
   orderMenuItems,
   orders,
+  pointsOfSale,
   products,
   tenants,
   ticketCounters,
@@ -1326,6 +1327,7 @@ async function clearDatabase() {
   await db.delete(orderMenuItems);
   await db.delete(orderItems);
   await db.delete(orders);
+  await db.delete(pointsOfSale);
   await db.delete(ticketCounters);
   await db.delete(menuProducts);
   await db.delete(menus);
@@ -1335,6 +1337,37 @@ async function clearDatabase() {
   // Don't delete users with BetterAuth accounts, only seed users
   // We'll upsert staff instead
   console.log("✅ Database cleared");
+}
+
+async function seedPointsOfSale(tenantId: string) {
+  console.log("📍 Seeding points of sale...");
+  const posData = [
+    {
+      name: "Comptoir principal",
+      description: "Point de vente permanent en boutique",
+      type: "permanent_pos" as const,
+      sortOrder: 1,
+      tenantId,
+    },
+    {
+      name: "Marché du samedi",
+      description: "Stand au marché hebdomadaire",
+      address: "Place du Marché, Centre-ville",
+      type: "pickup_location" as const,
+      sortOrder: 2,
+      tenantId,
+    },
+    {
+      name: "Retrait Drive",
+      description: "Retrait commande en ligne sur le parking",
+      type: "pickup_location" as const,
+      sortOrder: 3,
+      tenantId,
+    },
+  ];
+  const inserted = await db.insert(pointsOfSale).values(posData).returning();
+  console.log(`✅ Created ${inserted.length} points of sale`);
+  return inserted;
 }
 
 async function seedCategories(tenantId: string) {
@@ -1698,6 +1731,7 @@ async function main() {
 
     const staffList = await seedStaff(tenantId);
     const clientList = await seedClients(tenantId);
+    const posList = await seedPointsOfSale(tenantId);
     const categoryList = await seedCategories(tenantId);
     const productList = await seedProducts(tenantId, categoryList);
     const menuList = await seedMenus(tenantId, productList);
@@ -1708,6 +1742,7 @@ async function main() {
     console.log(`  - Tenant: fromagerie (${tenantId})`);
     console.log(`  - ${staffList.length} staff members`);
     console.log(`  - ${clientList.length} clients`);
+    console.log(`  - ${posList.length} points of sale`);
     console.log(`  - ${categoryList.length} categories`);
     console.log(`  - ${productList.length} products`);
     console.log(`  - ${MENUS.length} menus`);
