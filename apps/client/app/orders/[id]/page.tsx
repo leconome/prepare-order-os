@@ -1870,70 +1870,72 @@ export default function OrderDetailPage() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="posId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Point de retrait</FormLabel>
-                        <Select
-                          onValueChange={(v) => field.onChange(v === "none" ? null : v)}
-                          value={field.value ?? "none"}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Aucun" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">Aucun</SelectItem>
-                            {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
-                              <SelectGroup>
-                                <SelectSeparator />
-                                <SelectLabel>Points de retrait permanents</SelectLabel>
-                                {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                ))}
-                              </SelectGroup>
-                            )}
-                            {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
-                              <SelectGroup>
-                                <SelectSeparator />
-                                <SelectLabel>Points de retrait</SelectLabel>
-                                {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                ))}
-                              </SelectGroup>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="source"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Provenance</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value ?? "comptoir"}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Comptoir" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="comptoir">Comptoir</SelectItem>
-                            <SelectItem value="telephone">Téléphone</SelectItem>
-                            <SelectItem value="site_web">Site web</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="posId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Point de retrait</FormLabel>
+                          <Select
+                            onValueChange={(v) => field.onChange(v === "none" ? null : v)}
+                            value={field.value ?? "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Aucun" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Aucun</SelectItem>
+                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait permanents</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="source"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Provenance</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value ?? "comptoir"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Comptoir" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="comptoir">Comptoir</SelectItem>
+                              <SelectItem value="telephone">Téléphone</SelectItem>
+                              <SelectItem value="site_web">Site web</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
