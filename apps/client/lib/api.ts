@@ -151,6 +151,7 @@ export async function fetchOrders(
   if (params?.fromDate)
     searchParams.set("fromDate", params.fromDate.toISOString());
   if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
+  if (params?.posId) searchParams.set("posId", params.posId);
 
   const query = searchParams.toString();
   return fetchApi<OrdersResponse>(`/orders${query ? `?${query}` : ""}`);

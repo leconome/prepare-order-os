@@ -10,7 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchOrders, fetchTenantSettings } from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fetchOrders, fetchPointsOfSale, fetchTenantSettings } from "@/lib/api";
 import { OrderRow } from "./components/OrderRow";
 import { type PreparationStatus, TABS } from "./constants";
 
@@ -30,21 +37,29 @@ function PreparationPageContent() {
     ? (tabParam as string)
     : "to_prepare";
   const [search, setSearch] = useState("");
+  const [posFilter, setPosFilter] = useState<string>("all");
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
     queryFn: fetchTenantSettings,
   });
 
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale"],
+    queryFn: () => fetchPointsOfSale({ limit: 100 }),
+  });
+
   const filterDays = tenant?.preparationFilterDays ?? 0;
   const trimmedSearch = search.trim();
+  const posId = posFilter !== "all" ? posFilter : undefined;
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["preparation-orders", trimmedSearch],
+    queryKey: ["preparation-orders", trimmedSearch, posId],
     queryFn: () =>
       fetchOrders({
         limit: 200,
         search: trimmedSearch || undefined,
+        posId,
       }),
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
@@ -105,6 +120,22 @@ function PreparationPageContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Select
+              value={posFilter}
+              onValueChange={setPosFilter}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Lieu de retrait" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les lieux</SelectItem>
+                {posData?.data?.map((pos) => (
+                  <SelectItem key={pos.id} value={pos.id}>
+                    {pos.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="text-sm text-muted-foreground whitespace-nowrap">
               {orders.length} commande{orders.length !== 1 ? "s" : ""}
             </div>

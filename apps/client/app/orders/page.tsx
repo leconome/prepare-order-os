@@ -51,8 +51,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   deleteOrder,
   fetchOrders,
+  fetchPointsOfSale,
   formatCurrency,
   formatDateWithAgo,
   type OrdersResponse,
@@ -278,31 +286,40 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
+  const [posFilter, setPosFilter] = useState<string>("all");
   const trimmedSearch = search.trim();
 
   const activeStatus = ORDER_TABS.find((t) => t.key === activeTab)?.status;
+  const posId = posFilter !== "all" ? posFilter : undefined;
+
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale"],
+    queryFn: () => fetchPointsOfSale({ limit: 100 }),
+  });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["orders", page, trimmedSearch, activeStatus],
+    queryKey: ["orders", page, trimmedSearch, activeStatus, posId],
     queryFn: () =>
       fetchOrders({
         page,
         limit: PAGE_SIZE,
         search: trimmedSearch || undefined,
         preparationStatus: activeStatus,
+        posId,
       }),
     placeholderData: keepPreviousData,
   });
 
   const countQueries = useQueries({
     queries: ORDER_TABS.map((tab) => ({
-      queryKey: ["orders-count", tab.status ?? "all", trimmedSearch],
+      queryKey: ["orders-count", tab.status ?? "all", trimmedSearch, posId],
       queryFn: () =>
         fetchOrders({
           page: 1,
           limit: 1,
           preparationStatus: tab.status,
           search: trimmedSearch || undefined,
+          posId,
         }),
       select: (d: OrdersResponse) => d.pagination.total,
     })),
@@ -335,6 +352,25 @@ export default function OrdersPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Select
+              value={posFilter}
+              onValueChange={(value) => {
+                setPosFilter(value);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Lieu de retrait" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les lieux</SelectItem>
+                {posData?.data?.map((pos) => (
+                  <SelectItem key={pos.id} value={pos.id}>
+                    {pos.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               size="sm"

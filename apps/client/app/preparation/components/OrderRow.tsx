@@ -93,8 +93,9 @@ function OrderRow({ order, even = false }: { order: OrderWithItems; even?: boole
           </span>
 
           {order.pickupDate && (
-            <span
-              className={` flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
+            <Badge
+              variant={isOverdue ? "destructive" : "outline"}
+              className={`flex items-center gap-1 shrink-0 text-xs ${isOverdue ? "" : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800"}`}
             >
               {isOverdue ? (
                 <AlertTriangle className="h-3 w-3" />
@@ -106,7 +107,7 @@ function OrderRow({ order, even = false }: { order: OrderWithItems; even?: boole
                 day: "numeric",
                 month: "short",
               }).format(new Date(order.pickupDate))}
-            </span>
+            </Badge>
           )}
 
           {pickupTime && (
