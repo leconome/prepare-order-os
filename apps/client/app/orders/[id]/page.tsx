@@ -95,11 +95,6 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "@/lib/api";
-import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
-import {
-  getPaymentBadgeVariant,
-  getPreparationBadgeVariant,
-} from "@/lib/helpers";
 import { cn } from "@/lib/utils";
 import { ItemCard } from "./components/ItemCard";
 import { MenuItemCard } from "./components/MenuItemCard";
@@ -710,15 +705,43 @@ export default function OrderDetailPage() {
                   <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer
                 </Button>
-                <Badge
-                  variant={getPreparationBadgeVariant(order.preparationStatus)}
+                <Select
+                  value={order.preparationStatus}
+                  onValueChange={(value) =>
+                    updateStatusMutation.mutate({ preparationStatus: value })
+                  }
+                  disabled={updateStatusMutation.isPending}
                 >
-                  {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
-                    order.preparationStatus}
-                </Badge>
-                <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                </Badge>
+                  <SelectTrigger className="w-[160px] h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="in_preparation">En préparation</SelectItem>
+                    <SelectItem value="ready">Prêt</SelectItem>
+                    <SelectItem value="picked_up">Récupéré</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={order.paymentStatus}
+                  onValueChange={(value) =>
+                    updateStatusMutation.mutate({ paymentStatus: value })
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <SelectTrigger className="w-[160px] h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="paid">Payé</SelectItem>
+                    <SelectItem value="partially_paid">Partiellement payé</SelectItem>
+                    <SelectItem value="refunded">Remboursé</SelectItem>
+                  </SelectContent>
+                </Select>
+                {updateStatusMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                )}
               </>
             )}
           </div>
@@ -733,10 +756,28 @@ export default function OrderDetailPage() {
                 {formatCurrency(String(Math.max(0, parseFloat(order.total) - parseFloat(order.paidAmount || "0"))))}
               </span>
               {" "}à encaisser
-              {parseFloat(order.paidAmount || "0") > 0 && (
-                <span className="text-amber-600"> ({formatCurrency(order.paidAmount)} reçu)</span>
-              )}
             </span>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-amber-600 whitespace-nowrap">Reçu :</span>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max={order.total}
+                placeholder="0.00"
+                defaultValue={parseFloat(order.paidAmount || "0") > 0 ? order.paidAmount : ""}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && val !== (order.paidAmount || "0")) {
+                    updateStatusMutation.mutate({ paidAmount: val });
+                  }
+                }}
+                className="h-7 w-[90px] text-sm bg-white border-amber-300"
+              />
+              <span className="text-xs text-amber-600 whitespace-nowrap">
+                / {formatCurrency(order.total)}
+              </span>
+            </div>
           </div>
         )}
 
@@ -1896,99 +1937,6 @@ export default function OrderDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Status Management */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Statuts</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Préparation
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={order.preparationStatus}
-                        onValueChange={(value) =>
-                          updateStatusMutation.mutate({
-                            preparationStatus: value,
-                          })
-                        }
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="in_preparation">
-                            En préparation
-                          </SelectItem>
-                          <SelectItem value="ready">Prêt</SelectItem>
-                          <SelectItem value="picked_up">Récupéré</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {updateStatusMutation.isPending && (
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Paiement
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={order.paymentStatus}
-                        onValueChange={(value) =>
-                          updateStatusMutation.mutate({
-                            paymentStatus: value,
-                          })
-                        }
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="paid">Payé</SelectItem>
-                          <SelectItem value="partially_paid">
-                            Partiellement payé
-                          </SelectItem>
-                          <SelectItem value="refunded">Remboursé</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {updateStatusMutation.isPending && (
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      )}
-                    </div>
-                    {order.paymentStatus === "partially_paid" && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max={order.total}
-                          placeholder="0.00"
-                          defaultValue={parseFloat(order.paidAmount || "0") > 0 ? order.paidAmount : ""}
-                          onBlur={(e) => {
-                            const val = e.target.value;
-                            if (val && val !== (order.paidAmount || "0")) {
-                              updateStatusMutation.mutate({ paidAmount: val });
-                            }
-                          }}
-                          className="w-full"
-                        />
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">
-                          / {formatCurrency(order.total)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </Form>

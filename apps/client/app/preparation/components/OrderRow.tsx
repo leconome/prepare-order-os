@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -21,12 +20,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  formatCurrency,
   type OrderWithItems,
   type UpdateOrderStatus,
   updateOrderStatus,
 } from "@/lib/api";
-import { PAYMENT_LABELS } from "@/lib/constants";
 import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
 
@@ -70,18 +67,6 @@ function OrderRow({ order }: { order: OrderWithItems }) {
     },
   });
 
-  const togglePayment = () => {
-    const cycle = {
-      pending: "partially_paid",
-      partially_paid: "paid",
-      paid: "partially_paid",
-      refunded: "pending",
-    } as const;
-    const current = order.paymentStatus ?? "pending";
-    const next = cycle[current] ?? "pending";
-    statusMutation.mutate({ paymentStatus: next });
-  };
-
   return (
     <div
       role="button"
@@ -91,16 +76,16 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         if (e.key === "Enter" || e.key === " ")
           router.push(`/orders/${order.id}?view=preparation`);
       }}
-      className={`grid grid-cols-10 gap-2 items-center w-full border-b bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
+      className={`grid grid-cols-8 gap-2 items-center w-full border-b bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
         <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-sm shrink-0 underline underline-offset-2 text-primary">
+          <span className="font-mono font-bold  shrink-0 underline underline-offset-2 text-primary">
             #{order.ticketNumber}
           </span>
 
-          <span className="text-sm flex items-center gap-1 shrink-0">
+          <span className=" flex items-center gap-1 shrink-0">
             <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="truncate max-w-32">
               {order?.client?.name ?? "---"}
@@ -109,7 +94,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
 
           {order.pickupDate && (
             <span
-              className={`text-xs flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
+              className={` flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}
             >
               {isOverdue ? (
                 <AlertTriangle className="h-3 w-3" />
@@ -125,7 +110,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           )}
 
           {pickupTime && (
-            <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
+            <span className=" flex items-center gap-1 text-muted-foreground shrink-0">
               <Clock className="h-3 w-3" />
               {pickupTime}
             </span>
@@ -141,7 +126,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3  text-muted-foreground">
           <span className="truncate">{itemsSummary}</span>
 
           {order.internalNote && (
@@ -153,55 +138,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
         </div>
       </div>
 
-      {/* ── Paiement (col 7–8) ── */}
-      <div className="col-span-2 flex flex-col items-center gap-2">
-        <span className="text-sm font-medium shrink-0">
-          {formatCurrency(order.total)}
-        </span>
-        <label
-          className={`flex items-center justify-center gap-2 w-full cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-            order.paymentStatus === "paid"
-              ? "bg-green-50"
-              : order.paymentStatus === "partially_paid"
-                ? "bg-amber-50"
-                : "bg-background"
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <Checkbox
-            checked={
-              order.paymentStatus === "paid"
-                ? true
-                : order.paymentStatus === "partially_paid"
-                  ? "indeterminate"
-                  : false
-            }
-            onCheckedChange={() => togglePayment()}
-            disabled={statusMutation.isPending}
-            className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
-          />
-          <span
-            className={`text-xs font-medium ${
-              order.paymentStatus === "paid"
-                ? "text-green-700"
-                : order.paymentStatus === "partially_paid"
-                  ? "text-amber-700"
-                  : "text-gray-700"
-            }`}
-          >
-            {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-            {order.paymentStatus === "partially_paid" &&
-              parseFloat(order.paidAmount || "0") > 0 && (
-                <span className="font-normal">
-                  ({formatCurrency(order.paidAmount)})
-                </span>
-              )}
-          </span>
-        </label>
-      </div>
-
-      {/* ── Statut (col 9–10) ── */}
+      {/* ── Statut (col 7–8) ── */}
       <div
         className="col-span-2 flex gap-2 flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -223,7 +160,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
           disabled={statusMutation.isPending}
         >
           <SelectTrigger
-            className={`shrink-0 gap-1 px-2 w-full py-0.5 text-xs font-medium transition-all active:scale-95 ${status.className}`}
+            className={`shrink-0 gap-1 px-2 w-full py-0.5  font-medium transition-all active:scale-95 ${status.className}`}
           >
             <SelectValue />
           </SelectTrigger>
