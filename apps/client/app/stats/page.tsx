@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  DollarSign,
+  Euro,
   Package,
   ShoppingCart,
   TrendingUp,
@@ -233,7 +233,7 @@ export default function StatsPage() {
             <StatCard
               title="CA du jour"
               value={formatCurrency(todayStats.totalRevenue)}
-              icon={DollarSign}
+              icon={Euro}
               loading={loadingToday}
             />
             <StatCard
@@ -270,7 +270,7 @@ export default function StatsPage() {
             <StatCard
               title="CA total"
               value={formatCurrency(allStats.totalRevenue)}
-              icon={DollarSign}
+              icon={Euro}
               description="Sur les commandes récentes"
               loading={loadingAll}
             />

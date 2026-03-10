@@ -5,7 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   ChefHat,
-  DollarSign,
+  Euro,
   Flame,
   PackageCheck,
   ShoppingBag,
@@ -273,7 +273,7 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center gap-3">
-                <DollarSign className="h-4 w-4 text-green-500" />
+                <Euro className="h-4 w-4 text-green-500" />
                 <div>
                   <p className="text-xs text-muted-foreground">CA du jour</p>
                   {isLoading ? (
@@ -289,9 +289,9 @@ export default function DashboardPage() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center gap-3">
-                <DollarSign className={`h-4 w-4 ${stats.unpaid > 0 ? "text-amber-500" : "text-green-500"}`} />
+                <Euro className={`h-4 w-4 ${stats.unpaid > 0 ? "text-amber-500" : "text-green-500"}`} />
                 <div>
-                  <p className="text-xs text-muted-foreground">Impayées</p>
+                  <p className="text-xs text-muted-foreground">Reste à payer</p>
                   {isLoading ? (
                     <Skeleton className="h-6 w-10 mt-0.5" />
                   ) : (
