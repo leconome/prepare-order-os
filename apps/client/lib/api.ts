@@ -8,6 +8,7 @@ import type {
   CreateMenu,
   CreateOrder,
   CreateOrderItem,
+  CreatePointOfSale,
   CreateProduct,
   CreateStaff,
   GrantCredits,
@@ -19,6 +20,8 @@ import type {
   OrderItemWithMenuItems,
   OrderMenuItem,
   OrderWithItems,
+  PointOfSale,
+  PointOfSaleFilters,
   Product,
   ProductFilters,
   RevokeCredits,
@@ -34,6 +37,7 @@ import type {
   UpdateMenu,
   UpdateOrder,
   UpdateOrderStatus,
+  UpdatePointOfSale,
   UpdateProduct,
   UpdateStaff,
   UpdateTenantSettings,
@@ -662,6 +666,54 @@ export async function refreshSmsStatus(messageId: string): Promise<SmsMessage> {
   });
 }
 
+// ============ POINTS OF SALE ============
+
+export type PointsOfSaleResponse = PaginatedResponse<PointOfSale>;
+
+export async function fetchPointsOfSale(
+  params?: Partial<PointOfSaleFilters>,
+): Promise<PointsOfSaleResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+  const query = searchParams.toString();
+  return fetchApi<PointsOfSaleResponse>(
+    `/points-of-sale${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchPointOfSale(id: string): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>(`/points-of-sale/${id}`);
+}
+
+export async function createPointOfSale(
+  data: CreatePointOfSale,
+): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>("/points-of-sale", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePointOfSale(
+  id: string,
+  data: UpdatePointOfSale,
+): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>(`/points-of-sale/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePointOfSale(id: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/points-of-sale/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -723,4 +775,8 @@ export type {
   GrantCredits,
   RevokeCredits,
   SendSms,
+  PointOfSale,
+  CreatePointOfSale,
+  UpdatePointOfSale,
+  PointOfSaleFilters,
 };
