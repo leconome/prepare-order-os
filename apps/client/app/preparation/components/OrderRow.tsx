@@ -80,8 +80,8 @@ function OrderRow({ order }: { order: OrderWithItems }) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => router.push(`/preparation/${order.id}`)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/preparation/${order.id}`); }}
+      onClick={() => router.push(`/orders/${order.id}`)}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/orders/${order.id}`); }}
       className={`grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
     >
       {/* ── Commande (col 1–6) ── */}

@@ -876,8 +876,23 @@ export async function toggleItemPrepared(
 
   if (!updated) return null;
 
-  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
-  if (isPrepared && order.preparationStatus === "pending") {
+  // Determine new order preparation status based on all items
+  const allItems = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, orderId),
+  });
+  const allItemsPrepared = allItems.length > 0 && allItems.every((i) => i.isPrepared);
+
+  if (allItemsPrepared && order.preparationStatus !== "ready" && order.preparationStatus !== "picked_up") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "ready", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  } else if (!allItemsPrepared && order.preparationStatus === "ready") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  } else if (isPrepared && order.preparationStatus === "pending") {
     await db
       .update(orders)
       .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
@@ -912,14 +927,29 @@ export async function toggleMenuItemPrepared(
     where: eq(orderMenuItems.orderItemId, parentItemId),
   });
 
-  const allPrepared = allMenuItems.every((mi) => mi.isPrepared);
+  const allMenuPrepared = allMenuItems.every((mi) => mi.isPrepared);
   await db
     .update(orderItems)
-    .set({ isPrepared: allPrepared, updatedAt: new Date() })
+    .set({ isPrepared: allMenuPrepared, updatedAt: new Date() })
     .where(eq(orderItems.id, parentItemId));
 
-  // Auto-transition: if order is "pending" and we just prepared an item, move to "in_preparation"
-  if (isPrepared && order.preparationStatus === "pending") {
+  // Determine new order preparation status based on all items
+  const allItems = await db.query.orderItems.findMany({
+    where: eq(orderItems.orderId, orderId),
+  });
+  const allItemsPrepared = allItems.length > 0 && allItems.every((i) => i.isPrepared);
+
+  if (allItemsPrepared && order.preparationStatus !== "ready" && order.preparationStatus !== "picked_up") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "ready", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  } else if (!allItemsPrepared && order.preparationStatus === "ready") {
+    await db
+      .update(orders)
+      .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
+      .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
+  } else if (isPrepared && order.preparationStatus === "pending") {
     await db
       .update(orders)
       .set({ preparationStatus: "in_preparation", updatedAt: new Date() })
