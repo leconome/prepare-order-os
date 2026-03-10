@@ -60,6 +60,8 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -81,6 +83,7 @@ import {
   fetchClients,
   fetchMenus,
   fetchOrder,
+  fetchPointsOfSale,
   fetchProducts,
   fetchStaff,
   formatCurrency,
@@ -177,6 +180,7 @@ function orderToFormValues(order: {
   internalNote?: string | null;
   createdById?: string | null;
   assignedToId?: string | null;
+  posId?: string | null;
 }): UpdateOrder {
   return {
     clientId: order.clientId ?? null,
@@ -187,6 +191,7 @@ function orderToFormValues(order: {
     internalNote: order.internalNote ?? null,
     createdById: order.createdById ?? null,
     assignedToId: order.assignedToId ?? null,
+    posId: order.posId ?? null,
   };
 }
 
@@ -238,6 +243,7 @@ export default function OrderDetailPage() {
       internalNote: null,
       createdById: null,
       assignedToId: null,
+      posId: null,
     },
   });
 
@@ -294,6 +300,12 @@ export default function OrderDetailPage() {
     queryFn: () => fetchMenus({ isActive: true, limit: 50 }),
     enabled: isEditingItems,
   });
+
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale-active"],
+    queryFn: () => fetchPointsOfSale({ isActive: true, limit: 100 }),
+  });
+  const pointsOfSale = posData?.data ?? [];
 
   // Item editing helpers
   const getItemKey = (item: EditOrderItem) =>
@@ -1691,6 +1703,46 @@ export default function OrderDetailPage() {
                             Retirer l'assignation
                           </Button>
                         )}
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="posId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Point de vente</FormLabel>
+                        <Select
+                          onValueChange={(v) => field.onChange(v === "none" ? null : v)}
+                          value={field.value ?? "none"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Aucun" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun</SelectItem>
+                            {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                              <>
+                                <SelectSeparator />
+                                <SelectLabel>Points de vente</SelectLabel>
+                                {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                ))}
+                              </>
+                            )}
+                            {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                              <>
+                                <SelectSeparator />
+                                <SelectLabel>Points de retrait</SelectLabel>
+                                {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </FormItem>
                     )}
                   />
