@@ -1239,6 +1239,7 @@ async function seedOrders(
   productList: (typeof products.$inferSelect)[],
   menuList: (typeof menus.$inferSelect)[],
   clientList: (typeof clients.$inferSelect)[],
+  posList: (typeof pointsOfSale.$inferSelect)[],
 ) {
   console.log("🧾 Seeding orders...");
 
@@ -1259,7 +1260,7 @@ async function seedOrders(
 
   let orderCount = 0;
 
-  async function createSeedOrder(orderData: SeedOrder, clientId?: string) {
+  async function createSeedOrder(orderData: SeedOrder, clientId?: string, posId?: string) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1354,6 +1355,7 @@ async function seedOrders(
         preparationStatus: orderData.preparationStatus,
         clientNote: orderData.clientNote ?? null,
         clientId: clientId ?? null,
+        posId: posId ?? null,
         pickupDate: orderData.pickupDate ?? null,
         pickupTimeStart: orderData.pickupTimeStart ?? null,
         pickupTimeEnd: orderData.pickupTimeEnd ?? null,
@@ -1405,12 +1407,14 @@ async function seedOrders(
 
   for (let i = 0; i < SAMPLE_ORDERS.length; i++) {
     const cl = clientList[i % clientList.length];
-    await createSeedOrder(SAMPLE_ORDERS[i], cl?.id);
+    const pos = posList.length > 0 ? posList[i % posList.length] : undefined;
+    await createSeedOrder(SAMPLE_ORDERS[i], cl?.id, pos?.id);
   }
 
   for (let i = 0; i < MENU_ORDERS.length; i++) {
     const cl = clientList[(SAMPLE_ORDERS.length + i) % clientList.length];
-    await createSeedOrder(MENU_ORDERS[i], cl?.id);
+    const pos = posList.length > 0 ? posList[(SAMPLE_ORDERS.length + i) % posList.length] : undefined;
+    await createSeedOrder(MENU_ORDERS[i], cl?.id, pos?.id);
   }
 
   console.log(
@@ -1499,7 +1503,7 @@ async function main() {
     const productList = await seedProducts(tenantId, categoryList);
     const menuList = await seedMenus(tenantId, productList);
     const posList = await seedPointsOfSale(tenantId);
-    await seedOrders(tenantId, productList, menuList, clientList);
+    await seedOrders(tenantId, productList, menuList, clientList, posList);
 
     console.log(`\n🎉 Seed completed successfully!`);
     console.log("\nSummary:");
