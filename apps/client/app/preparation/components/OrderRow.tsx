@@ -42,7 +42,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
 
   const isOverdue = (() => {
     if (!order.pickupDate) return false;
-    if (order.preparationStatus === "ready" || order.preparationStatus === "picked_up") return false;
+    if (order.preparationStatus === "picked_up") return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return new Date(order.pickupDate) < today;

@@ -51,11 +51,11 @@ function PreparationPageContent() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  // Show future orders + past orders only if still pending/in_preparation (overdue)
+  // Show future orders + past orders unless already picked up
   const orders = allOrders.filter((o) => {
     const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
     if (!pickup || pickup >= todayStart) return true;
-    return o.preparationStatus === "pending" || o.preparationStatus === "in_preparation";
+    return o.preparationStatus !== "picked_up";
   });
 
   const tabData = TABS.map((tab) => ({
@@ -65,6 +65,10 @@ function PreparationPageContent() {
         tab.statuses.includes(o.preparationStatus as PreparationStatus),
       )
       .sort((a, b) => {
+        // picked_up orders go last
+        const pa = a.preparationStatus === "picked_up" ? 1 : 0;
+        const pb = b.preparationStatus === "picked_up" ? 1 : 0;
+        if (pa !== pb) return pa - pb;
         const da = a.pickupDate ? new Date(a.pickupDate).getTime() : 0;
         const db = b.pickupDate ? new Date(b.pickupDate).getTime() : 0;
         return da - db;
