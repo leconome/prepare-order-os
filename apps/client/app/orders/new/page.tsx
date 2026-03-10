@@ -343,7 +343,7 @@ export default function NewOrderPage() {
     const orderData: CreateOrder = {
       items: orderItems,
       clientId: selectedClient?.id || undefined,
-      pickupDate: data.pickupDate || undefined,
+      pickupDate: data.pickupDate,
       pickupTimeStart: data.pickupTimeStart || undefined,
       pickupTimeEnd: data.pickupTimeEnd || undefined,
       clientNote: data.clientNote || undefined,

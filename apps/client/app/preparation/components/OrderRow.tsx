@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Calendar, Clock, MessageSquareText, UserRound } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, MessageSquareText, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -40,6 +40,14 @@ function OrderRow({ order }: { order: OrderWithItems }) {
 
   const status = STATUS_BADGE[order.preparationStatus as PreparationStatus];
 
+  const isOverdue = (() => {
+    if (!order.pickupDate) return false;
+    if (order.preparationStatus === "ready" || order.preparationStatus === "picked_up") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(order.pickupDate) < today;
+  })();
+
   const itemsSummary = items
     .map((item) => {
       const label = formatQtyLabel(item.quantity, item.unit);
@@ -73,7 +81,7 @@ function OrderRow({ order }: { order: OrderWithItems }) {
       tabIndex={0}
       onClick={() => router.push(`/preparation/${order.id}`)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/preparation/${order.id}`); }}
-      className={`grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors cursor-pointer ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
+      className={`grid grid-cols-10 gap-2 items-center w-full rounded-lg border bg-card p-3 px-4 text-left transition-colors cursor-pointer ${isOverdue ? "border-red-300 bg-red-50/50 dark:bg-red-950/10" : ""} ${order.preparationStatus === "picked_up" ? "opacity-50 line-through" : "hover:bg-accent/50"}`}
     >
       {/* ── Commande (col 1–6) ── */}
       <div className="col-span-6 min-w-0 space-y-1">
@@ -89,13 +97,16 @@ function OrderRow({ order }: { order: OrderWithItems }) {
             </span>
           </span>
 
-          <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">
-            <Calendar className="h-3 w-3" />
-            {new Intl.DateTimeFormat("fr-FR", {
-              day: "numeric",
-              month: "short",
-            }).format(new Date(order.createdAt))}
-          </span>
+          {order.pickupDate && (
+            <span className={`text-xs flex items-center gap-1 shrink-0 ${isOverdue ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+              {isOverdue ? <AlertTriangle className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
+              {isOverdue && "En retard · "}
+              {new Intl.DateTimeFormat("fr-FR", {
+                day: "numeric",
+                month: "short",
+              }).format(new Date(order.pickupDate))}
+            </span>
+          )}
 
           {pickupTime && (
             <span className="text-xs flex items-center gap-1 text-muted-foreground shrink-0">

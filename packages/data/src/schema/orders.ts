@@ -205,7 +205,7 @@ export const discountTypeSchema = z.enum(["percentage", "fixed"]);
 
 export const createOrderSchema = z.object({
   clientId: z.string().uuid().optional(),
-  pickupDate: z.coerce.date().optional(),
+  pickupDate: z.coerce.date(),
   pickupTimeStart: z.string().optional(),
   pickupTimeEnd: z.string().optional(),
   clientNote: z.string().optional(),
