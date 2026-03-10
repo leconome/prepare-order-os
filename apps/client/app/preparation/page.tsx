@@ -81,7 +81,7 @@ function PreparationPageContent() {
   return (
     <DashboardLayout
       title="Préparation"
-      description="Suivi des commandes du jour"
+      description="Suivi des préparations du jour"
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">

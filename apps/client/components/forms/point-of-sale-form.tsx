@@ -128,7 +128,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
     <Card>
       <CardHeader>
         <CardTitle>
-          {isEditMode ? "Modifier le point de vente" : "Nouveau point de vente"}
+          {isEditMode ? "Modifier le point de retrait" : "Nouveau point de retrait"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -141,7 +141,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                 <FormItem>
                   <FormLabel>Nom</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nom du point de vente" {...field} />
+                    <Input placeholder="Nom du point de retrait" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -165,7 +165,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="pickup_location">Point de retrait</SelectItem>
-                      <SelectItem value="permanent_pos">Point de vente permanent</SelectItem>
+                      <SelectItem value="permanent_pos">Point de retrait permanent</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -181,7 +181,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Description du point de vente..."
+                      placeholder="Description du point de retrait..."
                       {...field}
                       value={field.value || ""}
                     />
@@ -199,7 +199,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                   <FormLabel>Adresse</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Adresse du point de vente..."
+                      placeholder="Adresse du point de retrait..."
                       {...field}
                       value={field.value || ""}
                     />
@@ -255,7 +255,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                   <div className="space-y-0.5">
                     <FormLabel>Actif</FormLabel>
                     <p className="text-sm text-muted-foreground">
-                      Le point de vente sera visible et disponible
+                      Le point de retrait sera visible et disponible
                     </p>
                   </div>
                   <FormControl>
@@ -314,10 +314,10 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
-                Supprimer le point de vente
+                Supprimer le point de retrait
               </DialogTitle>
               <DialogDescription>
-                Êtes-vous sûr de vouloir supprimer ce point de vente ? Cette
+                Êtes-vous sûr de vouloir supprimer ce point de retrait ? Cette
                 action est irréversible.
               </DialogDescription>
             </DialogHeader>

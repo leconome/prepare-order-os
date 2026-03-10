@@ -186,6 +186,7 @@ function orderToFormValues(order: {
   createdById?: string | null;
   assignedToId?: string | null;
   posId?: string | null;
+  source?: string | null;
 }): UpdateOrder {
   return {
     clientId: order.clientId ?? null,
@@ -197,6 +198,7 @@ function orderToFormValues(order: {
     createdById: order.createdById ?? null,
     assignedToId: order.assignedToId ?? null,
     posId: order.posId ?? null,
+    source: (order.source as "comptoir" | "telephone" | "site_web") ?? "comptoir",
   };
 }
 
@@ -250,6 +252,7 @@ export default function OrderDetailPage() {
       createdById: null,
       assignedToId: null,
       posId: null,
+      source: "comptoir",
     },
   });
 
@@ -1831,7 +1834,7 @@ export default function OrderDetailPage() {
                     name="posId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Point de vente</FormLabel>
+                        <FormLabel>Point de retrait</FormLabel>
                         <Select
                           onValueChange={(v) => field.onChange(v === "none" ? null : v)}
                           value={field.value ?? "none"}
@@ -1846,7 +1849,7 @@ export default function OrderDetailPage() {
                             {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
                               <SelectGroup>
                                 <SelectSeparator />
-                                <SelectLabel>Points de vente</SelectLabel>
+                                <SelectLabel>Points de retrait permanents</SelectLabel>
                                 {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
                                   <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                 ))}
@@ -1861,6 +1864,30 @@ export default function OrderDetailPage() {
                                 ))}
                               </SelectGroup>
                             )}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Provenance</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value ?? "comptoir"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Comptoir" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="comptoir">Comptoir</SelectItem>
+                            <SelectItem value="telephone">Téléphone</SelectItem>
+                            <SelectItem value="site_web">Site web</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormItem>

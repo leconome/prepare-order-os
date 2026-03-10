@@ -101,7 +101,7 @@ const managementNavigation = [
     roles: ["admin", "owner"],
   },
   {
-    title: "Points de vente",
+    title: "Points de retrait",
     url: "/points-of-sale",
     icon: Store,
     roles: ["admin", "owner"],

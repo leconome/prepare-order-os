@@ -42,11 +42,11 @@ export default function PointOfSaleEditPage() {
 
   if (!pos) {
     return (
-      <DashboardLayout title="Point de vente non trouvé" description="">
+      <DashboardLayout title="Point de retrait non trouvé" description="">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Ce point de vente n'existe pas.</p>
+          <p className="text-muted-foreground">Ce point de retrait n'existe pas.</p>
           <Button asChild className="mt-4">
-            <Link href="/points-of-sale">Retour aux points de vente</Link>
+            <Link href="/points-of-sale">Retour aux points de retrait</Link>
           </Button>
         </div>
       </DashboardLayout>
@@ -56,14 +56,14 @@ export default function PointOfSaleEditPage() {
   return (
     <DashboardLayout
       title={pos.name}
-      description="Modifier les informations du point de vente"
+      description="Modifier les informations du point de retrait"
     >
       <div className="space-y-4 max-w-2xl">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/points-of-sale">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux points de vente
+              Retour aux points de retrait
             </Link>
           </Button>
           <Badge variant={pos.isActive ? "active" : "inactive"}>

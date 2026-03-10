@@ -37,6 +37,12 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
   "picked_up",
 ]);
 
+export const orderSourceEnum = pgEnum("order_source", [
+  "comptoir",
+  "telephone",
+  "site_web",
+]);
+
 export const discountTypeEnum = pgEnum("discount_type", [
   "percentage",
   "fixed",
@@ -66,6 +72,7 @@ export const orders = pgTable(
     posId: uuid("pos_id").references(() => pointsOfSale.id, {
       onDelete: "set null",
     }),
+    source: orderSourceEnum("source").notNull().default("comptoir"),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
@@ -212,6 +219,8 @@ export const createOrderItemSchema = z.object({
   menuId: z.string().uuid().optional(),
 });
 
+export const orderSourceSchema = z.enum(["comptoir", "telephone", "site_web"]);
+
 export const discountTypeSchema = z.enum(["percentage", "fixed"]);
 
 export const createOrderSchema = z.object({
@@ -225,6 +234,7 @@ export const createOrderSchema = z.object({
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
   posId: z.string().uuid().nullable().optional(),
+  source: orderSourceSchema.optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
@@ -242,6 +252,7 @@ export const updateOrderSchema = z.object({
   createdById: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
   posId: z.string().uuid().nullable().optional(),
+  source: orderSourceSchema.optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().nullable().optional(),
@@ -289,6 +300,7 @@ export type OrderWithItems = Order & {
   assignedTo?: UserRef;
   pointOfSale?: PointOfSaleRef | null;
 };
+export type OrderSourceType = z.infer<typeof orderSourceSchema>;
 export type PaymentStatusType = z.infer<typeof paymentStatusSchema>;
 export type PreparationStatusType = z.infer<typeof preparationStatusSchema>;
 export type CreateOrderItem = z.infer<typeof createOrderItemSchema>;

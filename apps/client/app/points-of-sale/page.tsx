@@ -22,7 +22,7 @@ function PointsOfSaleTable({ pointsOfSale }: { pointsOfSale: PointOfSale[] }) {
   if (pointsOfSale.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
-        Aucun point de vente trouvé
+        Aucun point de retrait trouvé
       </div>
     );
   }
@@ -60,7 +60,7 @@ function PointsOfSaleTable({ pointsOfSale }: { pointsOfSale: PointOfSale[] }) {
                   </span>
                 ) : (
                   <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800">
-                    Point de vente
+                    Point de retrait permanent
                   </span>
                 )}
               </Link>
@@ -113,14 +113,14 @@ export default function PointsOfSalePage() {
 
   return (
     <DashboardLayout
-      title="Points de vente"
-      description="Gérez vos points de vente et de retrait"
+      title="Points de retrait"
+      description="Gérez vos points de retrait"
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {data?.pagination.total ?? 0} points de vente au total
+              {data?.pagination.total ?? 0} points de retrait au total
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export default function PointsOfSalePage() {
             <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
               <Link href="/points-of-sale/create">
                 <Plus className="mr-2 h-4 w-4" />
-                Nouveau point de vente
+                Nouveau point de retrait
               </Link>
             </Button>
           </div>
@@ -146,7 +146,7 @@ export default function PointsOfSalePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Liste des points de vente</CardTitle>
+            <CardTitle>Liste des points de retrait</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (

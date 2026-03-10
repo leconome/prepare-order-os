@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Calendar,
   Check,
-  CheckCircle2,
   Clock,
   MessageSquare,
   Pencil,
@@ -21,7 +20,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +49,6 @@ import {
   updateOrderStatus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { PAYMENT_LABELS } from "@/lib/constants";
 import { ItemCard } from "./components/ItemCard";
 import { MenuItemCard } from "./components/MenuItemCard";
 import { computeProgress } from "./helpers";
@@ -137,18 +134,6 @@ export default function PreparationDetailPage() {
     if (!order) return;
     setSmsBody(buildSmsBody(order, tenant?.name ?? ""));
     setSmsDialogOpen(true);
-  };
-
-  const togglePayment = () => {
-    const cycle = {
-      pending: "partially_paid",
-      partially_paid: "paid",
-      paid: "partially_paid",
-      refunded: "pending",
-    } as const;
-    const current = order?.paymentStatus ?? "pending";
-    const next = cycle[current] ?? "pending";
-    statusMutation.mutate({ paymentStatus: next });
   };
 
   if (isLoading) {
@@ -328,47 +313,6 @@ export default function PreparationDetailPage() {
 
             {/* Right: CTAs */}
             <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
-              {/* Payment toggle */}
-              <label
-                className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-                  order.paymentStatus === "paid"
-                    ? "bg-green-50"
-                    : order.paymentStatus === "partially_paid"
-                      ? "bg-amber-50"
-                      : "bg-background"
-                }`}
-              >
-                <Checkbox
-                  checked={
-                    order.paymentStatus === "paid"
-                      ? true
-                      : order.paymentStatus === "partially_paid"
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={() => togglePayment()}
-                  disabled={statusMutation.isPending}
-                  className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 data-[state=indeterminate]:bg-amber-500 data-[state=indeterminate]:border-amber-500"
-                />
-                <span
-                  className={`text-sm font-medium ${
-                    order.paymentStatus === "paid"
-                      ? "text-green-700"
-                      : order.paymentStatus === "partially_paid"
-                        ? "text-amber-700"
-                        : "text-gray-700"
-                  }`}
-                >
-                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                  {order.paymentStatus === "partially_paid" &&
-                    parseFloat(order.paidAmount || "0") > 0 && (
-                      <span className="text-xs font-normal">
-                        ({formatCurrency(order.paidAmount)})
-                      </span>
-                    )}
-                </span>
-              </label>
-
               {/* Send SMS */}
               {order.client?.phone && (
                 <Button
@@ -402,26 +346,6 @@ export default function PreparationDetailPage() {
                   </Button>
                 )}
 
-              {/* Mark as picked up (header duplicate) */}
-              {order.preparationStatus === "ready" && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    statusMutation.mutate({ preparationStatus: "picked_up" })
-                  }
-                  disabled={
-                    statusMutation.isPending || order.paymentStatus !== "paid"
-                  }
-                  title={
-                    order.paymentStatus !== "paid"
-                      ? "Le paiement doit être complet avant de marquer comme récupéré"
-                      : undefined
-                  }
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Récupéré
-                </Button>
-              )}
             </div>
           </div>
 
@@ -550,24 +474,6 @@ export default function PreparationDetailPage() {
               </Button>
             )}
 
-          {order.preparationStatus === "ready" && (
-            <Button
-              onClick={() =>
-                statusMutation.mutate({ preparationStatus: "picked_up" })
-              }
-              disabled={
-                statusMutation.isPending || order.paymentStatus !== "paid"
-              }
-              title={
-                order.paymentStatus !== "paid"
-                  ? "Le paiement doit être complet avant de marquer comme récupéré"
-                  : undefined
-              }
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Marquer comme récupéré
-            </Button>
-          )}
         </div>
       </div>
 

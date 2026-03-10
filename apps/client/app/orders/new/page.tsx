@@ -222,6 +222,7 @@ export default function NewOrderPage() {
       createdById: "",
       assignedToId: "",
       posId: undefined,
+      source: "comptoir",
     },
   });
 
@@ -398,6 +399,7 @@ export default function NewOrderPage() {
       createdById: data.createdById || undefined,
       assignedToId: data.assignedToId || undefined,
       posId: data.posId || undefined,
+      source: data.source || "comptoir",
       discountType:
         discountValue && parseFloat(discountValue) > 0 ? discountType : null,
       discountValue:
@@ -1139,7 +1141,7 @@ export default function NewOrderPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs">
-                            Point de vente
+                            Point de retrait
                           </FormLabel>
                           <Select
                             onValueChange={(v) =>
@@ -1159,7 +1161,9 @@ export default function NewOrderPage() {
                               ).length > 0 && (
                                 <SelectGroup>
                                   <SelectSeparator />
-                                  <SelectLabel>Points de vente</SelectLabel>
+                                  <SelectLabel>
+                                    Points de retrait permanents
+                                  </SelectLabel>
                                   {pointsOfSale
                                     .filter((p) => p.type === "permanent_pos")
                                     .map((p) => (
@@ -1184,6 +1188,32 @@ export default function NewOrderPage() {
                                     ))}
                                 </SelectGroup>
                               )}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="source"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Provenance</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value ?? "comptoir"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Comptoir" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="comptoir">Comptoir</SelectItem>
+                              <SelectItem value="telephone">Téléphone</SelectItem>
+                              <SelectItem value="site_web">Site web</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />

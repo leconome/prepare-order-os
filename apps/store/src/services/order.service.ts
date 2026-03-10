@@ -512,6 +512,7 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       createdById: data.createdById ?? null,
       assignedToId: data.assignedToId ?? null,
       posId: data.posId ?? null,
+      source: data.source ?? "comptoir",
       subtotal: "0.00",
       taxTotal: "0.00",
       total: "0.00",
@@ -573,6 +574,7 @@ export async function updateOrder(
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
   if (data.posId !== undefined) updateData.posId = data.posId;
+  if (data.source !== undefined) updateData.source = data.source;
   if (data.smsNotifiedAt !== undefined)
     updateData.smsNotifiedAt = data.smsNotifiedAt;
   if (data.discountType !== undefined)
