@@ -4,6 +4,8 @@ import {
   createProductSchema,
   updateProductSchema,
   productFiltersSchema,
+  createVariantSchema,
+  updateVariantSchema,
 } from "@prepareos/data";
 import { deleteImage } from "../lib/storage.js";
 import { authMiddleware } from "../middleware/auth.js";
@@ -87,6 +89,70 @@ products.delete("/:id", ownerOrAdmin, async (c) => {
   }
 
   await productService.deleteProduct(tenantId, id);
+  return c.json({ success: true });
+});
+
+// ── Variant routes ──
+
+products.get("/:id/variants", async (c) => {
+  const tenantId = c.get("tenantId") as string;
+  const productId = c.req.param("id");
+  const variants = await productService.listVariants(tenantId, productId);
+
+  if (variants === null) {
+    return c.json({ error: "Product not found" }, 404);
+  }
+
+  return c.json(variants);
+});
+
+products.post(
+  "/:id/variants",
+  ownerOrAdmin,
+  zValidator("json", createVariantSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const productId = c.req.param("id");
+    const data = c.req.valid("json");
+    const variant = await productService.createVariant(tenantId, productId, data);
+
+    if (!variant) {
+      return c.json({ error: "Product not found" }, 404);
+    }
+
+    return c.json(variant, 201);
+  },
+);
+
+products.patch(
+  "/:id/variants/:variantId",
+  ownerOrAdmin,
+  zValidator("json", updateVariantSchema),
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const productId = c.req.param("id");
+    const variantId = c.req.param("variantId");
+    const data = c.req.valid("json");
+    const variant = await productService.updateVariant(tenantId, productId, variantId, data);
+
+    if (!variant) {
+      return c.json({ error: "Variant not found" }, 404);
+    }
+
+    return c.json(variant);
+  },
+);
+
+products.delete("/:id/variants/:variantId", ownerOrAdmin, async (c) => {
+  const tenantId = c.get("tenantId") as string;
+  const productId = c.req.param("id");
+  const variantId = c.req.param("variantId");
+  const deleted = await productService.deleteVariant(tenantId, productId, variantId);
+
+  if (!deleted) {
+    return c.json({ error: "Variant not found" }, 404);
+  }
+
   return c.json({ success: true });
 });
 

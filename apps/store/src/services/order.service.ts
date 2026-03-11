@@ -8,6 +8,7 @@ import {
   orderMenuItems,
   orders,
   products,
+  productVariants,
   stockDeduction,
   type UpdateOrder,
   type UpdateOrderItems,
@@ -61,6 +62,7 @@ async function restoreStockForItems(
   tenantId: string,
   items: {
     productId: string;
+    variantId?: string | null;
     quantity: string | number;
     unit?: Unit;
     isMenu: boolean;
@@ -83,6 +85,47 @@ async function restoreStockForItems(
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
               eq(products.unitType, "piece"),
+            ),
+          );
+      }
+    } else if (item.variantId) {
+      // Variant item — check product stockMode
+      const product = await tx.query.products.findFirst({
+        where: and(eq(products.id, item.productId), eq(products.tenantId, tenantId)),
+        columns: { stockMode: true },
+      });
+      const effectiveStockMode = product?.stockMode ?? "individual";
+      if (effectiveStockMode === "individual") {
+        await tx
+          .update(productVariants)
+          .set({
+            stock: sql`${productVariants.stock} + ${stockDeduction(item.quantity, item.unit ?? "piece")}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(productVariants.id, item.variantId),
+              isNotNull(productVariants.stock),
+            ),
+          );
+      } else if (effectiveStockMode === "shared") {
+        const variant = await tx.query.productVariants.findFirst({
+          where: eq(productVariants.id, item.variantId),
+          columns: { capacity: true },
+        });
+        const capacity = Number(variant?.capacity ?? 1);
+        const qty = stockDeduction(item.quantity, item.unit ?? "piece");
+        await tx
+          .update(products)
+          .set({
+            stock: sql`${products.stock} + ${qty * capacity}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, item.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
             ),
           );
       }
@@ -128,6 +171,8 @@ async function insertItemsAndDeductStock(
     return {
       productId: item.productId,
       productName: item.productName,
+      variantId: item.variantId ?? null,
+      variantName: item.variantName ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
@@ -193,41 +238,129 @@ async function insertItemsAndDeductStock(
 
     for (const item of regularItemsToInsert) {
       const itemQty = stockDeduction(item.quantity, item.unit);
-      const result = await tx
-        .update(products)
-        .set({
-          stock: sql`${products.stock} - ${itemQty}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-            eq(products.unitType, item.unit),
-            gte(products.stock, String(itemQty)),
-          ),
-        )
-        .returning({ id: products.id });
 
-      // If stock is tracked and units match but insufficient, the update matched 0 rows
-      if (result.length === 0) {
-        const hasStock = await tx
-          .select({ stock: products.stock, unitType: products.unitType })
-          .from(products)
+      if (item.variantId) {
+        // Variant stock deduction
+        const product = await tx.query.products.findFirst({
+          where: and(eq(products.id, item.productId), eq(products.tenantId, tenantId)),
+          columns: { stockMode: true },
+        });
+
+        // Default to "individual" if stockMode not set
+        const effectiveStockMode = product?.stockMode ?? "individual";
+
+        if (effectiveStockMode === "individual") {
+          // Deduct from variant stock
+          const result = await tx
+            .update(productVariants)
+            .set({
+              stock: sql`${productVariants.stock} - ${itemQty}`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(productVariants.id, item.variantId),
+                isNotNull(productVariants.stock),
+                gte(productVariants.stock, String(itemQty)),
+              ),
+            )
+            .returning({ id: productVariants.id });
+
+          if (result.length === 0) {
+            const hasStock = await tx
+              .select({ stock: productVariants.stock })
+              .from(productVariants)
+              .where(
+                and(
+                  eq(productVariants.id, item.variantId),
+                  isNotNull(productVariants.stock),
+                ),
+              );
+            if (hasStock.length > 0) {
+              throw new Error(
+                `Stock insuffisant pour "${item.productName} — ${item.variantName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+              );
+            }
+          }
+        } else if (effectiveStockMode === "shared") {
+          // Deduct from parent product stock using variant capacity
+          const variant = await tx.query.productVariants.findFirst({
+            where: eq(productVariants.id, item.variantId),
+            columns: { capacity: true },
+          });
+          const capacity = Number(variant?.capacity ?? 1);
+          const deduction = itemQty * capacity;
+
+          const result = await tx
+            .update(products)
+            .set({
+              stock: sql`${products.stock} - ${deduction}`,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(products.id, item.productId),
+                eq(products.tenantId, tenantId),
+                isNotNull(products.stock),
+                gte(products.stock, String(deduction)),
+              ),
+            )
+            .returning({ id: products.id });
+
+          if (result.length === 0) {
+            const hasStock = await tx
+              .select({ stock: products.stock })
+              .from(products)
+              .where(
+                and(
+                  eq(products.id, item.productId),
+                  eq(products.tenantId, tenantId),
+                  isNotNull(products.stock),
+                ),
+              );
+            if (hasStock.length > 0) {
+              throw new Error(
+                `Stock insuffisant pour "${item.productName} — ${item.variantName}" (stock: ${hasStock[0].stock}, demandé: ${deduction})`,
+              );
+            }
+          }
+        }
+      } else {
+        // Standard product stock deduction (no variant)
+        const result = await tx
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${itemQty}`,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(products.id, item.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
               eq(products.unitType, item.unit),
+              gte(products.stock, String(itemQty)),
             ),
-          );
-        // Only throw if units match but stock is insufficient (unit mismatch → skip silently)
-        if (hasStock.length > 0) {
-          throw new Error(
-            `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
-          );
+          )
+          .returning({ id: products.id });
+
+        if (result.length === 0) {
+          const hasStock = await tx
+            .select({ stock: products.stock, unitType: products.unitType })
+            .from(products)
+            .where(
+              and(
+                eq(products.id, item.productId),
+                eq(products.tenantId, tenantId),
+                isNotNull(products.stock),
+                eq(products.unitType, item.unit),
+              ),
+            );
+          if (hasStock.length > 0) {
+            throw new Error(
+              `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+            );
+          }
         }
       }
     }

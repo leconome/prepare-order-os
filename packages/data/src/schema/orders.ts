@@ -116,6 +116,8 @@ export const orderItems = pgTable("order_items", {
     .references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull(),
   productName: varchar("product_name", { length: 200 }).notNull(),
+  variantId: uuid("variant_id"),
+  variantName: varchar("variant_name", { length: 100 }),
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
@@ -212,6 +214,8 @@ export const preparationStatusSchema = z.enum([
 export const createOrderItemSchema = z.object({
   productId: z.string().uuid(),
   productName: z.string(),
+  variantId: z.string().uuid().optional(),
+  variantName: z.string().optional(),
   quantity: z.number().positive(),
   unitPrice: z.string(),
   unit: unitTypeSchema.default("piece"),

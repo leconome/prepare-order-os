@@ -1,8 +1,8 @@
 "use client";
 
-import { parseQty, UNIT_CONFIG } from "@prepareos/data";
+import { parseQty, UNIT_CONFIG, type ProductVariant } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
-import { ImageIcon, Plus, RefreshCw, Search, X } from "lucide-react";
+import { ImageIcon, Plus, RefreshCw, Search, Tags, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -64,6 +64,9 @@ function ProductsTable({
       </TableHeader>
       <TableBody>
         {products.map((product) => {
+          const typedProduct = product as Product & { variants?: ProductVariant[] };
+          const variants = typedProduct.variants ?? [];
+          const hasVariants = variants.length > 0;
           const category = product.categoryId
             ? categoryMap.get(product.categoryId)
             : null;
@@ -96,7 +99,14 @@ function ProductsTable({
                   href={`/products/${product.id}`}
                   className="block w-full hover:text-primary"
                 >
-                  {product.name}
+                  <span className="flex items-center gap-2">
+                    {product.name}
+                    {hasVariants && (
+                      <Badge variant="outline" className="text-[10px] font-normal">
+                        {variants.length} var.
+                      </Badge>
+                    )}
+                  </span>
                 </Link>
               </TableCell>
               <TableCell>
@@ -135,7 +145,25 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {product.stock == null ? (
+                  {hasVariants && product.stockMode === "individual" ? (() => {
+                    const stocks = variants
+                      .filter((v) => v.isActive && v.stock !== null)
+                      .map((v) => parseQty(v.stock!));
+                    if (stocks.length === 0) return <span className="text-muted-foreground text-xs">-</span>;
+                    const min = Math.min(...stocks);
+                    const max = Math.max(...stocks);
+                    const allZero = max === 0;
+                    return allZero ? (
+                      <Badge variant="destructive">Rupture</Badge>
+                    ) : (
+                      <span className="text-sm">
+                        {min === max ? min : `${min}–${max}`}{" "}
+                        <span className="text-muted-foreground text-xs">
+                          {UNIT_CONFIG[product.unitType].suffix || "u"}
+                        </span>
+                      </span>
+                    );
+                  })() : product.stock == null ? (
                     <span className="text-muted-foreground text-xs">-</span>
                   ) : parseQty(product.stock) === 0 ? (
                     <Badge variant="destructive">Rupture</Badge>
@@ -158,10 +186,22 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {formatCurrency(product.price)}
-                  <span className="text-muted-foreground text-xs">
-                    {UNIT_CONFIG[product.unitType].priceSuffix}
-                  </span>
+                  {hasVariants ? (() => {
+                    const prices = variants.filter((v) => v.isActive).map((v) => parseFloat(v.price));
+                    if (prices.length === 0) return formatCurrency(product.price);
+                    const min = Math.min(...prices);
+                    const max = Math.max(...prices);
+                    return min === max
+                      ? formatCurrency(min)
+                      : `${formatCurrency(min)} — ${formatCurrency(max)}`;
+                  })() : (
+                    <>
+                      {formatCurrency(product.price)}
+                      <span className="text-muted-foreground text-xs">
+                        {UNIT_CONFIG[product.unitType].priceSuffix}
+                      </span>
+                    </>
+                  )}
                 </Link>
               </TableCell>
               <TableCell>
@@ -338,6 +378,12 @@ export default function ProductsPage() {
                 className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
               />
               Actualiser
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/products/attributes">
+                <Tags className="mr-2 h-4 w-4" />
+                Attributs
+              </Link>
             </Button>
             <Button
               size="sm"

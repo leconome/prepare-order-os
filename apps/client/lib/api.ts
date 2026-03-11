@@ -1,8 +1,10 @@
 import type {
+  AttributeTerm,
   Category,
   CategoryFilters,
   Client,
   ClientFilters,
+  CreateAttribute,
   CreateCategory,
   CreateClient,
   CreateMenu,
@@ -11,6 +13,8 @@ import type {
   CreatePointOfSale,
   CreateProduct,
   CreateStaff,
+  CreateTerm,
+  CreateVariant,
   GrantCredits,
   Menu,
   MenuFilters,
@@ -23,7 +27,9 @@ import type {
   PointOfSale,
   PointOfSaleFilters,
   Product,
+  ProductAttributeWithTerms,
   ProductFilters,
+  ProductVariant,
   RevokeCredits,
   SendSms,
   SmsCreditFilters,
@@ -32,6 +38,7 @@ import type {
   SmsMessage,
   StaffFilters,
   Tenant,
+  UpdateAttribute,
   UpdateCategory,
   UpdateClient,
   UpdateMenu,
@@ -41,6 +48,8 @@ import type {
   UpdateProduct,
   UpdateStaff,
   UpdateTenantSettings,
+  UpdateTerm,
+  UpdateVariant,
   User,
 } from "@prepareos/data";
 
@@ -304,6 +313,48 @@ export async function uploadProductImage(
   return response.json();
 }
 
+// ============ PRODUCT VARIANTS ============
+
+export async function fetchVariants(
+  productId: string,
+): Promise<ProductVariant[]> {
+  return fetchApi<ProductVariant[]>(`/products/${productId}/variants`);
+}
+
+export async function createVariant(
+  productId: string,
+  data: CreateVariant,
+): Promise<ProductVariant> {
+  return fetchApi<ProductVariant>(`/products/${productId}/variants`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVariant(
+  productId: string,
+  variantId: string,
+  data: UpdateVariant,
+): Promise<ProductVariant> {
+  return fetchApi<ProductVariant>(
+    `/products/${productId}/variants/${variantId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+  );
+}
+
+export async function deleteVariant(
+  productId: string,
+  variantId: string,
+): Promise<void> {
+  await fetchApi<{ success: boolean }>(
+    `/products/${productId}/variants/${variantId}`,
+    { method: "DELETE" },
+  );
+}
+
 // ============ CATEGORIES ============
 
 export type CategoriesResponse = PaginatedResponse<Category>;
@@ -358,6 +409,77 @@ export async function deleteCategory(categoryId: string): Promise<void> {
   await fetchApi<{ success: boolean }>(`/categories/${categoryId}`, {
     method: "DELETE",
   });
+}
+
+// ============ ATTRIBUTES ============
+
+export async function fetchAttributes(): Promise<ProductAttributeWithTerms[]> {
+  return fetchApi<ProductAttributeWithTerms[]>("/attributes");
+}
+
+export async function fetchAttribute(
+  id: string,
+): Promise<ProductAttributeWithTerms> {
+  return fetchApi<ProductAttributeWithTerms>(`/attributes/${id}`);
+}
+
+export async function createAttribute(
+  data: CreateAttribute,
+): Promise<ProductAttributeWithTerms> {
+  return fetchApi<ProductAttributeWithTerms>("/attributes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAttribute(
+  id: string,
+  data: UpdateAttribute,
+): Promise<ProductAttributeWithTerms> {
+  return fetchApi<ProductAttributeWithTerms>(`/attributes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAttribute(id: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/attributes/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function createAttributeTerm(
+  attributeId: string,
+  data: CreateTerm,
+): Promise<AttributeTerm> {
+  return fetchApi<AttributeTerm>(`/attributes/${attributeId}/terms`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAttributeTerm(
+  attributeId: string,
+  termId: string,
+  data: UpdateTerm,
+): Promise<AttributeTerm> {
+  return fetchApi<AttributeTerm>(
+    `/attributes/${attributeId}/terms/${termId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+  );
+}
+
+export async function deleteAttributeTerm(
+  attributeId: string,
+  termId: string,
+): Promise<void> {
+  await fetchApi<{ success: boolean }>(
+    `/attributes/${attributeId}/terms/${termId}`,
+    { method: "DELETE" },
+  );
 }
 
 // ============ MENUS ============
@@ -573,6 +695,26 @@ export async function syncCategoriesToWoo(): Promise<{
   updated: number;
 }> {
   return fetchApi("/tenants/sync/categories", {
+    method: "POST",
+  });
+}
+
+export async function syncAttributesToWoo(): Promise<{
+  ok: boolean;
+  created: number;
+  updated: number;
+}> {
+  return fetchApi("/tenants/sync/attributes", {
+    method: "POST",
+  });
+}
+
+export async function syncProductsToWoo(): Promise<{
+  ok: boolean;
+  created: number;
+  updated: number;
+}> {
+  return fetchApi("/tenants/sync/products", {
     method: "POST",
   });
 }

@@ -141,6 +141,13 @@
       "when": 1773222014303,
       "tag": "0019_bored_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773308414000,
+      "tag": "0020_add_woo_id_products_attributes",
+      "breakpoints": true
     }
   ]
 }

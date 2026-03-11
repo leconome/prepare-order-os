@@ -10,6 +10,7 @@ import {
   roundQty,
   UNIT_CONFIG,
   type Unit,
+  type ProductVariant,
 } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -90,6 +91,9 @@ type OrderItem = {
   notes?: string;
   menuId?: string;
   unit: Unit;
+  variantId?: string;
+  variantName?: string;
+  variantCapacity?: number;
 };
 
 type TimeInterval = {
@@ -134,6 +138,9 @@ export default function NewOrderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
+
+  // Variant picker state
+  const [variantPickerProduct, setVariantPickerProduct] = useState<string | null>(null);
 
   // Client selection state
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -230,6 +237,7 @@ export default function NewOrderPage() {
     mutationFn: (data: CreateOrder) => createOrder(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       router.push("/orders");
     },
   });
@@ -248,18 +256,34 @@ export default function NewOrderPage() {
     }
   };
 
-  const addProductToOrder = (product: Product) => {
+  type ProductWithVariants = Product & { variants?: ProductVariant[] };
+
+  const addProductToOrder = (product: ProductWithVariants) => {
+    const hasVariants = product.variants && product.variants.length > 0;
+
+    if (hasVariants) {
+      // Toggle variant picker for this product
+      setVariantPickerProduct(
+        variantPickerProduct === product.id ? null : product.id,
+      );
+      return;
+    }
+
+    addSimpleProductToOrder(product);
+  };
+
+  const addSimpleProductToOrder = (product: Product) => {
     const unitType = product.unitType || "piece";
     const increment = product.defaultQty
       ? parseQty(product.defaultQty)
       : UNIT_CONFIG[unitType].defaultQty;
     const existingItem = orderItems.find(
-      (item) => item.productId === product.id && !item.menuId,
+      (item) => item.productId === product.id && !item.menuId && !item.variantId,
     );
     if (existingItem) {
       setOrderItems(
         orderItems.map((item) =>
-          item.productId === product.id && !item.menuId
+          item.productId === product.id && !item.menuId && !item.variantId
             ? {
                 ...item,
                 quantity: roundQty(item.quantity + increment, item.unit),
@@ -276,6 +300,44 @@ export default function NewOrderPage() {
           quantity: increment,
           unitPrice: product.price,
           unit: unitType,
+        },
+      ]);
+    }
+  };
+
+  const addVariantToOrder = (product: ProductWithVariants, variant: ProductVariant) => {
+    const unitType = product.unitType || "piece";
+    const increment = variant.capacity
+      ? parseQty(variant.capacity)
+      : product.defaultQty
+        ? parseQty(product.defaultQty)
+        : UNIT_CONFIG[unitType].defaultQty;
+    const existingItem = orderItems.find(
+      (item) => item.variantId === variant.id,
+    );
+    if (existingItem) {
+      setOrderItems(
+        orderItems.map((item) =>
+          item.variantId === variant.id
+            ? {
+                ...item,
+                quantity: roundQty(item.quantity + increment, item.unit),
+              }
+            : item,
+        ),
+      );
+    } else {
+      setOrderItems([
+        ...orderItems,
+        {
+          productId: product.id,
+          productName: product.name,
+          quantity: increment,
+          unitPrice: variant.price,
+          unit: unitType,
+          variantId: variant.id,
+          variantName: variant.name,
+          variantCapacity: variant.capacity ? parseQty(variant.capacity) : undefined,
         },
       ]);
     }
@@ -318,15 +380,19 @@ export default function NewOrderPage() {
   };
 
   const getItemKey = (item: OrderItem) =>
-    item.menuId ? `menu-${item.menuId}` : item.productId;
+    item.menuId
+      ? `menu-${item.menuId}`
+      : item.variantId
+        ? `variant-${item.variantId}`
+        : item.productId;
 
   const updateItemQuantity = (key: string, delta: number) => {
     setOrderItems(
       orderItems
         .map((item) => {
           if (getItemKey(item) !== key) return item;
-          const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
-          const newQty = Math.round((item.quantity + step) * 100) / 100;
+          const step = (item.variantCapacity || UNIT_CONFIG[item.unit].step) * Math.sign(delta);
+          const newQty = Math.round((item.quantity + step) * 1000) / 1000;
           return { ...item, quantity: Math.max(0, newQty) };
         })
         .filter((item) => item.quantity > 0),
@@ -536,81 +602,188 @@ export default function NewOrderPage() {
                   ) : (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {productsData?.data.map((product) => {
-                        const inCart = orderItems.find(
-                          (item) =>
-                            item.productId === product.id && !item.menuId,
-                        );
-                        const cartQty = inCart?.quantity ?? 0;
+                        const typedProduct = product as ProductWithVariants;
+                        const hasVariants = typedProduct.variants && typedProduct.variants.length > 0;
+                        const variantItemsInCart = hasVariants
+                          ? orderItems.filter((item) =>
+                              typedProduct.variants!.some((v) => v.id === item.variantId),
+                            )
+                          : [];
+                        const inCart = hasVariants
+                          ? variantItemsInCart.length > 0
+                            ? variantItemsInCart[0]
+                            : undefined
+                          : orderItems.find(
+                              (item) =>
+                                item.productId === product.id && !item.menuId && !item.variantId,
+                            );
+                        const totalCartQty = hasVariants
+                          ? variantItemsInCart.reduce((sum, i) => sum + i.quantity, 0)
+                          : (inCart?.quantity ?? 0);
                         const hasStock = product.stock !== null;
                         const remaining = hasStock
-                          ? parseQty(product.stock!) - cartQty
+                          ? parseQty(product.stock!) - totalCartQty
                           : null;
                         const isOutOfStock =
-                          remaining !== null && remaining <= 0 && !inCart;
+                          !hasVariants && remaining !== null && remaining <= 0 && !inCart;
+                        const isPickerOpen = variantPickerProduct === product.id;
                         return (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => addProductToOrder(product)}
-                            disabled={isOutOfStock}
-                            className={cn(
-                              "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
-                              inCart && "border-primary bg-primary/5",
-                              isOutOfStock &&
-                                "opacity-50 cursor-not-allowed hover:bg-transparent",
-                            )}
-                          >
-                            {product.imageUrl && (
-                              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
-                                <Image
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                  sizes="40px"
-                                />
+                          <div key={product.id} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => addProductToOrder(typedProduct)}
+                              disabled={isOutOfStock}
+                              className={cn(
+                                "flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
+                                (inCart || variantItemsInCart.length > 0) && "border-primary bg-primary/5",
+                                isPickerOpen && "border-primary ring-1 ring-primary",
+                                isOutOfStock &&
+                                  "opacity-50 cursor-not-allowed hover:bg-transparent",
+                              )}
+                            >
+                              {product.imageUrl && (
+                                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
+                                  <Image
+                                    src={product.imageUrl}
+                                    alt={product.name}
+                                    fill
+                                    className="object-cover"
+                                    sizes="40px"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate flex items-center gap-2">
+                                  {product.name}
+                                  {hasVariants && (
+                                    <Badge variant="outline" className="text-[10px] shrink-0">
+                                      {typedProduct.variants!.length} var.
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  {hasVariants ? (
+                                    <span>
+                                      {formatCurrency(
+                                        Math.min(...typedProduct.variants!.map((v) => parseFloat(v.price))),
+                                      )}
+                                      {typedProduct.variants!.length > 1 &&
+                                        ` — ${formatCurrency(
+                                          Math.max(...typedProduct.variants!.map((v) => parseFloat(v.price))),
+                                        )}`}
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {formatCurrency(product.price)}
+                                      {product.unitType !== "piece"
+                                        ? UNIT_CONFIG[product.unitType].priceSuffix
+                                        : ""}
+                                    </span>
+                                  )}
+                                  {(!hasVariants || product.stockMode === "shared") && hasStock && (
+                                    <span
+                                      className={cn(
+                                        "text-xs",
+                                        remaining !== null &&
+                                          remaining <= 0 &&
+                                          "text-destructive font-medium",
+                                        remaining !== null &&
+                                          remaining > 0 &&
+                                          remaining <= 3 &&
+                                          "text-amber-600 font-medium",
+                                      )}
+                                    >
+                                      {remaining !== null && remaining <= 0
+                                        ? "Rupture"
+                                        : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {totalCartQty > 0 && (
+                                <Badge
+                                  variant="default"
+                                  className="ml-2 shrink-0"
+                                >
+                                  {formatQtyLabel(totalCartQty, product.unitType || "piece")}
+                                </Badge>
+                              )}
+                            </button>
+                            {/* Variant picker */}
+                            {isPickerOpen && hasVariants && (
+                              <div className="rounded-lg border border-primary/30 bg-muted/30 p-2 space-y-1">
+                                {typedProduct.variants!
+                                  .filter((v) => v.isActive)
+                                  .map((variant) => {
+                                    const vInCart = orderItems.find(
+                                      (item) => item.variantId === variant.id,
+                                    );
+                                    const vStock =
+                                      product.stockMode === "individual"
+                                        ? variant.stock !== null
+                                          ? parseQty(variant.stock)
+                                          : null
+                                        : product.stockMode === "shared" && product.stock !== null
+                                          ? parseQty(product.stock)
+                                          : null;
+                                    const vOutOfStock =
+                                      product.stockMode === "individual" &&
+                                      vStock !== null &&
+                                      vStock <= 0 &&
+                                      !vInCart;
+                                    return (
+                                      <button
+                                        key={variant.id}
+                                        type="button"
+                                        onClick={() => addVariantToOrder(typedProduct, variant)}
+                                        disabled={vOutOfStock}
+                                        className={cn(
+                                          "flex w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted/50",
+                                          vInCart && "border-primary bg-primary/5",
+                                          vOutOfStock && "opacity-50 cursor-not-allowed",
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="font-medium truncate">
+                                            {variant.name}
+                                          </span>
+                                          {product.stockMode === "individual" &&
+                                            vStock !== null && (
+                                              <span
+                                                className={cn(
+                                                  "text-xs text-muted-foreground",
+                                                  vStock <= 0 && "text-destructive",
+                                                  vStock > 0 && vStock <= 3 && "text-amber-600",
+                                                )}
+                                              >
+                                                {vStock <= 0
+                                                  ? "Rupture"
+                                                  : `Stock: ${vStock}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                              </span>
+                                            )}
+                                          {product.stockMode === "shared" &&
+                                            variant.capacity && (
+                                              <span className="text-xs text-muted-foreground">
+                                                {parseQty(variant.capacity)}{UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}
+                                              </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <span className="text-muted-foreground">
+                                            {formatCurrency(variant.price)}
+                                          </span>
+                                          {vInCart && (
+                                            <Badge variant="default" className="text-xs">
+                                              {formatQtyLabel(vInCart.quantity, product.unitType || "piece")}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
                               </div>
                             )}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">
-                                {product.name}
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>
-                                  {formatCurrency(product.price)}
-                                  {product.unitType !== "piece"
-                                    ? UNIT_CONFIG[product.unitType].priceSuffix
-                                    : ""}
-                                </span>
-                                {hasStock && (
-                                  <span
-                                    className={cn(
-                                      "text-xs",
-                                      remaining !== null &&
-                                        remaining <= 0 &&
-                                        "text-destructive font-medium",
-                                      remaining !== null &&
-                                        remaining > 0 &&
-                                        remaining <= 3 &&
-                                        "text-amber-600 font-medium",
-                                    )}
-                                  >
-                                    {remaining !== null && remaining <= 0
-                                      ? "Rupture"
-                                      : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {inCart && (
-                              <Badge
-                                variant="default"
-                                className="ml-2 shrink-0"
-                              >
-                                {formatQtyLabel(inCart.quantity, inCart.unit)}
-                              </Badge>
-                            )}
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -655,7 +828,14 @@ export default function NewOrderPage() {
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
-                                {item.productName}
+                                <span className="truncate">
+                                  {item.productName}
+                                  {item.variantName && (
+                                    <span className="text-muted-foreground font-normal">
+                                      {" "}— {item.variantName}
+                                    </span>
+                                  )}
+                                </span>
                                 {item.menuId && (
                                   <Badge
                                     variant="outline"
@@ -689,7 +869,11 @@ export default function NewOrderPage() {
                                 <div className="flex items-center gap-1.5">
                                   <Input
                                     type="text"
-                                    inputMode="decimal"
+                                    inputMode={
+                                      UNIT_CONFIG[item.unit].precision === 0
+                                        ? "numeric"
+                                        : "decimal"
+                                    }
                                     defaultValue={item.quantity}
                                     key={`${key}-${item.quantity}`}
                                     onBlur={(e) => {
@@ -706,7 +890,7 @@ export default function NewOrderPage() {
                                         e.target.value = String(item.quantity);
                                       }
                                     }}
-                                    className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
+                                    className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" || item.unit === "litre" ? "w-20" : "w-14"}`}
                                   />
                                   <span className="text-sm font-semibold text-muted-foreground">
                                     {UNIT_CONFIG[item.unit].suffix || "x"}

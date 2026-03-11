@@ -66,4 +66,42 @@ tenantsRoute.post(
   },
 );
 
+// POST /api/tenants/sync/attributes — push attributes to WooCommerce (owner/admin only)
+tenantsRoute.post(
+  "/sync/attributes",
+  authMiddleware,
+  ownerOrAdmin,
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+
+    try {
+      const result = await wooSyncService.pushAttributesToWoo(tenantId);
+      return c.json({ ok: true, created: result.created, updated: result.updated });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur de synchronisation.";
+      return c.json({ error: message }, 400);
+    }
+  },
+);
+
+// POST /api/tenants/sync/products — push products to WooCommerce (owner/admin only)
+tenantsRoute.post(
+  "/sync/products",
+  authMiddleware,
+  ownerOrAdmin,
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+
+    try {
+      const result = await wooSyncService.pushProductsToWoo(tenantId);
+      return c.json({ ok: true, created: result.created, updated: result.updated });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur de synchronisation.";
+      return c.json({ error: message }, 400);
+    }
+  },
+);
+
 export default tenantsRoute;

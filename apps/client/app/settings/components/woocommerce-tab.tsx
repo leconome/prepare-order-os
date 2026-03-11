@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { fetchTenantSettings, generateApiKey, syncCategoriesToWoo } from "@/lib/api";
+import { fetchTenantSettings, generateApiKey, syncCategoriesToWoo, syncAttributesToWoo, syncProductsToWoo } from "@/lib/api";
 
 function formatLastUsed(date: string | null | undefined): string | null {
   if (!date) return null;
@@ -50,6 +50,32 @@ export function WooCommerceTab() {
     mutationFn: syncCategoriesToWoo,
     onSuccess: (data) => {
       setSyncResult(data);
+    },
+  });
+
+  const [attrSyncResult, setAttrSyncResult] = useState<{
+    ok: boolean;
+    created: number;
+    updated: number;
+  } | null>(null);
+
+  const attrSyncMutation = useMutation({
+    mutationFn: syncAttributesToWoo,
+    onSuccess: (data) => {
+      setAttrSyncResult(data);
+    },
+  });
+
+  const [productSyncResult, setProductSyncResult] = useState<{
+    ok: boolean;
+    created: number;
+    updated: number;
+  } | null>(null);
+
+  const productSyncMutation = useMutation({
+    mutationFn: syncProductsToWoo,
+    onSuccess: (data) => {
+      setProductSyncResult(data);
     },
   });
 
@@ -183,39 +209,104 @@ export function WooCommerceTab() {
               <div>
                 <CardTitle>Synchronisation</CardTitle>
                 <CardDescription>
-                  Envoyez vos categories PrepareOS vers WooCommerce
+                  Envoyez vos donnees PrepareOS vers WooCommerce
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              onClick={() => {
-                setSyncResult(null);
-                syncMutation.mutate();
-              }}
-              disabled={syncMutation.isPending}
-              variant="outline"
-            >
-              {syncMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  setSyncResult(null);
+                  syncMutation.mutate();
+                }}
+                disabled={syncMutation.isPending}
+                variant="outline"
+                className="w-full justify-start"
+              >
+                {syncMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Synchroniser les categories
+              </Button>
+              {syncResult && (
+                <p className="text-sm text-green-600 ml-1">
+                  {syncResult.created} creees, {syncResult.updated} mises a jour
+                </p>
               )}
-              Synchroniser les categories
-            </Button>
-            {syncResult && (
-              <p className="text-sm text-green-600">
-                {syncResult.created} creees, {syncResult.updated} mises a jour
-              </p>
-            )}
-            {syncMutation.isError && (
-              <p className="text-sm text-red-600">
-                {syncMutation.error instanceof Error
-                  ? syncMutation.error.message
-                  : "Erreur de synchronisation"}
-              </p>
-            )}
+              {syncMutation.isError && (
+                <p className="text-sm text-red-600 ml-1">
+                  {syncMutation.error instanceof Error
+                    ? syncMutation.error.message
+                    : "Erreur de synchronisation"}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  setAttrSyncResult(null);
+                  attrSyncMutation.mutate();
+                }}
+                disabled={attrSyncMutation.isPending}
+                variant="outline"
+                className="w-full justify-start"
+              >
+                {attrSyncMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Synchroniser les attributs
+              </Button>
+              {attrSyncResult && (
+                <p className="text-sm text-green-600 ml-1">
+                  {attrSyncResult.created} crees, {attrSyncResult.updated} mis a jour
+                </p>
+              )}
+              {attrSyncMutation.isError && (
+                <p className="text-sm text-red-600 ml-1">
+                  {attrSyncMutation.error instanceof Error
+                    ? attrSyncMutation.error.message
+                    : "Erreur de synchronisation"}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  setProductSyncResult(null);
+                  productSyncMutation.mutate();
+                }}
+                disabled={productSyncMutation.isPending}
+                variant="outline"
+                className="w-full justify-start"
+              >
+                {productSyncMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Synchroniser les produits
+              </Button>
+              {productSyncResult && (
+                <p className="text-sm text-green-600 ml-1">
+                  {productSyncResult.created} crees, {productSyncResult.updated} mis a jour
+                </p>
+              )}
+              {productSyncMutation.isError && (
+                <p className="text-sm text-red-600 ml-1">
+                  {productSyncMutation.error instanceof Error
+                    ? productSyncMutation.error.message
+                    : "Erreur de synchronisation"}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
