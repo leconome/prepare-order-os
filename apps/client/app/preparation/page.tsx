@@ -72,7 +72,8 @@ function PreparationPageContent() {
   // Show future orders + past orders unless already picked up
   const orders = allOrders.filter((o) => {
     const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
-    if (!pickup || pickup >= todayStart) return true;
+    if (!pickup) return o.preparationStatus !== "picked_up";
+    if (pickup >= todayStart) return true;
     return o.preparationStatus !== "picked_up";
   });
 

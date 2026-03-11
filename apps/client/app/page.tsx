@@ -25,15 +25,17 @@ import { parseQty } from "@prepareos/data";
 import {
   fetchOrders,
   fetchProducts,
+  fetchTenantSettings,
   formatCurrency,
   type OrderWithItems,
 } from "@/lib/api";
 
-function getToday() {
-  return {
-    from: new Date(new Date().setHours(0, 0, 0, 0)),
-    to: new Date(new Date().setHours(23, 59, 59, 999)),
-  };
+function getDateRange(filterDays: number) {
+  const now = new Date();
+  const to = new Date(now);
+  to.setDate(to.getDate() + filterDays);
+  to.setHours(23, 59, 59, 999);
+  return { to };
 }
 
 function getMotivationMessage(progress: number, toPrepare: number) {
@@ -44,12 +46,21 @@ function getMotivationMessage(progress: number, toPrepare: number) {
   return "C'est parti, bonne journée !";
 }
 
+function isToday(dateStr: string | null | undefined) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
 function computeStats(orders: OrderWithItems[]) {
   const toPrepare = orders.filter(
     (o) => o.preparationStatus === "pending" || o.preparationStatus === "in_preparation",
   );
+  // Ready orders: all dates (including overdue)
   const toPickup = orders.filter((o) => o.preparationStatus === "ready");
-  const done = orders.filter((o) => o.preparationStatus === "picked_up");
+  // Picked up: only today's
+  const done = orders.filter((o) => o.preparationStatus === "picked_up" && isToday(o.pickupDate));
   const unpaid = orders.filter(
     (o) => o.paymentStatus === "pending" || o.paymentStatus === "partially_paid",
   );
@@ -69,15 +80,17 @@ function computeStats(orders: OrderWithItems[]) {
     }
   }
 
-  const progress = orders.length > 0
-    ? Math.round((done.length / orders.length) * 100)
+  // Visible orders for progress = toPrepare + toPickup + done (today)
+  const visibleTotal = toPrepare.length + toPickup.length + done.length;
+  const progress = visibleTotal > 0
+    ? Math.round((done.length / visibleTotal) * 100)
     : 0;
 
   return {
     toPrepare: toPrepare.length,
     toPickup: toPickup.length,
     done: done.length,
-    total: orders.length,
+    total: visibleTotal,
     unpaid: unpaid.length,
     totalRevenue,
     paidRevenue,
@@ -88,12 +101,18 @@ function computeStats(orders: OrderWithItems[]) {
 }
 
 export default function DashboardPage() {
-  const today = getToday();
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
+  const filterDays = tenant?.preparationFilterDays ?? 0;
+  const { to } = getDateRange(filterDays);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["dashboard-today"],
+    queryKey: ["dashboard-today", filterDays],
     queryFn: () =>
-      fetchOrders({ limit: 200, pickupDateFrom: today.from, pickupDateTo: today.to }),
+      fetchOrders({ limit: 200, pickupDateTo: to }),
     refetchInterval: 30_000,
   });
 
@@ -103,7 +122,18 @@ export default function DashboardPage() {
     refetchInterval: 60_000,
   });
 
-  const orders = data?.data ?? [];
+  const allOrders = data?.data ?? [];
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Include: future orders + today's orders + past overdue (not picked up)
+  const orders = allOrders.filter((o) => {
+    const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
+    if (!pickup) return o.preparationStatus !== "picked_up";
+    if (pickup >= todayStart) return true;
+    return o.preparationStatus !== "picked_up";
+  });
+
   const lowStockProducts = lowStockData?.data ?? [];
   const stats = computeStats(orders);
   const itemProgress = stats.totalItems > 0

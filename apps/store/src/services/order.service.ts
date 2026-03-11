@@ -316,7 +316,8 @@ export async function listOrders(tenantId: string, filters: OrderFilters) {
   const conditions = [eq(orders.tenantId, tenantId)];
 
   if (search) {
-    const pattern = `%${search}%`;
+    const cleanSearch = search.replace(/^#/, "");
+    const pattern = `%${cleanSearch}%`;
     const searchCondition = or(
       ilike(orders.ticketNumber, pattern),
       exists(
