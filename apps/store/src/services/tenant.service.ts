@@ -28,6 +28,7 @@ export async function updateTenantSettings(
   if (data.name !== undefined) updateData.name = data.name;
   if (data.preparationFilterDays !== undefined)
     updateData.preparationFilterDays = data.preparationFilterDays;
+  if (data.wooUrl !== undefined) updateData.wooUrl = data.wooUrl;
 
   const [updated] = await db
     .update(tenants)

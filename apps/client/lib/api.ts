@@ -567,6 +567,16 @@ export async function generateApiKey(): Promise<{ apiKey: string }> {
   });
 }
 
+export async function syncCategoriesToWoo(): Promise<{
+  ok: boolean;
+  created: number;
+  updated: number;
+}> {
+  return fetchApi("/tenants/sync/categories", {
+    method: "POST",
+  });
+}
+
 // ============ ADMIN ============
 
 export async function fetchAllTenants(): Promise<{

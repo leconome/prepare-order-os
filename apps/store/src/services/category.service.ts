@@ -1,4 +1,4 @@
-import { eq, and, isNull, ilike, sql, asc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, ilike, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   categories,
@@ -6,6 +6,7 @@ import {
   type CreateCategory,
   type UpdateCategory,
   type CategoryFilters,
+  type WooCategorySyncItem,
 } from "@prepareos/data";
 
 export async function listCategories(tenantId: string, filters: CategoryFilters) {
@@ -158,4 +159,110 @@ export async function getCategoryTree(tenantId: string) {
   });
 
   return rootCategories;
+}
+
+// ── WooCommerce Sync ──
+
+function topologicalSort(items: WooCategorySyncItem[]): WooCategorySyncItem[] {
+  const result: WooCategorySyncItem[] = [];
+  const remaining = new Map(items.map((item) => [item.id, item]));
+  const processed = new Set<number>([0]); // 0 = root in WooCommerce
+
+  while (remaining.size > 0) {
+    let addedAny = false;
+    for (const [id, item] of remaining) {
+      if (processed.has(item.parent)) {
+        result.push(item);
+        processed.add(id);
+        remaining.delete(id);
+        addedAny = true;
+      }
+    }
+    // Safety: if no progress, add remaining as roots (orphaned children)
+    if (!addedAny) {
+      for (const [, item] of remaining) {
+        result.push(item);
+      }
+      break;
+    }
+  }
+
+  return result;
+}
+
+export async function syncWooCategories(
+  tenantId: string,
+  wooCategories: WooCategorySyncItem[],
+) {
+  // 1. Fetch existing synced categories for this tenant
+  const existing = await db
+    .select({ id: categories.id, wooId: categories.wooId })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.tenantId, tenantId),
+        isNotNull(categories.wooId),
+      ),
+    );
+
+  const wooIdToUuid = new Map<number, string>();
+  for (const row of existing) {
+    if (row.wooId !== null) {
+      wooIdToUuid.set(row.wooId, row.id);
+    }
+  }
+
+  // 2. Sort: parents before children
+  const sorted = topologicalSort(wooCategories);
+
+  let created = 0;
+  let updated = 0;
+
+  // 3. Upsert each category
+  for (const wc of sorted) {
+    let parentId: string | null = null;
+    if (wc.parent > 0) {
+      parentId = wooIdToUuid.get(wc.parent) ?? null;
+    }
+
+    const imageUrl = wc.image?.src ?? null;
+    const existingId = wooIdToUuid.get(wc.id);
+
+    if (existingId) {
+      // Update — preserve color, isActive, sortOrder
+      await db
+        .update(categories)
+        .set({
+          name: wc.name,
+          description: wc.description || null,
+          parentId,
+          imageUrl,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(categories.id, existingId), eq(categories.tenantId, tenantId)),
+        );
+      updated++;
+    } else {
+      // Insert new
+      const [inserted] = await db
+        .insert(categories)
+        .values({
+          name: wc.name,
+          description: wc.description || null,
+          parentId,
+          imageUrl,
+          isActive: true,
+          sortOrder: 0,
+          wooId: wc.id,
+          tenantId,
+        })
+        .returning({ id: categories.id });
+
+      wooIdToUuid.set(wc.id, inserted.id);
+      created++;
+    }
+  }
+
+  return { created, updated };
 }

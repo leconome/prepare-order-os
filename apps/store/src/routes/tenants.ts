@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { updateTenantSettingsSchema } from "@prepareos/data";
 import * as tenantService from "../services/tenant.service.js";
+import * as wooSyncService from "../services/woo-sync.service.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { ownerOrAdmin } from "../middleware/role-guard.js";
 import type { AppEnv } from "../types.js";
@@ -43,6 +44,25 @@ tenantsRoute.post(
     const tenantId = c.get("tenantId") as string;
     const result = await tenantService.generateApiKey(tenantId);
     return c.json(result);
+  },
+);
+
+// POST /api/tenants/sync/categories — push categories to WooCommerce (owner/admin only)
+tenantsRoute.post(
+  "/sync/categories",
+  authMiddleware,
+  ownerOrAdmin,
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+
+    try {
+      const result = await wooSyncService.pushCategoriesToWoo(tenantId);
+      return c.json({ ok: true, created: result.created, updated: result.updated });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erreur de synchronisation.";
+      return c.json({ error: message }, 400);
+    }
   },
 );
 

@@ -7,6 +7,7 @@ import {
   integer,
   timestamp,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -24,6 +25,7 @@ export const categories = pgTable(
     color: varchar("color", { length: 7 }), // Hex color e.g. #FF5733
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    wooId: integer("woo_id"),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
@@ -34,7 +36,10 @@ export const categories = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("categories_tenant_id_idx").on(table.tenantId)],
+  (table) => [
+    index("categories_tenant_id_idx").on(table.tenantId),
+    uniqueIndex("categories_tenant_woo_id_idx").on(table.tenantId, table.wooId),
+  ],
 );
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -92,3 +97,23 @@ export type CategoryWithChildren = Category & {
 export type CreateCategory = z.infer<typeof createCategorySchema>;
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;
 export type CategoryFilters = z.infer<typeof categoryFiltersSchema>;
+
+// WooCommerce sync schemas
+export const wooCategorySyncItemSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1).max(100),
+  slug: z.string().optional(),
+  parent: z.number().int().min(0),
+  description: z.string().max(500).default(""),
+  image: z
+    .object({ src: z.string().url() })
+    .nullable()
+    .optional(),
+});
+
+export const wooCategorySyncSchema = z.object({
+  categories: z.array(wooCategorySyncItemSchema).min(1).max(500),
+});
+
+export type WooCategorySyncItem = z.infer<typeof wooCategorySyncItemSchema>;
+export type WooCategorySync = z.infer<typeof wooCategorySyncSchema>;

@@ -8,9 +8,11 @@ export const tenants = pgTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   preparationFilterDays: integer("preparation_filter_days").notNull().default(0),
   smsCredits: integer("sms_credits").notNull().default(0),
-  // API key (SHA-256 hash) for external services (e.g. WordPress plugin)
+  // API key for external services (e.g. WordPress plugin)
   apiKey: varchar("api_key", { length: 500 }),
   apiKeyLastUsedAt: timestamp("api_key_last_used_at", { withTimezone: true }),
+  // WordPress/WooCommerce site URL
+  wooUrl: varchar("woo_url", { length: 500 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -40,5 +42,6 @@ export type CreateTenant = z.infer<typeof createTenantSchema>;
 export const updateTenantSettingsSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   preparationFilterDays: z.number().int().min(0).max(30).optional(),
+  wooUrl: z.string().url().max(500).optional().nullable(),
 });
 export type UpdateTenantSettings = z.infer<typeof updateTenantSettingsSchema>;
