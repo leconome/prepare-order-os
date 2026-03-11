@@ -8,6 +8,9 @@ export const tenants = pgTable("tenants", {
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   preparationFilterDays: integer("preparation_filter_days").notNull().default(0),
   smsCredits: integer("sms_credits").notNull().default(0),
+  // API key (SHA-256 hash) for external services (e.g. WordPress plugin)
+  apiKey: varchar("api_key", { length: 500 }),
+  apiKeyLastUsedAt: timestamp("api_key_last_used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

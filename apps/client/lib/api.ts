@@ -561,6 +561,12 @@ export async function updateTenantSettings(
   });
 }
 
+export async function generateApiKey(): Promise<{ apiKey: string }> {
+  return fetchApi<{ apiKey: string }>("/tenants/api-key/generate", {
+    method: "POST",
+  });
+}
+
 // ============ ADMIN ============
 
 export async function fetchAllTenants(): Promise<{

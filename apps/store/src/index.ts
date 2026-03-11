@@ -18,6 +18,7 @@ import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import pointsOfSaleRoutes from "./routes/points-of-sale.js";
 import docsRoutes from "./routes/docs.js";
+import webhookRoutes from "./routes/webhook.js";
 import { tenants } from "@prepareos/data";
 import { inArray } from "drizzle-orm";
 import { db } from "./db/index.js";
@@ -67,6 +68,9 @@ app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
+
+// Webhook routes — authenticated via API key (no tenant middleware, no session)
+app.route("/api/webhook", webhookRoutes);
 
 // Dev-only: list available tenants (no auth, no tenant middleware)
 if (process.env.STAGE === "dev") {

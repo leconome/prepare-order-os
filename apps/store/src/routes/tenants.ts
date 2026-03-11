@@ -8,10 +8,10 @@ import type { AppEnv } from "../types.js";
 
 const tenantsRoute = new Hono<AppEnv>();
 
-// GET /api/tenants — return current tenant info (public, no auth needed)
+// GET /api/tenants — return current tenant info
 tenantsRoute.get("/", async (c) => {
   const tenantId = c.get("tenantId") as string;
-  const tenant = await tenantService.getTenant(tenantId);
+  const tenant = await tenantService.getTenantPublic(tenantId);
 
   if (!tenant) {
     return c.json({ error: "Tenant not found" }, 404);
@@ -29,8 +29,20 @@ tenantsRoute.patch(
   async (c) => {
     const tenantId = c.get("tenantId") as string;
     const data = c.req.valid("json");
-    const tenant = await tenantService.updateTenantSettings(tenantId, data);
-    return c.json(tenant);
+    const updated = await tenantService.updateTenantSettings(tenantId, data);
+    return c.json(updated);
+  },
+);
+
+// POST /api/tenants/api-key/generate — generate a new API key (owner/admin only)
+tenantsRoute.post(
+  "/api-key/generate",
+  authMiddleware,
+  ownerOrAdmin,
+  async (c) => {
+    const tenantId = c.get("tenantId") as string;
+    const result = await tenantService.generateApiKey(tenantId);
+    return c.json(result);
   },
 );
 
