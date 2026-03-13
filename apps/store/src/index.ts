@@ -18,6 +18,7 @@ import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import pointsOfSaleRoutes from "./routes/points-of-sale.js";
 import docsRoutes from "./routes/docs.js";
+import devRoutes from "./routes/dev.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
@@ -62,6 +63,11 @@ app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
+
+// Dev routes — only in development (no tenant middleware, no auth)
+if (process.env.NODE_ENV !== "production") {
+  app.route("/api/dev", devRoutes);
+}
 
 // Tenant middleware — all routes below are tenant-scoped
 app.use("/api/*", tenantMiddleware);

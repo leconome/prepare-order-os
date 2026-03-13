@@ -491,11 +491,13 @@ export async function loginWithPin(
 
 export async function checkUserExists(
   email: string,
+  tenantSlug?: string,
 ): Promise<{
   exists: boolean;
   user: { id: string; email: string; name: string; role: string } | null;
 }> {
-  return fetchApi(`/users/check/${encodeURIComponent(email)}`);
+  const params = tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : "";
+  return fetchApi(`/dev/check/${encodeURIComponent(email)}${params}`);
 }
 
 export async function signUpDevUser(data: {
@@ -503,8 +505,9 @@ export async function signUpDevUser(data: {
   password: string;
   name: string;
   role: string;
+  tenantSlug?: string;
 }): Promise<unknown> {
-  return fetchApi("/users/dev-signup", {
+  return fetchApi("/dev/signup", {
     method: "POST",
     body: JSON.stringify(data),
   });

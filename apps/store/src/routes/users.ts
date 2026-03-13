@@ -167,13 +167,13 @@ usersRoutes.post(
 
     // Set signed cookie (same way better-auth does internally)
     const cookieName = authCtx.authCookies.sessionToken.name;
-    const isDev = process.env.STAGE === "dev";
+    const isLocalhost = (process.env.BASE_DOMAIN || "localhost") === "localhost";
     await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
       path: "/",
       httpOnly: true,
-      sameSite: isDev ? "None" : "Lax",
+      sameSite: "Lax",
       maxAge: 7 * 24 * 60 * 60,
-      secure: true,
+      secure: !isLocalhost,
     });
 
     return c.json({

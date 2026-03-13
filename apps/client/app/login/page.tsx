@@ -1,11 +1,16 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ArrowLeft, Delete, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,11 +22,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  checkUserExists,
   fetchLoginStaff,
   fetchTenantSettings,
   type LoginStaffMember,
+  signUpDevUser,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+
+const IS_DEV = process.env.NODE_ENV === "development";
+
+const DEFAULT_OWNER_CREDENTIALS = {
+  email: "owner@owner.com",
+  password: "owner123",
+};
 
 type LoginMode = "staff" | "admin";
 
@@ -203,10 +217,24 @@ function StaffGrid({
 
 function AdminLoginForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  // Get tenant slug from subdomain for dev helpers
+  const tenantSlug =
+    typeof window !== "undefined"
+      ? window.location.hostname.split(".")[0]
+      : undefined;
+
+  const { data: userCheck, isLoading: checkingUser } = useQuery({
+    queryKey: ["devUserCheck", DEFAULT_OWNER_CREDENTIALS.email, tenantSlug],
+    queryFn: () =>
+      checkUserExists(DEFAULT_OWNER_CREDENTIALS.email, tenantSlug),
+    enabled: IS_DEV,
+  });
 
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
@@ -218,14 +246,107 @@ function AdminLoginForm() {
       ),
   });
 
+  const createDevUserMutation = useMutation({
+    mutationFn: () =>
+      signUpDevUser({
+        email: DEFAULT_OWNER_CREDENTIALS.email,
+        password: DEFAULT_OWNER_CREDENTIALS.password,
+        name: "Owner",
+        role: "owner",
+        tenantSlug,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["devUserCheck"] });
+      fillDefaultCredentials();
+    },
+    onError: (err) => {
+      setError(
+        err instanceof Error ? err.message : "Echec de la creation du compte",
+      );
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     loginMutation.mutate({ email, password });
   };
 
+  const fillDefaultCredentials = () => {
+    setEmail(DEFAULT_OWNER_CREDENTIALS.email);
+    setPassword(DEFAULT_OWNER_CREDENTIALS.password);
+  };
+
+  const userExists = userCheck?.exists ?? null;
+
   return (
     <div className="space-y-6">
+      {IS_DEV && (
+        <div className="rounded-lg border border-dashed p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">
+              Identifiants par defaut
+            </span>
+            {checkingUser ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : userExists === true ? (
+              <Badge
+                variant="default"
+                className="bg-green-500 hover:bg-green-600"
+              >
+                Utilisateur existe
+              </Badge>
+            ) : userExists === false ? (
+              <Badge variant="destructive">Utilisateur inexistant</Badge>
+            ) : (
+              <Badge variant="secondary">Statut inconnu</Badge>
+            )}
+          </div>
+          <div className="text-sm space-y-1">
+            <p>
+              <span className="text-muted-foreground">Email:</span>{" "}
+              <code className="rounded bg-muted px-1 py-0.5">
+                {DEFAULT_OWNER_CREDENTIALS.email}
+              </code>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Mot de passe:</span>{" "}
+              <code className="rounded bg-muted px-1 py-0.5">
+                {DEFAULT_OWNER_CREDENTIALS.password}
+              </code>
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={fillDefaultCredentials}
+          >
+            Utiliser ces identifiants
+          </Button>
+          {userExists === false && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="w-full"
+              onClick={() => createDevUserMutation.mutate()}
+              disabled={createDevUserMutation.isPending}
+            >
+              {createDevUserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creation...
+                </>
+              ) : (
+                "Creer l'utilisateur owner"
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
