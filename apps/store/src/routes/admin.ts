@@ -312,8 +312,8 @@ admin.patch(
   },
 );
 
-// DELETE /api/admin/users/:userId — deactivate admin (soft delete)
-admin.delete("/users/:userId", async (c) => {
+// PATCH /api/admin/users/:userId/active — toggle admin active status
+admin.patch("/users/:userId/active", async (c) => {
   const userId = c.req.param("userId");
   const currentUser = c.get("user");
 

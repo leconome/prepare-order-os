@@ -57,8 +57,12 @@ export const createAdminSchema = z.object({
 export type CreateAdmin = z.infer<typeof createAdminSchema>;
 
 // Update admin schema
-export const updateAdminSchema = z.object({
-  name: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-});
+export const updateAdminSchema = z
+  .object({
+    name: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+  })
+  .refine((data) => data.name !== undefined || data.email !== undefined, {
+    message: "Au moins un champ doit être fourni",
+  });
 export type UpdateAdmin = z.infer<typeof updateAdminSchema>;

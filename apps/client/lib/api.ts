@@ -655,8 +655,8 @@ export async function updateAdminUser(
 export async function toggleAdminActive(
   userId: string,
 ): Promise<{ data: AdminUser }> {
-  return fetchApi(`/admin/users/${userId}`, {
-    method: "DELETE",
+  return fetchApi(`/admin/users/${userId}/active`, {
+    method: "PATCH",
   });
 }
 
