@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
   createClientSchema,
   createOrderSchema,
@@ -36,6 +35,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -108,7 +108,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "09:00",
     timeEnd: "12:00",
     icon: <Coffee className="h-5 w-5" />,
-    color: "from-amber-400 to-orange-500",
+    color: "bg-amber-500",
   },
   {
     id: "midi",
@@ -116,7 +116,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "12:00",
     timeEnd: "14:00",
     icon: <Sun className="h-5 w-5" />,
-    color: "from-yellow-400 to-amber-500",
+    color: "bg-yellow-500",
   },
   {
     id: "apres-midi",
@@ -124,7 +124,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "14:00",
     timeEnd: "18:00",
     icon: <Sunset className="h-5 w-5" />,
-    color: "from-orange-400 to-rose-500",
+    color: "bg-orange-500",
   },
 ];
 
@@ -180,8 +180,14 @@ export default function NewOrderPage() {
   const clientForm = useForm({
     resolver: zodResolver(
       createClientSchema.extend({
-        phone: z.preprocess((v) => (v === "" ? undefined : v), createClientSchema.shape.phone),
-        email: z.preprocess((v) => (v === "" ? undefined : v), createClientSchema.shape.email),
+        phone: z.preprocess(
+          (v) => (v === "" ? undefined : v),
+          createClientSchema.shape.phone,
+        ),
+        email: z.preprocess(
+          (v) => (v === "" ? undefined : v),
+          createClientSchema.shape.email,
+        ),
       }),
     ),
     defaultValues: {
@@ -623,7 +629,7 @@ export default function NewOrderPage() {
           {/* Right column: Cart, Client, Order Details */}
           <div className="space-y-4">
             <Card className="border-blue-200/50 shadow-sm">
-              <CardHeader className="">
+              <CardHeader>
                 <CardTitle className="gap-2 flex flex-row">
                   Panier
                   {orderItems.length > 0 && (
@@ -821,7 +827,7 @@ export default function NewOrderPage() {
                         )}
                       </div>
 
-                      <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
+                      <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-primary/5 p-3 -mx-1">
                         <span>Total</span>
                         <span className="text-blue-700 dark:text-blue-400">
                           {formatCurrency(calculateTotal())}
@@ -847,7 +853,7 @@ export default function NewOrderPage() {
                     {selectedClient && (
                       <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs text-white shrink-0">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs shrink-0">
                             {selectedClient.name[0]?.toUpperCase()}
                           </div>
                           <div>
@@ -1100,7 +1106,7 @@ export default function NewOrderPage() {
                             className={cn(
                               "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all text-xs",
                               selectedInterval === interval.id
-                                ? "border-transparent bg-gradient-to-br text-white shadow-md " +
+                                ? "border-transparent text-white shadow-md " +
                                     interval.color
                                 : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/50",
                             )}
@@ -1110,9 +1116,7 @@ export default function NewOrderPage() {
                                 "flex h-7 w-7 items-center justify-center rounded-full",
                                 selectedInterval === interval.id
                                   ? "bg-white/20"
-                                  : "bg-gradient-to-br " +
-                                      interval.color +
-                                      " text-white",
+                                  : interval.color + " text-white",
                               )}
                             >
                               {interval.icon}
@@ -1181,7 +1185,9 @@ export default function NewOrderPage() {
                                     <SelectSeparator />
                                     <SelectLabel>Points de retrait</SelectLabel>
                                     {pointsOfSale
-                                      .filter((p) => p.type === "pickup_location")
+                                      .filter(
+                                        (p) => p.type === "pickup_location",
+                                      )
                                       .map((p) => (
                                         <SelectItem key={p.id} value={p.id}>
                                           {p.name}
@@ -1200,7 +1206,9 @@ export default function NewOrderPage() {
                         name="source"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs">Provenance</FormLabel>
+                            <FormLabel className="text-xs">
+                              Provenance
+                            </FormLabel>
                             <Select
                               onValueChange={field.onChange}
                               value={field.value ?? "comptoir"}
@@ -1211,9 +1219,15 @@ export default function NewOrderPage() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="comptoir">Comptoir</SelectItem>
-                                <SelectItem value="telephone">Téléphone</SelectItem>
-                                <SelectItem value="site_web">Site web</SelectItem>
+                                <SelectItem value="comptoir">
+                                  Comptoir
+                                </SelectItem>
+                                <SelectItem value="telephone">
+                                  Téléphone
+                                </SelectItem>
+                                <SelectItem value="site_web">
+                                  Site web
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1328,7 +1342,7 @@ export default function NewOrderPage() {
               disabled={
                 orderItems.length === 0 || createOrderMutation.isPending
               }
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              className="w-full "
               size="lg"
             >
               {createOrderMutation.isPending ? (

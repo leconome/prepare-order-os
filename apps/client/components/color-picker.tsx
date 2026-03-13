@@ -39,7 +39,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
               "relative h-8 w-8 rounded-full border-2 transition-all hover:scale-110",
               value === color.value
                 ? "border-foreground ring-2 ring-offset-2 ring-foreground/20"
-                : "border-transparent"
+                : "border-transparent",
             )}
             style={{ backgroundColor: color.value }}
             title={color.name}
@@ -59,7 +59,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
               "relative h-8 w-8 rounded-full border-2 overflow-hidden transition-all",
               isCustomColor
                 ? "border-foreground ring-2 ring-offset-2 ring-foreground/20"
-                : "border-dashed border-muted-foreground/50"
+                : "border-dashed border-muted-foreground/50",
             )}
             style={{ backgroundColor: isCustomColor ? value : undefined }}
           >

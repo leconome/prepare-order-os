@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Delete, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -84,20 +80,7 @@ function PinPad({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [disabled, handleDigit, handleBackspace]);
 
-  const digits = [
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "",
-    "0",
-    "back",
-  ];
+  const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"];
 
   return (
     <div className="space-y-6">
@@ -190,6 +173,13 @@ function StaffGrid({
               .toUpperCase()
           : "?";
 
+        const isOwner = member.role === "owner";
+        const avatarColors = isOwner
+          ? "bg-amber-500 text-white text-sm"
+          : "bg-primary text-primary-foreground text-sm";
+        const displayName = member.name || "Sans nom";
+        const shouldTruncate = displayName.length > 50;
+
         return (
           <button
             key={member.id}
@@ -199,12 +189,14 @@ function StaffGrid({
           >
             <Avatar size="lg">
               {member.image && <AvatarImage src={member.image} />}
-              <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white text-sm">
+              <AvatarFallback className={avatarColors}>
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium truncate max-w-full">
-              {member.name || "Sans nom"}
+            <span
+              className={`text-sm font-medium text-center max-w-full ${shouldTruncate ? "truncate" : "text-wrap"}`}
+            >
+              {displayName}
             </span>
           </button>
         );
@@ -231,8 +223,7 @@ function AdminLoginForm() {
 
   const { data: userCheck, isLoading: checkingUser } = useQuery({
     queryKey: ["devUserCheck", DEFAULT_OWNER_CREDENTIALS.email, tenantSlug],
-    queryFn: () =>
-      checkUserExists(DEFAULT_OWNER_CREDENTIALS.email, tenantSlug),
+    queryFn: () => checkUserExists(DEFAULT_OWNER_CREDENTIALS.email, tenantSlug),
     enabled: IS_DEV,
   });
 
@@ -455,7 +446,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/50 p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">{tenant?.name ?? "Caisse"}</CardTitle>
           <CardDescription>
@@ -486,7 +477,13 @@ export default function LoginPage() {
                     {selectedStaff.image && (
                       <AvatarImage src={selectedStaff.image} />
                     )}
-                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-white text-sm">
+                    <AvatarFallback
+                      className={
+                        selectedStaff.role === "owner"
+                          ? "bg-amber-500 text-white text-sm"
+                          : "bg-primary text-primary-foreground text-sm"
+                      }
+                    >
                       {selectedStaff.name
                         ? selectedStaff.name
                             .split(" ")

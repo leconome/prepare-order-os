@@ -3,7 +3,16 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClientSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Mail, Phone, Plus, RefreshCw, Search, User, X } from "lucide-react";
+import {
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  RefreshCw,
+  Search,
+  User,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -86,14 +95,18 @@ function ClientsTable({ clients }: { clients: Client[] }) {
           >
             <TableCell className="font-medium">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs text-white shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs shrink-0">
                   {client.name[0]?.toUpperCase()}
                 </div>
                 {client.name}
               </div>
             </TableCell>
             <TableCell>
-              <Badge variant={client.type === "professionnel" ? "default" : "secondary"}>
+              <Badge
+                variant={
+                  client.type === "professionnel" ? "default" : "secondary"
+                }
+              >
                 {client.type === "professionnel" ? "Pro" : "Particulier"}
               </Badge>
             </TableCell>
@@ -177,7 +190,7 @@ function CreateClientDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+        <Button>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau client
         </Button>
@@ -211,10 +224,7 @@ function CreateClientDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Type" />
@@ -222,7 +232,9 @@ function CreateClientDialog() {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="particulier">Particulier</SelectItem>
-                        <SelectItem value="professionnel">Professionnel</SelectItem>
+                        <SelectItem value="professionnel">
+                          Professionnel
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -267,10 +279,7 @@ function CreateClientDialog() {
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Notes sur ce client..."
-                      {...field}
-                    />
+                    <Textarea placeholder="Notes sur ce client..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -284,11 +293,7 @@ function CreateClientDialog() {
               >
                 Annuler
               </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
@@ -317,10 +322,7 @@ export default function ClientsPage() {
   });
 
   return (
-    <DashboardLayout
-      title="Clients"
-      description="Gérez votre base de clients"
-    >
+    <DashboardLayout title="Clients" description="Gérez votre base de clients">
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-sm">

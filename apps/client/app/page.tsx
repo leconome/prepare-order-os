@@ -1,22 +1,12 @@
 "use client";
 
+import { parseQty } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  ArrowRight,
-  ChefHat,
-  PackageCheck,
-} from "lucide-react";
+import { AlertTriangle, ArrowRight, ChefHat, PackageCheck } from "lucide-react";
 import Link from "next/link";
 import { DashboardLayout } from "@/components/dashboard-layout";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { parseQty } from "@prepareos/data";
 import {
   fetchOrders,
   fetchProducts,
@@ -44,20 +34,27 @@ function isToday(dateStr: string | Date | null | undefined) {
   if (!dateStr) return false;
   const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 function computeStats(orders: OrderWithItems[]) {
   const toPrepare = orders.filter(
-    (o) => o.preparationStatus === "pending" || o.preparationStatus === "in_preparation",
+    (o) =>
+      o.preparationStatus === "pending" ||
+      o.preparationStatus === "in_preparation",
   );
   const toPickup = orders.filter((o) => o.preparationStatus === "ready");
-  const done = orders.filter((o) => o.preparationStatus === "picked_up" && isToday(o.pickupDate));
+  const done = orders.filter(
+    (o) => o.preparationStatus === "picked_up" && isToday(o.pickupDate),
+  );
 
   const visibleTotal = toPrepare.length + toPickup.length + done.length;
-  const progress = visibleTotal > 0
-    ? Math.round((done.length / visibleTotal) * 100)
-    : 0;
+  const progress =
+    visibleTotal > 0 ? Math.round((done.length / visibleTotal) * 100) : 0;
 
   return {
     toPrepare: toPrepare.length,
@@ -79,8 +76,7 @@ export default function DashboardPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-today", filterDays],
-    queryFn: () =>
-      fetchOrders({ limit: 200, pickupDateTo: to }),
+    queryFn: () => fetchOrders({ limit: 200, pickupDateTo: to }),
     refetchInterval: 30_000,
   });
 
@@ -105,7 +101,10 @@ export default function DashboardPage() {
   const stats = computeStats(orders);
 
   return (
-    <DashboardLayout title="Dashboard" description="Vue d'ensemble de votre journée">
+    <DashboardLayout
+      title="Dashboard"
+      description="Vue d'ensemble de votre journée"
+    >
       <div className="space-y-4">
         {/* ── Motivation + progress ── */}
         <Card className="border-muted bg-muted/30">
@@ -116,13 +115,15 @@ export default function DashboardPage() {
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <ChefHat className="h-5 w-5 text-foreground" />
+                    <ChefHat className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     <div>
                       <p className="font-semibold leading-tight">
                         {getMotivationMessage(stats.progress, stats.toPrepare)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {stats.done}/{stats.total} commande{stats.total !== 1 ? "s" : ""} récupérée{stats.done !== 1 ? "s" : ""}
+                        {stats.done}/{stats.total} commande
+                        {stats.total !== 1 ? "s" : ""} récupérée
+                        {stats.done !== 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
@@ -140,13 +141,17 @@ export default function DashboardPage() {
                   {stats.toPickup > 0 && (
                     <div
                       className="h-full bg-blue-500 transition-all duration-500"
-                      style={{ width: `${(stats.toPickup / stats.total) * 100}%` }}
+                      style={{
+                        width: `${(stats.toPickup / stats.total) * 100}%`,
+                      }}
                     />
                   )}
                   {stats.toPrepare > 0 && (
                     <div
                       className="h-full bg-amber-400 transition-all duration-500"
-                      style={{ width: `${(stats.toPrepare / stats.total) * 100}%` }}
+                      style={{
+                        width: `${(stats.toPrepare / stats.total) * 100}%`,
+                      }}
                     />
                   )}
                 </div>
@@ -182,7 +187,9 @@ export default function DashboardPage() {
                   {isLoading ? (
                     <Skeleton className="h-7 w-12 mt-0.5" />
                   ) : (
-                    <p className="text-2xl font-black tabular-nums leading-tight">{stats.toPrepare}</p>
+                    <p className="text-2xl font-black tabular-nums leading-tight">
+                      {stats.toPrepare}
+                    </p>
                   )}
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-amber-600 transition-colors shrink-0" />
@@ -201,7 +208,9 @@ export default function DashboardPage() {
                   {isLoading ? (
                     <Skeleton className="h-7 w-12 mt-0.5" />
                   ) : (
-                    <p className="text-2xl font-black tabular-nums leading-tight">{stats.toPickup}</p>
+                    <p className="text-2xl font-black tabular-nums leading-tight">
+                      {stats.toPickup}
+                    </p>
                   )}
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-emerald-600 transition-colors shrink-0" />
@@ -218,7 +227,8 @@ export default function DashboardPage() {
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Alertes stock
                 <span className="ml-auto text-muted-foreground font-normal">
-                  {lowStockProducts.length} produit{lowStockProducts.length > 1 ? "s" : ""}
+                  {lowStockProducts.length} produit
+                  {lowStockProducts.length > 1 ? "s" : ""}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -238,10 +248,12 @@ export default function DashboardPage() {
                         className={`ml-2 text-xs font-medium whitespace-nowrap px-1.5 py-0.5 rounded-full ${
                           isOut
                             ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400"
+                            : "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400"
                         }`}
                       >
-                        {isOut ? "Rupture" : `${stock} restant${stock > 1 ? "s" : ""}`}
+                        {isOut
+                          ? "Rupture"
+                          : `${stock} restant${stock > 1 ? "s" : ""}`}
                       </span>
                     </Link>
                   );

@@ -66,7 +66,9 @@ export default function ClientEditPage() {
               Retour aux clients
             </Link>
           </Button>
-          <Badge variant={client.type === "professionnel" ? "default" : "secondary"}>
+          <Badge
+            variant={client.type === "professionnel" ? "default" : "secondary"}
+          >
             {client.type === "professionnel" ? "Pro" : "Particulier"}
           </Badge>
         </div>

@@ -339,11 +339,7 @@ export default function ProductsPage() {
               />
               Actualiser
             </Button>
-            <Button
-              size="sm"
-              asChild
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-            >
+            <Button size="sm" asChild>
               <Link href="/products/create">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouveau produit

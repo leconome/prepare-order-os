@@ -1,7 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClientSchema, updateOrderSchema, UNIT_CONFIG, formatQtyLabel, lineTotal, roundQty, parseQty, type Unit } from "@prepareos/data";
+import {
+  createClientSchema,
+  formatQtyLabel,
+  lineTotal,
+  parseQty,
+  roundQty,
+  UNIT_CONFIG,
+  type Unit,
+  updateOrderSchema,
+} from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -10,10 +19,10 @@ import {
   ArrowLeft,
   Calendar,
   CalendarIcon,
+  Check,
   ChefHat,
   Coffee,
   FileText,
-  Check,
   Loader2,
   MessageSquare,
   Minus,
@@ -44,6 +53,13 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -56,28 +72,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
-  SelectItem,
   SelectGroup,
+  SelectItem,
   SelectLabel,
   SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   type CreateClient,
   createClient,
@@ -133,7 +142,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "09:00",
     timeEnd: "12:00",
     icon: <Coffee className="h-5 w-5" />,
-    color: "from-amber-400 to-orange-500",
+    color: "bg-amber-500",
   },
   {
     id: "midi",
@@ -141,7 +150,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "12:00",
     timeEnd: "14:00",
     icon: <Sun className="h-5 w-5" />,
-    color: "from-yellow-400 to-amber-500",
+    color: "bg-yellow-500",
   },
   {
     id: "apres-midi",
@@ -149,7 +158,7 @@ const TIME_INTERVALS: TimeInterval[] = [
     timeStart: "14:00",
     timeEnd: "18:00",
     icon: <Sunset className="h-5 w-5" />,
-    color: "from-orange-400 to-rose-500",
+    color: "bg-orange-500",
   },
 ];
 
@@ -193,7 +202,8 @@ function orderToFormValues(order: {
     createdById: order.createdById ?? null,
     assignedToId: order.assignedToId ?? null,
     posId: order.posId ?? null,
-    source: (order.source as "comptoir" | "telephone" | "site_web") ?? "comptoir",
+    source:
+      (order.source as "comptoir" | "telephone" | "site_web") ?? "comptoir",
   };
 }
 
@@ -202,6 +212,11 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = params.id as string;
+  const fromPreparation = searchParams.get("view") === "preparation";
+  const backHref = fromPreparation ? "/preparation" : "/orders";
+  const backLabel = fromPreparation
+    ? "Retour à la préparation"
+    : "Retour aux commandes";
   const queryClient = useQueryClient();
 
   const [selectedClient, setSelectedClient] = useState<ClientDisplay | null>(
@@ -282,14 +297,18 @@ export default function OrderDetailPage() {
   });
 
   // View mode: "produits" (read-only item list) or "preparation" (two-column prep layout)
-  const [viewMode, setViewMode] = useState<"produits" | "preparation">("produits");
+  const [viewMode, setViewMode] = useState<"produits" | "preparation">(
+    "produits",
+  );
   const viewModeInitialized = useRef(false);
 
   // Item editing state
   const [isEditingItems, setIsEditingItems] = useState(false);
   const [editableItems, setEditableItems] = useState<EditOrderItem[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
-  const [editDiscountType, setEditDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [editDiscountType, setEditDiscountType] = useState<
+    "percentage" | "fixed"
+  >("percentage");
   const [editDiscountValue, setEditDiscountValue] = useState("");
 
   const { data: productsData } = useQuery({
@@ -321,7 +340,9 @@ export default function OrderDetailPage() {
 
   const addProductToOrder = (product: Product) => {
     const unitType = product.unitType || "piece";
-    const increment = product.defaultQty ? parseQty(product.defaultQty) : UNIT_CONFIG[unitType].defaultQty;
+    const increment = product.defaultQty
+      ? parseQty(product.defaultQty)
+      : UNIT_CONFIG[unitType].defaultQty;
     const existing = editableItems.find(
       (item) => item.productId === product.id && !item.menuId,
     );
@@ -329,7 +350,10 @@ export default function OrderDetailPage() {
       setEditableItems(
         editableItems.map((item) =>
           item.productId === product.id && !item.menuId
-            ? { ...item, quantity: roundQty(item.quantity + increment, item.unit) }
+            ? {
+                ...item,
+                quantity: roundQty(item.quantity + increment, item.unit),
+              }
             : item,
         ),
       );
@@ -397,7 +421,9 @@ export default function OrderDetailPage() {
 
   const setItemQuantity = (key: string, quantity: number) => {
     if (quantity <= 0) {
-      setEditableItems(editableItems.filter((item) => getItemKey(item) !== key));
+      setEditableItems(
+        editableItems.filter((item) => getItemKey(item) !== key),
+      );
     } else {
       setEditableItems(
         editableItems.map((item) =>
@@ -408,9 +434,7 @@ export default function OrderDetailPage() {
   };
 
   const removeItem = (key: string) => {
-    setEditableItems(
-      editableItems.filter((item) => getItemKey(item) !== key),
-    );
+    setEditableItems(editableItems.filter((item) => getItemKey(item) !== key));
   };
 
   const updateItemPrice = (key: string, price: string) => {
@@ -440,7 +464,8 @@ export default function OrderDetailPage() {
     const subtotal = calculateEditSubtotal();
     const val = parseFloat(editDiscountValue);
     if (!editDiscountValue || isNaN(val) || val <= 0) return 0;
-    const amount = editDiscountType === "percentage" ? (subtotal * val) / 100 : val;
+    const amount =
+      editDiscountType === "percentage" ? (subtotal * val) / 100 : val;
     return Math.min(amount, subtotal);
   };
 
@@ -507,8 +532,7 @@ export default function OrderDetailPage() {
   };
 
   const canEditItems =
-    order &&
-    !["ready", "picked_up"].includes(order.preparationStatus);
+    order && !["ready", "picked_up"].includes(order.preparationStatus);
 
   // Sync form with order data
   useEffect(() => {
@@ -521,7 +545,10 @@ export default function OrderDetailPage() {
   useEffect(() => {
     if (!order || viewModeInitialized.current) return;
     viewModeInitialized.current = true;
-    if (searchParams.get("view") === "preparation" || ["in_preparation", "ready"].includes(order.preparationStatus)) {
+    if (
+      searchParams.get("view") === "preparation" ||
+      ["in_preparation", "ready"].includes(order.preparationStatus)
+    ) {
       setViewMode("preparation");
     }
   }, [order, searchParams]);
@@ -564,8 +591,14 @@ export default function OrderDetailPage() {
     const payload: UpdateOrder = { ...data };
     if (isEditingItems) {
       payload.items = editableItems;
-      payload.discountType = editDiscountValue && parseFloat(editDiscountValue) > 0 ? editDiscountType : null;
-      payload.discountValue = editDiscountValue && parseFloat(editDiscountValue) > 0 ? editDiscountValue : null;
+      payload.discountType =
+        editDiscountValue && parseFloat(editDiscountValue) > 0
+          ? editDiscountType
+          : null;
+      payload.discountValue =
+        editDiscountValue && parseFloat(editDiscountValue) > 0
+          ? editDiscountValue
+          : null;
     }
     updateOrderMutation.mutate(payload);
   });
@@ -610,9 +643,9 @@ export default function OrderDetailPage() {
       <DashboardLayout title="Chargement..." description="">
         <div className="space-y-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/orders">
+            <Link href={backHref}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux commandes
+              {backLabel}
             </Link>
           </Button>
           <OrderDetailSkeleton />
@@ -626,9 +659,9 @@ export default function OrderDetailPage() {
       <DashboardLayout title="Commande non trouvée" description="">
         <div className="space-y-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/orders">
+            <Link href={backHref}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux commandes
+              {backLabel}
             </Link>
           </Button>
           <div className="text-center py-12">
@@ -660,9 +693,9 @@ export default function OrderDetailPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/orders">
+            <Link href={backHref}>
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux commandes
+              {backLabel}
             </Link>
           </Button>
           <div className="flex items-center gap-2">
@@ -684,7 +717,6 @@ export default function OrderDetailPage() {
                     updateOrderMutation.isPending ||
                     (isEditingItems && editableItems.length === 0)
                   }
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
                 >
                   {updateOrderMutation.isPending ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -717,7 +749,9 @@ export default function OrderDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="in_preparation">En préparation</SelectItem>
+                    <SelectItem value="in_preparation">
+                      En préparation
+                    </SelectItem>
                     <SelectItem value="ready">Prêt</SelectItem>
                     <SelectItem value="picked_up">Récupéré</SelectItem>
                   </SelectContent>
@@ -735,7 +769,9 @@ export default function OrderDetailPage() {
                   <SelectContent>
                     <SelectItem value="pending">En attente</SelectItem>
                     <SelectItem value="paid">Payé</SelectItem>
-                    <SelectItem value="partially_paid">Partiellement payé</SelectItem>
+                    <SelectItem value="partially_paid">
+                      Partiellement payé
+                    </SelectItem>
                     <SelectItem value="refunded">Remboursé</SelectItem>
                   </SelectContent>
                 </Select>
@@ -753,19 +789,33 @@ export default function OrderDetailPage() {
             <span>
               Paiement partiel — reste{" "}
               <span className="font-semibold">
-                {formatCurrency(String(Math.max(0, parseFloat(order.total) - parseFloat(order.paidAmount || "0"))))}
-              </span>
-              {" "}à encaisser
+                {formatCurrency(
+                  String(
+                    Math.max(
+                      0,
+                      parseFloat(order.total) -
+                        parseFloat(order.paidAmount || "0"),
+                    ),
+                  ),
+                )}
+              </span>{" "}
+              à encaisser
             </span>
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-amber-600 whitespace-nowrap">Reçu :</span>
+              <span className="text-xs text-amber-600 whitespace-nowrap">
+                Reçu :
+              </span>
               <Input
                 type="number"
                 step="0.01"
                 min="0"
                 max={order.total}
                 placeholder="0.00"
-                defaultValue={parseFloat(order.paidAmount || "0") > 0 ? order.paidAmount : ""}
+                defaultValue={
+                  parseFloat(order.paidAmount || "0") > 0
+                    ? order.paidAmount
+                    : ""
+                }
                 onBlur={(e) => {
                   const val = e.target.value;
                   if (val && val !== (order.paidAmount || "0")) {
@@ -818,11 +868,15 @@ export default function OrderDetailPage() {
                         {viewMode === "produits" ? (
                           <Button
                             size="sm"
+                            variant="outline"
+                            className="bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:bg-amber-950/30 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
                             onClick={() => {
                               if (order.preparationStatus === "pending") {
                                 updateStatusMutation.mutate(
                                   { preparationStatus: "in_preparation" },
-                                  { onSuccess: () => setViewMode("preparation") },
+                                  {
+                                    onSuccess: () => setViewMode("preparation"),
+                                  },
                                 );
                               } else {
                                 setViewMode("preparation");
@@ -831,7 +885,9 @@ export default function OrderDetailPage() {
                             disabled={updateStatusMutation.isPending}
                           >
                             <ChefHat className="mr-2 h-4 w-4" />
-                            {order.preparationStatus === "pending" ? "Lancer la préparation" : "Préparation"}
+                            {order.preparationStatus === "pending"
+                              ? "Lancer la préparation"
+                              : "Préparation"}
                           </Button>
                         ) : (
                           <Button
@@ -857,29 +913,47 @@ export default function OrderDetailPage() {
                       </Button>
                     )}
                   </div>
-                  {viewMode === "preparation" && !isEditingItems && order.items && order.items.length > 0 && (() => {
-                    const { totalUnits, preparedUnits } = computeProgress(order.items);
-                    const pct = totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
-                    return (
-                      <div className="space-y-1.5 mt-2">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>{preparedUnits} / {totalUnits} éléments préparés</span>
-                          <span>{Math.round(pct)}%</span>
+                  {viewMode === "preparation" &&
+                    !isEditingItems &&
+                    order.items &&
+                    order.items.length > 0 &&
+                    (() => {
+                      const { totalUnits, preparedUnits } = computeProgress(
+                        order.items,
+                      );
+                      const pct =
+                        totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
+                      return (
+                        <div className="space-y-1.5 mt-2">
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <span>
+                              {preparedUnits} / {totalUnits} éléments préparés
+                            </span>
+                            <span>{Math.round(pct)}%</span>
+                          </div>
+                          <Progress value={pct} className="h-3" />
                         </div>
-                        <Progress value={pct} className="h-3" />
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
                 </CardHeader>
                 <CardContent>
                   {isEditingItems ? (
                     <div className="space-y-4">
-                      <Tabs defaultValue={editableItems.some((i) => !!i.menuId) && !editableItems.some((i) => !i.menuId) ? "menus" : "produits"}>
+                      <Tabs
+                        defaultValue={
+                          editableItems.some((i) => !!i.menuId) &&
+                          !editableItems.some((i) => !i.menuId)
+                            ? "menus"
+                            : "produits"
+                        }
+                      >
                         <TabsList className="w-full">
                           <TabsTrigger value="produits" className="flex-1">
                             Produits
                             {(() => {
-                              const count = editableItems.filter((i) => !i.menuId).length;
+                              const count = editableItems.filter(
+                                (i) => !i.menuId,
+                              ).length;
                               return count > 0 ? (
                                 <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                                   {count}
@@ -890,7 +964,9 @@ export default function OrderDetailPage() {
                           <TabsTrigger value="menus" className="flex-1">
                             Menus
                             {(() => {
-                              const count = editableItems.filter((i) => !!i.menuId).length;
+                              const count = editableItems.filter(
+                                (i) => !!i.menuId,
+                              ).length;
                               return count > 0 ? (
                                 <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                                   {count}
@@ -900,7 +976,10 @@ export default function OrderDetailPage() {
                           </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="produits" className="mt-3 space-y-2">
+                        <TabsContent
+                          value="produits"
+                          className="mt-3 space-y-2"
+                        >
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
@@ -923,7 +1002,8 @@ export default function OrderDetailPage() {
                               </Button>
                             )}
                           </div>
-                          {productsData?.data && productsData.data.length > 0 ? (
+                          {productsData?.data &&
+                          productsData.data.length > 0 ? (
                             <div className="grid gap-2 sm:grid-cols-2 max-h-[300px] overflow-y-auto">
                               {productsData.data.map((product) => {
                                 const inCart = editableItems.find(
@@ -970,7 +1050,11 @@ export default function OrderDetailPage() {
                                       </div>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <span>
-                                          {formatCurrency(product.price)}{product.unitType !== "piece" ? UNIT_CONFIG[product.unitType].priceSuffix : ""}
+                                          {formatCurrency(product.price)}
+                                          {product.unitType !== "piece"
+                                            ? UNIT_CONFIG[product.unitType]
+                                                .priceSuffix
+                                            : ""}
                                         </span>
                                         {product.stock !== null && (
                                           <span
@@ -998,7 +1082,10 @@ export default function OrderDetailPage() {
                                         variant="default"
                                         className="ml-2 shrink-0"
                                       >
-                                        {formatQtyLabel(inCart.quantity, inCart.unit)}
+                                        {formatQtyLabel(
+                                          inCart.quantity,
+                                          inCart.unit,
+                                        )}
                                       </Badge>
                                     )}
                                   </button>
@@ -1078,10 +1165,13 @@ export default function OrderDetailPage() {
                       {editableItems.length > 0 && (
                         <div className="space-y-3">
                           <Separator />
-                          <div className="text-sm font-medium flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
+                          <div className="text-sm font-medium flex items-center gap-2 rounded-lg bg-primary/5 p-3 -mx-1">
                             <ShoppingCart className="h-4 w-4 text-blue-600" />
                             <span>Panier</span>
-                            <Badge variant="secondary" className="ml-auto bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            <Badge
+                              variant="secondary"
+                              className="ml-auto bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            >
                               {editableItems.length}
                             </Badge>
                           </div>
@@ -1135,12 +1225,19 @@ export default function OrderDetailPage() {
                                           defaultValue={item.quantity}
                                           key={`${key}-${item.quantity}`}
                                           onBlur={(e) => {
-                                            const val = parseFloat(e.target.value.replace(",", "."));
+                                            const val = parseFloat(
+                                              e.target.value.replace(",", "."),
+                                            );
                                             if (!isNaN(val) && val > 0) {
-                                              const rounded = roundQty(val, item.unit);
+                                              const rounded = roundQty(
+                                                val,
+                                                item.unit,
+                                              );
                                               setItemQuantity(key, rounded);
                                             } else {
-                                              e.target.value = String(item.quantity);
+                                              e.target.value = String(
+                                                item.quantity,
+                                              );
                                             }
                                           }}
                                           className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
@@ -1163,7 +1260,10 @@ export default function OrderDetailPage() {
                                     </div>
                                     <div className="text-right font-medium text-sm">
                                       {formatCurrency(
-                                        lineTotal(item.quantity, item.unitPrice),
+                                        lineTotal(
+                                          item.quantity,
+                                          item.unitPrice,
+                                        ),
                                       )}
                                     </div>
                                   </div>
@@ -1172,19 +1272,30 @@ export default function OrderDetailPage() {
                                       <Input
                                         type="text"
                                         inputMode="decimal"
-                                        defaultValue={parseFloat(item.unitPrice).toFixed(2)}
+                                        defaultValue={parseFloat(
+                                          item.unitPrice,
+                                        ).toFixed(2)}
                                         key={`price-${key}-${item.unitPrice}`}
                                         onBlur={(e) => {
-                                          const val = parseFloat(e.target.value.replace(",", "."));
+                                          const val = parseFloat(
+                                            e.target.value.replace(",", "."),
+                                          );
                                           if (!isNaN(val) && val >= 0) {
-                                            updateItemPrice(key, val.toFixed(2));
+                                            updateItemPrice(
+                                              key,
+                                              val.toFixed(2),
+                                            );
                                           } else {
-                                            e.target.value = parseFloat(item.unitPrice).toFixed(2);
+                                            e.target.value = parseFloat(
+                                              item.unitPrice,
+                                            ).toFixed(2);
                                           }
                                         }}
                                         className="h-5 w-14 text-center text-xs px-1 bg-white dark:bg-background"
                                       />
-                                      <span>€{UNIT_CONFIG[item.unit].priceSuffix}</span>
+                                      <span>
+                                        €{UNIT_CONFIG[item.unit].priceSuffix}
+                                      </span>
                                     </div>
                                     <Input
                                       placeholder="Notes..."
@@ -1214,12 +1325,16 @@ export default function OrderDetailPage() {
 
                             {/* Discount input */}
                             <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2">
-                              <span className="text-sm text-muted-foreground shrink-0">Remise</span>
+                              <span className="text-sm text-muted-foreground shrink-0">
+                                Remise
+                              </span>
                               <div className="flex items-center gap-1 flex-1">
                                 <div className="flex rounded-md border overflow-hidden h-7">
                                   <button
                                     type="button"
-                                    onClick={() => setEditDiscountType("percentage")}
+                                    onClick={() =>
+                                      setEditDiscountType("percentage")
+                                    }
                                     className={`px-2 text-xs font-medium transition-colors ${editDiscountType === "percentage" ? "bg-primary text-primary-foreground" : "bg-white dark:bg-background hover:bg-muted"}`}
                                   >
                                     %
@@ -1237,7 +1352,11 @@ export default function OrderDetailPage() {
                                   inputMode="decimal"
                                   placeholder="0"
                                   value={editDiscountValue}
-                                  onChange={(e) => setEditDiscountValue(e.target.value.replace(",", "."))}
+                                  onChange={(e) =>
+                                    setEditDiscountValue(
+                                      e.target.value.replace(",", "."),
+                                    )
+                                  }
                                   className="h-7 w-20 text-center text-sm bg-white dark:bg-background"
                                 />
                               </div>
@@ -1248,7 +1367,7 @@ export default function OrderDetailPage() {
                               )}
                             </div>
 
-                            <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
+                            <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-primary/5 p-3 -mx-1">
                               <span>Total</span>
                               <span className="text-blue-700 dark:text-blue-400">
                                 {formatCurrency(calculateEditTotal())}
@@ -1268,7 +1387,9 @@ export default function OrderDetailPage() {
                         </div>
                       )}
                     </div>
-                  ) : viewMode === "preparation" && order.items && order.items.length > 0 ? (
+                  ) : viewMode === "preparation" &&
+                    order.items &&
+                    order.items.length > 0 ? (
                     (() => {
                       const items = order.items ?? [];
                       const toPrepare = items.filter((i) => !i.isPrepared);
@@ -1281,16 +1402,27 @@ export default function OrderDetailPage() {
                               <span className="h-2 w-2 rounded-full bg-amber-400" />
                               À préparer
                               {toPrepare.length > 0 && (
-                                <Badge variant="secondary" className="text-xs">{toPrepare.length}</Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {toPrepare.length}
+                                </Badge>
                               )}
                             </div>
                             {toPrepare.length > 0 ? (
                               <div className="space-y-2">
                                 {toPrepare.map((item) =>
                                   item.isMenu ? (
-                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                    <MenuItemCard
+                                      key={item.id}
+                                      item={item}
+                                      orderId={orderId}
+                                    />
                                   ) : (
-                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={false} />
+                                    <ItemCard
+                                      key={item.id}
+                                      item={item}
+                                      orderId={orderId}
+                                      isPreparedSide={false}
+                                    />
                                   ),
                                 )}
                               </div>
@@ -1306,16 +1438,27 @@ export default function OrderDetailPage() {
                               <span className="h-2 w-2 rounded-full bg-green-500" />
                               Prêt
                               {prepared.length > 0 && (
-                                <Badge variant="secondary" className="text-xs">{prepared.length}</Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {prepared.length}
+                                </Badge>
                               )}
                             </div>
                             {prepared.length > 0 ? (
                               <div className="space-y-2">
                                 {prepared.map((item) =>
                                   item.isMenu ? (
-                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                    <MenuItemCard
+                                      key={item.id}
+                                      item={item}
+                                      orderId={orderId}
+                                    />
                                   ) : (
-                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={true} />
+                                    <ItemCard
+                                      key={item.id}
+                                      item={item}
+                                      orderId={orderId}
+                                      isPreparedSide={true}
+                                    />
                                   ),
                                 )}
                               </div>
@@ -1341,15 +1484,23 @@ export default function OrderDetailPage() {
                                 {item.productName}
                               </span>
                               {item.isMenu && (
-                                <Badge variant="outline" className="text-xs shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs shrink-0"
+                                >
                                   Menu
                                 </Badge>
                               )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span>{formatCurrency(item.unitPrice)}{UNIT_CONFIG[item.unit ?? "piece"].priceSuffix}</span>
+                              <span>
+                                {formatCurrency(item.unitPrice)}
+                                {UNIT_CONFIG[item.unit ?? "piece"].priceSuffix}
+                              </span>
                               {item.notes && (
-                                <span className="italic truncate">- {item.notes}</span>
+                                <span className="italic truncate">
+                                  - {item.notes}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -1373,12 +1524,16 @@ export default function OrderDetailPage() {
                           </span>
                           <span>{formatCurrency(order.subtotal)}</span>
                         </div>
-                        {Number.parseFloat((order as any).discountAmount || "0") > 0 && (
+                        {Number.parseFloat(
+                          (order as any).discountAmount || "0",
+                        ) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
                               Remise
                               {(order as any).discountType === "percentage" && (
-                                <span className="ml-1">({(order as any).discountValue}%)</span>
+                                <span className="ml-1">
+                                  ({(order as any).discountValue}%)
+                                </span>
                               )}
                             </span>
                             <span className="text-destructive">
@@ -1388,9 +1543,7 @@ export default function OrderDetailPage() {
                         )}
                         {Number.parseFloat(order.taxTotal) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">
-                              Taxes
-                            </span>
+                            <span className="text-muted-foreground">Taxes</span>
                             <span>{formatCurrency(order.taxTotal)}</span>
                           </div>
                         )}
@@ -1572,7 +1725,7 @@ export default function OrderDetailPage() {
                           className={cn(
                             "relative flex flex-col items-center gap-1 rounded-xl border-2 p-2 transition-all hover:scale-[1.02]",
                             selectedInterval === interval.id
-                              ? "border-transparent bg-gradient-to-br text-white shadow-lg " +
+                              ? "border-transparent text-white shadow-lg " +
                                   interval.color
                               : "border-border bg-card hover:border-muted-foreground/30 hover:bg-muted/50",
                           )}
@@ -1582,9 +1735,7 @@ export default function OrderDetailPage() {
                               "flex h-8 w-8 items-center justify-center rounded-full",
                               selectedInterval === interval.id
                                 ? "bg-white/20"
-                                : "bg-gradient-to-br " +
-                                    interval.color +
-                                    " text-white",
+                                : interval.color + " text-white",
                             )}
                           >
                             {interval.icon}
@@ -1625,7 +1776,7 @@ export default function OrderDetailPage() {
                       {selectedClient && (
                         <div className="flex items-center justify-between rounded-lg border border-primary bg-primary/5 p-3">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm text-white shrink-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm shrink-0">
                               {selectedClient.name[0]?.toUpperCase()}
                             </div>
                             <div>
@@ -1878,7 +2029,9 @@ export default function OrderDetailPage() {
                         <FormItem>
                           <FormLabel>Point de retrait</FormLabel>
                           <Select
-                            onValueChange={(v) => field.onChange(v === "none" ? null : v)}
+                            onValueChange={(v) =>
+                              field.onChange(v === "none" ? null : v)
+                            }
                             value={field.value ?? "none"}
                           >
                             <FormControl>
@@ -1888,22 +2041,36 @@ export default function OrderDetailPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="none">Aucun</SelectItem>
-                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                              {pointsOfSale.filter(
+                                (p) => p.type === "permanent_pos",
+                              ).length > 0 && (
                                 <SelectGroup>
                                   <SelectSeparator />
-                                  <SelectLabel>Points de retrait permanents</SelectLabel>
-                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                  ))}
+                                  <SelectLabel>
+                                    Points de retrait permanents
+                                  </SelectLabel>
+                                  {pointsOfSale
+                                    .filter((p) => p.type === "permanent_pos")
+                                    .map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.name}
+                                      </SelectItem>
+                                    ))}
                                 </SelectGroup>
                               )}
-                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                              {pointsOfSale.filter(
+                                (p) => p.type === "pickup_location",
+                              ).length > 0 && (
                                 <SelectGroup>
                                   <SelectSeparator />
                                   <SelectLabel>Points de retrait</SelectLabel>
-                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
-                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                  ))}
+                                  {pointsOfSale
+                                    .filter((p) => p.type === "pickup_location")
+                                    .map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.name}
+                                      </SelectItem>
+                                    ))}
                                 </SelectGroup>
                               )}
                             </SelectContent>
@@ -1928,7 +2095,9 @@ export default function OrderDetailPage() {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="comptoir">Comptoir</SelectItem>
-                              <SelectItem value="telephone">Téléphone</SelectItem>
+                              <SelectItem value="telephone">
+                                Téléphone
+                              </SelectItem>
                               <SelectItem value="site_web">Site web</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1938,7 +2107,6 @@ export default function OrderDetailPage() {
                   </div>
                 </CardContent>
               </Card>
-
             </div>
           </div>
         </Form>
@@ -1950,8 +2118,9 @@ export default function OrderDetailPage() {
           <DialogHeader>
             <DialogTitle>Supprimer la commande</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer la commande #{order.ticketNumber} ?
-              Cette action est irréversible et le stock sera restauré.
+              Êtes-vous sûr de vouloir supprimer la commande #
+              {order.ticketNumber} ? Cette action est irréversible et le stock
+              sera restauré.
             </DialogDescription>
           </DialogHeader>
           {deleteMutation.isError && (

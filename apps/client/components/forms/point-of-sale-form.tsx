@@ -1,7 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createPointOfSaleSchema, updatePointOfSaleSchema } from "@prepareos/data";
+import {
+  createPointOfSaleSchema,
+  updatePointOfSaleSchema,
+} from "@prepareos/data";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -9,6 +12,14 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -28,19 +39,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   type CreatePointOfSale,
-  type PointOfSale,
-  type UpdatePointOfSale,
   createPointOfSale,
   deletePointOfSale,
+  type PointOfSale,
+  type UpdatePointOfSale,
   updatePointOfSale,
 } from "@/lib/api";
 
@@ -54,7 +57,9 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
   const isEditMode = !!initialData;
 
   const form = useForm({
-    resolver: zodResolver(isEditMode ? updatePointOfSaleSchema : createPointOfSaleSchema),
+    resolver: zodResolver(
+      isEditMode ? updatePointOfSaleSchema : createPointOfSaleSchema,
+    ),
     defaultValues: {
       name: initialData?.name ?? "",
       type: initialData?.type ?? "pickup_location",
@@ -90,10 +95,13 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdatePointOfSale) => updatePointOfSale(initialData!.id, data),
+    mutationFn: (data: UpdatePointOfSale) =>
+      updatePointOfSale(initialData!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["points-of-sale"] });
-      queryClient.invalidateQueries({ queryKey: ["point-of-sale", initialData!.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["point-of-sale", initialData!.id],
+      });
       router.push("/points-of-sale");
     },
   });
@@ -128,7 +136,9 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
     <Card>
       <CardHeader>
         <CardTitle>
-          {isEditMode ? "Modifier le point de retrait" : "Nouveau point de retrait"}
+          {isEditMode
+            ? "Modifier le point de retrait"
+            : "Nouveau point de retrait"}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -154,18 +164,19 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionner un type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="pickup_location">Point de retrait</SelectItem>
-                      <SelectItem value="permanent_pos">Point de retrait permanent</SelectItem>
+                      <SelectItem value="pickup_location">
+                        Point de retrait
+                      </SelectItem>
+                      <SelectItem value="permanent_pos">
+                        Point de retrait permanent
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -287,11 +298,7 @@ export function PointOfSaleForm({ initialData }: PointOfSaleFormProps) {
                 <div />
               )}
 
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
