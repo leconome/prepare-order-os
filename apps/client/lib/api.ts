@@ -569,6 +569,97 @@ export async function fetchAllTenants(): Promise<{
   return fetchApi<{ data: Tenant[] }>("/admin/tenants");
 }
 
+export type AdminUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+// Create tenant
+export async function createTenant(data: {
+  name: string;
+  slug: string;
+}): Promise<{ data: Tenant }> {
+  return fetchApi("/admin/tenants", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Get single tenant
+export async function fetchTenant(
+  tenantId: string,
+): Promise<{ data: Tenant & { ownerCount: number } }> {
+  return fetchApi(`/admin/tenants/${tenantId}`);
+}
+
+// List owners for a tenant
+export async function fetchTenantOwners(
+  tenantId: string,
+): Promise<{ data: AdminUser[] }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners`);
+}
+
+// Create owner for a tenant
+export async function createTenantOwner(
+  tenantId: string,
+  data: { name: string; email: string; password: string },
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Toggle owner active status
+export async function toggleOwnerActive(
+  tenantId: string,
+  userId: string,
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners/${userId}`, {
+    method: "PATCH",
+  });
+}
+
+// List platform admins
+export async function fetchAdminUsers(): Promise<{ data: AdminUser[] }> {
+  return fetchApi("/admin/users");
+}
+
+// Create platform admin
+export async function createAdminUser(data: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ data: AdminUser }> {
+  return fetchApi("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Update platform admin
+export async function updateAdminUser(
+  userId: string,
+  data: { name?: string; email?: string },
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// Toggle admin active status (deactivate/reactivate)
+export async function toggleAdminActive(
+  userId: string,
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
 // ============ ADMIN SMS ============
 
 export async function fetchAdminSmsCredits(): Promise<{
