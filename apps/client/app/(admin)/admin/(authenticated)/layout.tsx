@@ -28,9 +28,10 @@ function AdminTopBar() {
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-rose-500 to-pink-600 text-white shadow-md">
-            <Shield className="h-4 w-4" />
+            <Link href="/admin">
+              <Shield className="h-4 w-4" />
+            </Link>
           </div>
-          <span className="font-semibold text-lg">PrepareOS Admin</span>
         </div>
         <nav className="flex items-center gap-1">
           {NAV_ITEMS.map((item) => {

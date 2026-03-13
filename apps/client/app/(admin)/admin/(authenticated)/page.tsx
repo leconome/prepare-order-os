@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createTenantSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Store } from "lucide-react";
+import { ExternalLink, Loader2, Plus, Store } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -46,6 +46,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createTenant, fetchAllTenants, formatDate } from "@/lib/api";
+
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "localhost:3000";
+const PROTOCOL = BASE_DOMAIN.includes("localhost") ? "http" : "https";
+
+function getTenantUrl(slug: string): string {
+  return `${PROTOCOL}://${slug}.${BASE_DOMAIN}`;
+}
 
 function slugify(text: string): string {
   return text
@@ -207,6 +214,7 @@ export default function AdminPage() {
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead>Slug</TableHead>
+                  <TableHead>Lien</TableHead>
                   <TableHead>Filtre préparation</TableHead>
                   <TableHead>Créé le</TableHead>
                 </TableRow>
@@ -227,6 +235,18 @@ export default function AdminPage() {
                       <Badge variant="outline" className="font-mono text-xs">
                         {tenant.slug}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <a
+                        href={getTenantUrl(tenant.slug)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Ouvrir
+                      </a>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {tenant.preparationFilterDays} jour{tenant.preparationFilterDays !== 1 ? "s" : ""}

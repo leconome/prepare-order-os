@@ -47,35 +47,6 @@ import type {
 const API_URL =
   process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
 
-const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
-
-// ============ DEV TENANT SELECTION ============
-
-const DEV_TENANT_KEY = "dev-tenant-slug";
-
-export function getDevTenant(): string | null {
-  if (!IS_DEV || typeof window === "undefined") return null;
-  return localStorage.getItem(DEV_TENANT_KEY);
-}
-
-export function setDevTenant(slug: string | null) {
-  if (typeof window === "undefined") return;
-  if (slug) {
-    localStorage.setItem(DEV_TENANT_KEY, slug);
-  } else {
-    localStorage.removeItem(DEV_TENANT_KEY);
-  }
-}
-
-export type DevTenant = { id: string; name: string; slug: string };
-
-export async function fetchDevTenants(): Promise<{ tenants: DevTenant[] }> {
-  const url = `${API_URL}/api/dev/tenants`;
-  const res = await fetch(url);
-  if (!res.ok) return { tenants: [] };
-  return res.json();
-}
-
 // ============ FETCH WRAPPER ============
 
 async function fetchApi<T>(
@@ -84,18 +55,11 @@ async function fetchApi<T>(
 ): Promise<T> {
   const url = `${API_URL}/api${endpoint}`;
 
-  const devHeaders: Record<string, string> = {};
-  if (IS_DEV) {
-    const slug = getDevTenant();
-    if (slug) devHeaders["X-Dev-Tenant"] = slug;
-  }
-
   const response = await fetch(url, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...devHeaders,
       ...options.headers,
     },
   });
@@ -520,29 +484,6 @@ export async function loginWithPin(
   return fetchApi("/users/login-pin", {
     method: "POST",
     body: JSON.stringify({ userId, pin }),
-  });
-}
-
-// ============ AUTH (DEV) ============
-
-export async function checkUserExists(
-  email: string,
-): Promise<{
-  exists: boolean;
-  user: { id: string; email: string; name: string; role: string } | null;
-}> {
-  return fetchApi(`/users/check/${encodeURIComponent(email)}`);
-}
-
-export async function signUpDevUser(data: {
-  email: string;
-  password: string;
-  name: string;
-  role: string;
-}): Promise<unknown> {
-  return fetchApi("/users/dev-signup", {
-    method: "POST",
-    body: JSON.stringify(data),
   });
 }
 
