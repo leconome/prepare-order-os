@@ -8,7 +8,7 @@ export type TenantVariables = {
   tenantId: string;
 };
 
-const baseDomain = process.env.BASE_DOMAIN; // e.g. "prepareos.fr"
+const baseDomain = process.env.BASE_DOMAIN || "localhost"; // e.g. "prepareos.fr" or "localhost"
 const baseParts = baseDomain ? baseDomain.split(".").length : 0;
 
 // Subdomains that are platform infrastructure, not tenants
@@ -38,47 +38,39 @@ function extractSlug(hostname: string): string | undefined {
 export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
   let slug: string | undefined;
 
-  // In dev stage, check header override first, then fall back to DEV_TENANT_SLUG
-  if (process.env.STAGE === "dev") {
-    slug = c.req.header("x-dev-tenant") || process.env.DEV_TENANT_SLUG;
-  } else {
-    // 1. Try Origin header (cross-origin requests from client)
-    //    e.g. Origin: https://fromagerie.prepareos.fr
-    const origin = c.req.header("origin");
-    if (origin) {
+  // 1. Try Origin header (cross-origin requests from client)
+  //    e.g. Origin: https://fromagerie.prepareos.fr or http://fromagerie.localhost:3000
+  const origin = c.req.header("origin");
+  if (origin) {
+    try {
+      const url = new URL(origin);
+      slug = extractSlug(url.hostname);
+    } catch {
+      // invalid origin, skip
+    }
+  }
+
+  // 2. Fallback to Referer header (some GET requests)
+  if (!slug) {
+    const referer = c.req.header("referer");
+    if (referer) {
       try {
-        const url = new URL(origin);
+        const url = new URL(referer);
         slug = extractSlug(url.hostname);
       } catch {
-        // invalid origin, skip
+        // invalid referer, skip
       }
     }
+  }
 
-    // 2. Fallback to Referer header (some GET requests)
-    if (!slug) {
-      const referer = c.req.header("referer");
-      if (referer) {
-        try {
-          const url = new URL(referer);
-          slug = extractSlug(url.hostname);
-        } catch {
-          // invalid referer, skip
-        }
-      }
-    }
-
-    // 3. Fallback to Host header (direct API access / same-origin)
-    if (!slug) {
-      slug = extractSlug(c.req.header("host") ?? "");
-    }
+  // 3. Fallback to Host header (direct API access / same-origin)
+  if (!slug) {
+    slug = extractSlug(c.req.header("host") ?? "");
   }
 
   if (!slug) {
     return c.json(
-      {
-        error:
-          "Unable to determine tenant. Set DEV_TENANT_SLUG for local development.",
-      },
+      { error: "Unable to determine tenant from request hostname." },
       400,
     );
   }

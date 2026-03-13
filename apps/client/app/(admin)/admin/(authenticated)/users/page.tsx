@@ -79,7 +79,16 @@ function CreateAdminDialog() {
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { form.reset(); mutation.reset(); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          form.reset();
+          mutation.reset();
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -115,7 +124,11 @@ function CreateAdminDialog() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="jean@example.com" {...field} />
+                    <Input
+                      type="email"
+                      placeholder="jean@example.com"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -137,15 +150,22 @@ function CreateAdminDialog() {
             />
             {mutation.isError && (
               <p className="text-sm text-destructive">
-                {(mutation.error as Error).message || "Erreur lors de la création"}
+                {(mutation.error as Error).message ||
+                  "Erreur lors de la création"}
               </p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Créer
               </Button>
             </DialogFooter>
@@ -228,7 +248,11 @@ function EditAdminDialog({
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="jean@example.com" {...field} />
+                    <Input
+                      type="email"
+                      placeholder="jean@example.com"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -240,11 +264,17 @@ function EditAdminDialog({
               </p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
                 Annuler
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Enregistrer
               </Button>
             </DialogFooter>
@@ -292,7 +322,8 @@ export default function AdminUsersPage() {
         <CardHeader>
           <CardTitle>Comptes administrateurs</CardTitle>
           <CardDescription>
-            Les administrateurs ont accès à toutes les fonctionnalités de la plateforme
+            Les administrateurs ont accès à toutes les fonctionnalités de la
+            plateforme
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -360,12 +391,20 @@ export default function AdminUsersPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              if (confirm(`Êtes-vous sûr de vouloir ${admin.isActive ? "désactiver" : "réactiver"} cet administrateur ?`)) {
+                              if (
+                                confirm(
+                                  `Êtes-vous sûr de vouloir ${admin.isActive ? "désactiver" : "réactiver"} cet administrateur ?`,
+                                )
+                              ) {
                                 toggleMutation.mutate(admin.id);
                               }
                             }}
                             disabled={isSelf || toggleMutation.isPending}
-                            title={isSelf ? "Vous ne pouvez pas vous désactiver vous-même" : undefined}
+                            title={
+                              isSelf
+                                ? "Vous ne pouvez pas vous désactiver vous-même"
+                                : undefined
+                            }
                           >
                             {admin.isActive ? "Désactiver" : "Réactiver"}
                           </Button>

@@ -22,7 +22,13 @@ import { useForm } from "react-hook-form";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -61,12 +67,12 @@ import {
 } from "@/components/ui/table";
 import {
   type CreateStaff,
-  type StaffUser,
-  type UpdateStaff,
   createStaff,
   deleteStaff,
   fetchStaff,
   formatDate,
+  type StaffUser,
+  type UpdateStaff,
   updateStaff,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -80,7 +86,8 @@ const ROLE_CONFIG = {
   owner: {
     label: "Propriétaire",
     icon: Shield,
-    color: "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800",
+    color:
+      "bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800",
   },
   staff: {
     label: "Employé",
@@ -122,7 +129,7 @@ function CreateStaffDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+        <Button>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau membre
         </Button>
@@ -131,7 +138,8 @@ function CreateStaffDialog() {
         <DialogHeader>
           <DialogTitle>Ajouter un membre</DialogTitle>
           <DialogDescription>
-            Créez un nouveau membre de l'équipe avec un code PIN pour la connexion rapide.
+            Créez un nouveau membre de l'équipe avec un code PIN pour la
+            connexion rapide.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -236,11 +244,7 @@ function CreateStaffDialog() {
               >
                 Annuler
               </Button>
-              <Button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
@@ -412,7 +416,9 @@ function EditStaffDialog({
                 type="button"
                 variant="destructive"
                 onClick={() => {
-                  if (confirm("Êtes-vous sûr de vouloir supprimer ce membre ?")) {
+                  if (
+                    confirm("Êtes-vous sûr de vouloir supprimer ce membre ?")
+                  ) {
                     deleteMutation.mutate();
                   }
                 }}
@@ -433,11 +439,7 @@ function EditStaffDialog({
                 >
                   Annuler
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-                >
+                <Button type="submit" disabled={isPending}>
                   {updateMutation.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
@@ -459,7 +461,13 @@ function EditStaffDialog({
 
 // ============ STAFF TABLE ============
 
-function StaffTable({ staff, canEdit }: { staff: StaffUser[]; canEdit: boolean }) {
+function StaffTable({
+  staff,
+  canEdit,
+}: {
+  staff: StaffUser[];
+  canEdit: boolean;
+}) {
   const [editingStaff, setEditingStaff] = useState<StaffUser | null>(null);
   const [visiblePins, setVisiblePins] = useState<Set<string>>(new Set());
 
@@ -499,7 +507,9 @@ function StaffTable({ staff, canEdit }: { staff: StaffUser[]; canEdit: boolean }
         </TableHeader>
         <TableBody>
           {staff.map((member) => {
-            const roleConfig = ROLE_CONFIG[member.role as keyof typeof ROLE_CONFIG] || ROLE_CONFIG.staff;
+            const roleConfig =
+              ROLE_CONFIG[member.role as keyof typeof ROLE_CONFIG] ||
+              ROLE_CONFIG.staff;
             const RoleIcon = roleConfig.icon;
 
             return (
@@ -589,9 +599,7 @@ function AccessDenied() {
           Cette page est réservée aux administrateurs et propriétaires.
           Contactez votre responsable si vous pensez devoir y avoir accès.
         </p>
-        <Button onClick={() => router.push("/")}>
-          Retour à l'accueil
-        </Button>
+        <Button onClick={() => router.push("/")}>Retour à l'accueil</Button>
       </div>
     </DashboardLayout>
   );
@@ -644,10 +652,14 @@ export default function StaffPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => queryClient.invalidateQueries({ queryKey: ["staff"] })}
+                onClick={() =>
+                  queryClient.invalidateQueries({ queryKey: ["staff"] })
+                }
                 disabled={isFetching}
               >
-                <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+                />
               </Button>
               <CreateStaffDialog />
             </div>

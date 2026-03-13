@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { type PointOfSale, fetchPointsOfSale } from "@/lib/api";
+import { fetchPointsOfSale, type PointOfSale } from "@/lib/api";
 
 function PointsOfSaleTable({ pointsOfSale }: { pointsOfSale: PointOfSale[] }) {
   if (pointsOfSale.length === 0) {
@@ -135,7 +135,7 @@ export default function PointsOfSalePage() {
               />
               Actualiser
             </Button>
-            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button size="sm" asChild>
               <Link href="/points-of-sale/create">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouveau point de retrait

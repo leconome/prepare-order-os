@@ -229,8 +229,14 @@ export default function PreparationDetailPage() {
                     </div>
                   )}
                   {order.pickupDate && (
-                    <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
-                      {isOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : <Calendar className="h-3.5 w-3.5" />}
+                    <div
+                      className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}
+                    >
+                      {isOverdue ? (
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                      ) : (
+                        <Calendar className="h-3.5 w-3.5" />
+                      )}
                       {isOverdue ? "En retard · " : "Retrait "}
                       {new Intl.DateTimeFormat("fr-FR", {
                         weekday: "short",
@@ -345,7 +351,6 @@ export default function PreparationDetailPage() {
                     Prêt
                   </Button>
                 )}
-
             </div>
           </div>
 
@@ -473,7 +478,6 @@ export default function PreparationDetailPage() {
                 Marquer comme prêt
               </Button>
             )}
-
         </div>
       </div>
 

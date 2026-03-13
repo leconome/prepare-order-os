@@ -8,8 +8,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -17,7 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchOrders, fetchPointsOfSale, fetchTenantSettings } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { fetchOrders, fetchPointsOfSale } from "@/lib/api";
 import { OrderRow } from "./components/OrderRow";
 import { type PreparationStatus, TABS } from "./constants";
 
@@ -39,17 +39,11 @@ function PreparationPageContent() {
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string>("all");
 
-  const { data: tenant } = useQuery({
-    queryKey: ["tenant-settings"],
-    queryFn: fetchTenantSettings,
-  });
-
   const { data: posData } = useQuery({
     queryKey: ["points-of-sale"],
     queryFn: () => fetchPointsOfSale({ limit: 100 }),
   });
 
-  const filterDays = tenant?.preparationFilterDays ?? 0;
   const trimmedSearch = search.trim();
   const posId = posFilter !== "all" ? posFilter : undefined;
 
@@ -121,10 +115,7 @@ function PreparationPageContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Select
-              value={posFilter}
-              onValueChange={setPosFilter}
-            >
+            <Select value={posFilter} onValueChange={setPosFilter}>
               <SelectTrigger className="w-[180px] h-9">
                 <SelectValue placeholder="Lieu de retrait" />
               </SelectTrigger>
@@ -137,9 +128,6 @@ function PreparationPageContent() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="text-sm text-muted-foreground whitespace-nowrap">
-              {orders.length} commande{orders.length !== 1 ? "s" : ""}
-            </div>
             <Button
               variant="outline"
               size="sm"
@@ -151,9 +139,8 @@ function PreparationPageContent() {
               disabled={isFetching}
             >
               <RefreshCw
-                className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+                className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
               />
-              Actualiser
             </Button>
           </div>
         </div>
@@ -167,13 +154,10 @@ function PreparationPageContent() {
           </div>
         ) : (
           <Tabs defaultValue={defaultTab}>
-            <TabsList>
+            <TabsList className="w-full">
               {tabData.map((tab) => (
-                <TabsTrigger
-                  key={tab.key}
-                  value={tab.key}
-                >
-                  <tab.icon className="h-4 w-4" />
+                <TabsTrigger key={tab.key} value={tab.key}>
+                  <tab.icon className={`h-4 w-4 ${tab.iconColor}`} />
                   {tab.label}
                   <Badge
                     variant="secondary"
@@ -187,10 +171,6 @@ function PreparationPageContent() {
 
             {tabData.map((tab) => (
               <TabsContent key={tab.key} value={tab.key}>
-                <div className="grid grid-cols-8 px-4 py-2 text-xs font-medium text-muted-foreground">
-                  <div className="col-span-6">Commande</div>
-                  <div className="col-span-2">Statut</div>
-                </div>
                 {tab.orders.length === 0 ? (
                   <div className="flex items-center justify-center h-32 rounded-lg border border-dashed text-sm text-muted-foreground">
                     Aucune commande
@@ -198,7 +178,11 @@ function PreparationPageContent() {
                 ) : (
                   <div className="rounded-lg overflow-hidden border-2">
                     {tab.orders.map((order, index) => (
-                      <OrderRow key={order.id} order={order} even={index % 2 === 0} />
+                      <OrderRow
+                        key={order.id}
+                        order={order}
+                        even={index % 2 === 0}
+                      />
                     ))}
                   </div>
                 )}

@@ -24,7 +24,7 @@ const DEFAULT_CREDENTIALS = {
   password: "admin123",
 };
 
-const IS_DEV_STAGE = process.env.NEXT_PUBLIC_STAGE === "dev";
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -43,7 +43,7 @@ export default function AdminLoginPage() {
   const { data: userCheck, isLoading: checkingUser } = useQuery({
     queryKey: ["devUserCheck", DEFAULT_CREDENTIALS.email],
     queryFn: () => checkUserExists(DEFAULT_CREDENTIALS.email),
-    enabled: IS_DEV_STAGE,
+    enabled: IS_DEV,
   });
 
   const loginMutation = useMutation({
@@ -100,7 +100,7 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-md">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-rose-600 text-white shadow-md">
             <Shield className="h-6 w-6" />
           </div>
           <CardTitle className="text-2xl">PrepareOS Admin</CardTitle>
@@ -109,7 +109,7 @@ export default function AdminLoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {IS_DEV_STAGE && (
+          {IS_DEV && (
             <div className="rounded-lg border border-dashed p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">

@@ -86,6 +86,7 @@ usersRoutes.get("/login-staff", async (c) => {
       id: true,
       name: true,
       image: true,
+      role: true,
     },
     orderBy: (users, { asc }) => [asc(users.name)],
   });
@@ -94,10 +95,7 @@ usersRoutes.get("/login-staff", async (c) => {
 });
 
 // Public: PIN login — creates a full better-auth session
-const pinAttempts = new Map<
-  string,
-  { count: number; lastAttempt: number }
->();
+const pinAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const MAX_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -165,15 +163,12 @@ usersRoutes.post(
       },
     );
 
-    // Set signed cookie (same way better-auth does internally)
+    // Set signed cookie (must match Better Auth's format — it reads with getSignedCookie)
     const cookieName = authCtx.authCookies.sessionToken.name;
-    const isDev = process.env.STAGE === "dev";
+    const cookieAttrs = authCtx.authCookies.sessionToken.attributes;
     await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: isDev ? "None" : "Lax",
-      maxAge: 7 * 24 * 60 * 60,
-      secure: true,
+      ...cookieAttrs,
+      maxAge: authCtx.sessionConfig.expiresIn,
     });
 
     return c.json({
@@ -489,7 +484,9 @@ usersRoutes.delete("/:id", ownerOrAdmin, async (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  await db.delete(users).where(and(eq(users.id, id), eq(users.tenantId, tenantId)));
+  await db
+    .delete(users)
+    .where(and(eq(users.id, id), eq(users.tenantId, tenantId)));
 
   return c.json({ success: true });
 });

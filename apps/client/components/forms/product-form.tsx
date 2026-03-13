@@ -1,7 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createProductSchema, parseQty, updateProductSchema, UNIT_CONFIG } from "@prepareos/data";
+import {
+  createProductSchema,
+  parseQty,
+  UNIT_CONFIG,
+  updateProductSchema,
+} from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -30,11 +35,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   type CreateProduct,
-  type Product,
-  type UpdateProduct,
   createProduct,
   deleteProduct,
   fetchCategories,
+  type Product,
+  type UpdateProduct,
   updateProduct,
 } from "@/lib/api";
 
@@ -53,16 +58,22 @@ export function ProductForm({ initialData }: ProductFormProps) {
   });
 
   const form = useForm({
-    resolver: zodResolver(isEditMode ? updateProductSchema : createProductSchema),
+    resolver: zodResolver(
+      isEditMode ? updateProductSchema : createProductSchema,
+    ),
     defaultValues: {
       name: initialData?.name ?? "",
       description: initialData?.description ?? "",
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
-      stock: initialData?.stock != null ? parseQty(initialData.stock) : undefined,
+      stock:
+        initialData?.stock != null ? parseQty(initialData.stock) : undefined,
       unitType: initialData?.unitType ?? "piece",
-      defaultQty: initialData?.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
+      defaultQty:
+        initialData?.defaultQty != null
+          ? parseQty(initialData.defaultQty)
+          : undefined,
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -77,9 +88,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
-        stock: initialData.stock != null ? parseQty(initialData.stock) : undefined,
+        stock:
+          initialData.stock != null ? parseQty(initialData.stock) : undefined,
         unitType: initialData.unitType ?? "piece",
-        defaultQty: initialData.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
+        defaultQty:
+          initialData.defaultQty != null
+            ? parseQty(initialData.defaultQty)
+            : undefined,
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -207,7 +222,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="piece">Pièce (à l'unité)</SelectItem>
-                        <SelectItem value="kg">Kilogramme (au poids)</SelectItem>
+                        <SelectItem value="kg">
+                          Kilogramme (au poids)
+                        </SelectItem>
                         <SelectItem value="litre">Litre (au volume)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -237,7 +254,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">
-                    Quantité ajoutée au panier par défaut ({unitConfig.defaultQty} {unitConfig.suffix || "unité"} si vide)
+                    Quantité ajoutée au panier par défaut (
+                    {unitConfig.defaultQty} {unitConfig.suffix || "unité"} si
+                    vide)
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -360,7 +379,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
                   type="button"
                   variant="destructive"
                   onClick={() => {
-                    if (confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")) {
+                    if (
+                      confirm("Êtes-vous sûr de vouloir supprimer ce produit ?")
+                    ) {
                       deleteMutation.mutate();
                     }
                   }}
@@ -377,11 +398,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 <div />
               )}
 
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

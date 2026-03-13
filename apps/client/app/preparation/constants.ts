@@ -7,12 +7,14 @@ const TABS = [
     key: "to_prepare",
     label: "À préparer",
     icon: ChefHat,
+    iconColor: "text-amber-600 dark:text-amber-400",
     statuses: ["pending", "in_preparation"] as PreparationStatus[],
   },
   {
     key: "ready",
     label: "À récupérer",
     icon: PackageCheck,
+    iconColor: "text-blue-600 dark:text-blue-400",
     statuses: ["ready", "picked_up"] as PreparationStatus[],
   },
 ];

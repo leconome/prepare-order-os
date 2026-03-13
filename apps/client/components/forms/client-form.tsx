@@ -37,9 +37,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   type Client,
   type CreateClient,
-  type UpdateClient,
   createClient,
   deleteClient,
+  type UpdateClient,
   updateClient,
 } from "@/lib/api";
 
@@ -144,10 +144,7 @@ export function ClientForm({ initialData }: ClientFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Sélectionner un type" />
@@ -155,7 +152,9 @@ export function ClientForm({ initialData }: ClientFormProps) {
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="particulier">Particulier</SelectItem>
-                        <SelectItem value="professionnel">Professionnel</SelectItem>
+                        <SelectItem value="professionnel">
+                          Professionnel
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -240,11 +239,7 @@ export function ClientForm({ initialData }: ClientFormProps) {
                 <div />
               )}
 
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -270,8 +265,8 @@ export function ClientForm({ initialData }: ClientFormProps) {
                 Supprimer le client
               </DialogTitle>
               <DialogDescription>
-                Êtes-vous sûr de vouloir supprimer ce client ? Cette
-                action est irréversible.
+                Êtes-vous sûr de vouloir supprimer ce client ? Cette action est
+                irréversible.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">

@@ -1,5 +1,6 @@
 "use client";
 
+import { parseQty } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
 import {
   Euro,
@@ -8,11 +9,9 @@ import {
   TrendingUp,
   UserRound,
 } from "lucide-react";
-
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { parseQty } from "@prepareos/data";
 import {
   fetchClients,
   fetchOrders,
