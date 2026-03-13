@@ -1,0 +1,27 @@
+name: Migrate Production DB
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  migrate-production:
+    name: Migrate Production DB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build data package
+        run: pnpm --filter @prepareos/data build
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: pnpm db:migrate
