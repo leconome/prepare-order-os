@@ -3,7 +3,8 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index.js";
 import * as schema from "@prepareos/data/schema";
 
-const isDev = process.env.STAGE === "dev";
+const baseDomain = process.env.BASE_DOMAIN || "localhost";
+const isLocalhost = baseDomain === "localhost";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -27,15 +28,30 @@ export const auth = betterAuth({
       maxAge: 60 * 5, // 5 minutes
     },
   },
-  trustedOrigins: process.env.CORS_ORIGINS?.split(",") || [
-    "http://localhost:3000",
-    "http://localhost:3002",
-  ],
+  trustedOrigins: (request) => {
+    const explicit = process.env.CORS_ORIGINS?.split(",") || [
+      "http://localhost:3000",
+      "http://localhost:3002",
+    ];
+    // Also trust any subdomain of baseDomain (e.g. *.localhost, *.prepareos.fr)
+    const origin = request?.headers.get("origin");
+    if (origin) {
+      try {
+        const url = new URL(origin);
+        if (url.hostname.endsWith(`.${baseDomain}`)) {
+          explicit.push(origin);
+        }
+      } catch {
+        // invalid origin
+      }
+    }
+    return explicit;
+  },
   advanced: {
     cookiePrefix: "prepareos",
     defaultCookieAttributes: {
-      secure: true,
-      sameSite: isDev ? "none" : "lax",
+      secure: !isLocalhost,
+      sameSite: "lax",
       path: "/",
     },
   },

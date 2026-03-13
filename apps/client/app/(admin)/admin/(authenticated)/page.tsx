@@ -51,7 +51,8 @@ const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "localhost:3000";
 const PROTOCOL = BASE_DOMAIN.includes("localhost") ? "http" : "https";
 
 function getTenantUrl(slug: string): string {
-  return `${PROTOCOL}://${slug}.${BASE_DOMAIN}`;
+  const isDev = process.env.NODE_ENV === "development";
+  return `${PROTOCOL}://${slug}.${BASE_DOMAIN}${isDev ? ":3000" : ""}`;
 }
 
 function slugify(text: string): string {
@@ -96,7 +97,17 @@ function CreateTenantDialog() {
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { form.reset(); mutation.reset(); setSlugManuallyEdited(false); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          form.reset();
+          mutation.reset();
+          setSlugManuallyEdited(false);
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
@@ -142,7 +153,8 @@ function CreateTenantDialog() {
                     />
                   </FormControl>
                   <FormDescription>
-                    Sous-domaine du tenant (ex: {field.value || "mon-tenant"}.prepareos.fr)
+                    Sous-domaine du tenant (ex: {field.value || "mon-tenant"}
+                    .prepareos.fr)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -150,15 +162,22 @@ function CreateTenantDialog() {
             />
             {mutation.isError && (
               <p className="text-sm text-destructive">
-                {(mutation.error as Error).message || "Erreur lors de la création"}
+                {(mutation.error as Error).message ||
+                  "Erreur lors de la création"}
               </p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Créer
               </Button>
             </DialogFooter>
@@ -249,7 +268,8 @@ export default function AdminPage() {
                       </a>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {tenant.preparationFilterDays} jour{tenant.preparationFilterDays !== 1 ? "s" : ""}
+                      {tenant.preparationFilterDays} jour
+                      {tenant.preparationFilterDays !== 1 ? "s" : ""}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(tenant.createdAt)}
