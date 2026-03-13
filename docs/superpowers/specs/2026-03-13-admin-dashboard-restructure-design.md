@@ -27,8 +27,9 @@ All routes in `apps/store/src/routes/admin.ts`, guarded by `adminOnly` middlewar
 | `POST` | `/api/admin/tenants` | Create tenant with `{ name, slug }` |
 | `GET` | `/api/admin/tenants/:tenantId` | Get single tenant with owner count and SMS balance |
 
-- Slug validated for uniqueness and against reserved subdomains (`api`, `admin`, `www`)
+- Slug validated for uniqueness and against reserved subdomains (`api`, `admin`, `www`, `app`, `mail`)
 - Slug format: lowercase alphanumeric + hyphens only (`/^[a-z0-9-]+$/`)
+- Tenant existence validated on all `/tenants/:tenantId/*` routes — return 404 if not found
 
 #### Owner Management
 
@@ -36,11 +37,12 @@ All routes in `apps/store/src/routes/admin.ts`, guarded by `adminOnly` middlewar
 |--------|-------|-------------|
 | `GET` | `/api/admin/tenants/:tenantId/owners` | List owners for a tenant |
 | `POST` | `/api/admin/tenants/:tenantId/owners` | Create owner (name, email, password) |
-| `DELETE` | `/api/admin/tenants/:tenantId/owners/:userId` | Deactivate owner (soft delete) |
+| `PATCH` | `/api/admin/tenants/:tenantId/owners/:userId` | Toggle owner active status |
 
 - Owner creation uses Better Auth `createUser` API (handles password hashing)
+- Email uniqueness validated before creation — return user-friendly French error if duplicate
 - Created with `role: "owner"` and `tenantId` set to the tenant
-- Deactivation sets `isActive: false` — preserves audit trail
+- Activate/deactivate toggles `isActive` — preserves audit trail
 
 #### Platform Admin Management
 
@@ -51,6 +53,7 @@ All routes in `apps/store/src/routes/admin.ts`, guarded by `adminOnly` middlewar
 | `PATCH` | `/api/admin/users/:userId` | Update admin (name, email) |
 | `DELETE` | `/api/admin/users/:userId` | Deactivate admin (soft delete) |
 
+- Email uniqueness validated before creation — return user-friendly French error if duplicate
 - Self-deletion protection: cannot deactivate your own account
 - Created with `role: "admin"` and `tenantId: null`
 
@@ -102,10 +105,11 @@ Tenant detail page with three tabs:
 - Read-only display: name, slug, preparation filter days, created date
 
 **SMS tab:**
+- OVH platform credit balance + available-to-distribute count (so admin knows how many credits can be granted)
 - Tenant SMS credit balance display
 - Grant credits form (amount + optional description)
 - Revoke credits form (amount + optional description)
-- Transaction history table (date, type, amount, description, admin who performed it)
+- Transaction history table (date, type, amount, description, admin name via user join)
 
 **Proprietaires tab:**
 - Table: name, email, active status, created date
@@ -130,9 +134,11 @@ Delete page. Content moved into per-tenant detail pages.
 Change nav items from: **Tenants** | **SMS**
 To: **Tenants** | **Administrateurs**
 
+Update active state logic: Tenants tab highlights when `pathname === "/admin" || pathname.startsWith("/admin/tenants")`.
+
 #### `/login` (label change)
 
-Change "Connexion admin" to "Connexion proprietaire" in the email/password form section.
+Change the mode toggle button text from "Connexion admin" to "Connexion proprietaire" and the card description from "Connexion administrateur" to "Connexion proprietaire". Both refer to the email/password login form for tenant owners.
 
 ### 4. Security
 
@@ -141,7 +147,9 @@ Change "Connexion admin" to "Connexion proprietaire" in the email/password form 
 - Self-deletion protection on admin deactivation (server-side check)
 - Slug uniqueness enforced at DB level (existing unique constraint) and validated server-side against reserved subdomains
 - Soft deactivation (`isActive: false`) preserves referential integrity with SMS transactions, orders, etc.
-- Deactivated users cannot log in (existing auth flow checks `isActive`)
+- Deactivated users cannot log in — verify that auth middleware checks `isActive` on session validation; if not, add the check
+- Deactivation/reactivation actions require a confirmation dialog ("Etes-vous sur ?")
+- Password forms show "8 caracteres minimum" hint
 
 ### 5. UI Patterns
 
