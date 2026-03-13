@@ -262,24 +262,26 @@ export function MenuForm({ initialData }: MenuFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="sortOrder"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ordre d'affichage</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      className="max-w-[200px]"
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isEditMode && (
+              <FormField
+                control={form.control}
+                name="sortOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ordre d'affichage</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        className="max-w-[200px]"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Product selection */}
             <div className="space-y-3">
@@ -398,26 +400,28 @@ export function MenuForm({ initialData }: MenuFormProps) {
               </div>
             </div>
 
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Actif</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Le menu sera visible pour les clients
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {isEditMode && (
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Actif</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Le menu sera visible pour les clients
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex items-center justify-between pt-4">
               {isEditMode ? (
