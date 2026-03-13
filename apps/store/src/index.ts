@@ -18,9 +18,7 @@ import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import pointsOfSaleRoutes from "./routes/points-of-sale.js";
 import docsRoutes from "./routes/docs.js";
-import { tenants } from "@prepareos/data";
-import { inArray } from "drizzle-orm";
-import { db } from "./db/index.js";
+import devRoutes from "./routes/dev.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
@@ -28,7 +26,7 @@ const app = new Hono();
 // Middleware
 app.use("*", logger());
 
-const baseDomain = process.env.BASE_DOMAIN;
+const baseDomain = process.env.BASE_DOMAIN || "localhost";
 const corsOrigins = process.env.CORS_ORIGINS?.split(",") || [
   "http://localhost:3000",
   "http://localhost:3002",
@@ -40,20 +38,18 @@ app.use(
     origin: (origin) => {
       // Allow explicit origins
       if (corsOrigins.includes(origin)) return origin;
-      // Allow wildcard subdomains of baseDomain (e.g. *.prepareos.com)
-      if (baseDomain) {
-        try {
-          const url = new URL(origin);
-          if (url.hostname.endsWith(`.${baseDomain}`)) return origin;
-        } catch {
-          // invalid origin, ignore
-        }
+      // Allow wildcard subdomains of baseDomain (e.g. *.prepareos.fr, *.localhost)
+      try {
+        const url = new URL(origin);
+        if (url.hostname.endsWith(`.${baseDomain}`)) return origin;
+      } catch {
+        // invalid origin, ignore
       }
       return corsOrigins[0];
     },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN", "X-Dev-Tenant"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Staff-PIN"],
   }),
 );
 
@@ -68,26 +64,9 @@ app.route("/api/auth", authRoutes);
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
 
-// Dev-only: list available tenants (no auth, no tenant middleware)
-if (process.env.STAGE === "dev") {
-  app.get("/api/dev/tenants", async (c) => {
-    const slugs = (process.env.DEV_TENANT_SLUGS || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (slugs.length === 0) {
-      return c.json({ tenants: [] });
-    }
-    const rows = await db
-      .select({ id: tenants.id, name: tenants.name, slug: tenants.slug })
-      .from(tenants)
-      .where(inArray(tenants.slug, slugs));
-    // Keep the order from the env var
-    const sorted = slugs
-      .map((s) => rows.find((r) => r.slug === s))
-      .filter(Boolean);
-    return c.json({ tenants: sorted });
-  });
+// Dev routes — only in development (no tenant middleware, no auth)
+if (process.env.NODE_ENV !== "production") {
+  app.route("/api/dev", devRoutes);
 }
 
 // Tenant middleware — all routes below are tenant-scoped

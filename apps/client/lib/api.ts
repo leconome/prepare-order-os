@@ -44,37 +44,9 @@ import type {
   User,
 } from "@prepareos/data";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
-
-const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
-
-// ============ DEV TENANT SELECTION ============
-
-const DEV_TENANT_KEY = "dev-tenant-slug";
-
-export function getDevTenant(): string | null {
-  if (!IS_DEV || typeof window === "undefined") return null;
-  return localStorage.getItem(DEV_TENANT_KEY);
-}
-
-export function setDevTenant(slug: string | null) {
-  if (typeof window === "undefined") return;
-  if (slug) {
-    localStorage.setItem(DEV_TENANT_KEY, slug);
-  } else {
-    localStorage.removeItem(DEV_TENANT_KEY);
-  }
-}
-
-export type DevTenant = { id: string; name: string; slug: string };
-
-export async function fetchDevTenants(): Promise<{ tenants: DevTenant[] }> {
-  const url = `${API_URL}/api/dev/tenants`;
-  const res = await fetch(url);
-  if (!res.ok) return { tenants: [] };
-  return res.json();
-}
+// In dev: empty string (requests go to /api/* on same origin, proxied by Next.js rewrites).
+// In prod: explicit API URL (e.g. https://api.prepareos.fr).
+const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL || "";
 
 // ============ FETCH WRAPPER ============
 
@@ -84,18 +56,11 @@ async function fetchApi<T>(
 ): Promise<T> {
   const url = `${API_URL}/api${endpoint}`;
 
-  const devHeaders: Record<string, string> = {};
-  if (IS_DEV) {
-    const slug = getDevTenant();
-    if (slug) devHeaders["X-Dev-Tenant"] = slug;
-  }
-
   const response = await fetch(url, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...devHeaders,
       ...options.headers,
     },
   });
@@ -523,15 +488,17 @@ export async function loginWithPin(
   });
 }
 
-// ============ AUTH (DEV) ============
+// ============ DEV HELPERS ============
 
 export async function checkUserExists(
   email: string,
+  tenantSlug?: string,
 ): Promise<{
   exists: boolean;
   user: { id: string; email: string; name: string; role: string } | null;
 }> {
-  return fetchApi(`/users/check/${encodeURIComponent(email)}`);
+  const params = tenantSlug ? `?tenant=${encodeURIComponent(tenantSlug)}` : "";
+  return fetchApi(`/dev/check/${encodeURIComponent(email)}${params}`);
 }
 
 export async function signUpDevUser(data: {
@@ -539,8 +506,9 @@ export async function signUpDevUser(data: {
   password: string;
   name: string;
   role: string;
+  tenantSlug?: string;
 }): Promise<unknown> {
-  return fetchApi("/users/dev-signup", {
+  return fetchApi("/dev/signup", {
     method: "POST",
     body: JSON.stringify(data),
   });

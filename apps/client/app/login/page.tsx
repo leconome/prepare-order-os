@@ -1,6 +1,10 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ArrowLeft, Delete, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -19,79 +23,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   checkUserExists,
-  type DevTenant,
-  fetchDevTenants,
   fetchLoginStaff,
   fetchTenantSettings,
-  getDevTenant,
   type LoginStaffMember,
-  setDevTenant,
   signUpDevUser,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-const DEFAULT_CREDENTIALS = {
-  email: "admin@admin.com",
-  password: "admin123",
+const IS_DEV = process.env.NODE_ENV === "development";
+
+const DEFAULT_OWNER_CREDENTIALS = {
+  email: "owner@owner.com",
+  password: "owner123",
 };
 
-const IS_DEV_STAGE = process.env.NEXT_PUBLIC_STAGE === "dev";
-
 type LoginMode = "staff" | "admin";
-
-// ============ DEV TENANT SELECTOR ============
-
-function DevTenantSelector() {
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(() => getDevTenant());
-
-  const { data } = useQuery({
-    queryKey: ["dev-tenants"],
-    queryFn: fetchDevTenants,
-    enabled: IS_DEV_STAGE,
-  });
-
-  const tenantList = data?.tenants ?? [];
-
-  // Auto-select first tenant if none selected
-  useEffect(() => {
-    if (tenantList.length > 0 && !selected) {
-      const first = tenantList[0].slug;
-      setSelected(first);
-      setDevTenant(first);
-    }
-  }, [tenantList, selected]);
-
-  if (!IS_DEV_STAGE || tenantList.length === 0) return null;
-
-  const handleSelect = (tenant: DevTenant) => {
-    setSelected(tenant.slug);
-    setDevTenant(tenant.slug);
-    // Refetch tenant-scoped data for the newly selected tenant
-    queryClient.invalidateQueries({ queryKey: ["login-staff"] });
-    queryClient.invalidateQueries({ queryKey: ["tenant-settings"] });
-    queryClient.invalidateQueries({ queryKey: ["devUserCheck"] });
-  };
-
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-      {tenantList.map((t) => (
-        <button
-          key={t.slug}
-          type="button"
-          onClick={() => handleSelect(t)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer border ${
-            selected === t.slug
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-muted text-muted-foreground border-transparent hover:border-border"
-          }`}
-        >
-          {t.name}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ============ PIN PAD ============
 
@@ -277,10 +223,17 @@ function AdminLoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // Get tenant slug from subdomain for dev helpers
+  const tenantSlug =
+    typeof window !== "undefined"
+      ? window.location.hostname.split(".")[0]
+      : undefined;
+
   const { data: userCheck, isLoading: checkingUser } = useQuery({
-    queryKey: ["devUserCheck", DEFAULT_CREDENTIALS.email],
-    queryFn: () => checkUserExists(DEFAULT_CREDENTIALS.email),
-    enabled: IS_DEV_STAGE,
+    queryKey: ["devUserCheck", DEFAULT_OWNER_CREDENTIALS.email, tenantSlug],
+    queryFn: () =>
+      checkUserExists(DEFAULT_OWNER_CREDENTIALS.email, tenantSlug),
+    enabled: IS_DEV,
   });
 
   const loginMutation = useMutation({
@@ -296,10 +249,11 @@ function AdminLoginForm() {
   const createDevUserMutation = useMutation({
     mutationFn: () =>
       signUpDevUser({
-        email: DEFAULT_CREDENTIALS.email,
-        password: DEFAULT_CREDENTIALS.password,
-        name: "Admin",
-        role: "admin",
+        email: DEFAULT_OWNER_CREDENTIALS.email,
+        password: DEFAULT_OWNER_CREDENTIALS.password,
+        name: "Owner",
+        role: "owner",
+        tenantSlug,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devUserCheck"] });
@@ -307,7 +261,7 @@ function AdminLoginForm() {
     },
     onError: (err) => {
       setError(
-        err instanceof Error ? err.message : "Échec de la création du compte",
+        err instanceof Error ? err.message : "Echec de la creation du compte",
       );
     },
   });
@@ -319,20 +273,19 @@ function AdminLoginForm() {
   };
 
   const fillDefaultCredentials = () => {
-    setEmail(DEFAULT_CREDENTIALS.email);
-    setPassword(DEFAULT_CREDENTIALS.password);
+    setEmail(DEFAULT_OWNER_CREDENTIALS.email);
+    setPassword(DEFAULT_OWNER_CREDENTIALS.password);
   };
 
   const userExists = userCheck?.exists ?? null;
 
   return (
     <div className="space-y-6">
-      {/* Dev credentials section */}
-      {IS_DEV_STAGE && (
+      {IS_DEV && (
         <div className="rounded-lg border border-dashed p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
-              Identifiants par défaut
+              Identifiants par defaut
             </span>
             {checkingUser ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -353,13 +306,13 @@ function AdminLoginForm() {
             <p>
               <span className="text-muted-foreground">Email:</span>{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                {DEFAULT_CREDENTIALS.email}
+                {DEFAULT_OWNER_CREDENTIALS.email}
               </code>
             </p>
             <p>
               <span className="text-muted-foreground">Mot de passe:</span>{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                {DEFAULT_CREDENTIALS.password}
+                {DEFAULT_OWNER_CREDENTIALS.password}
               </code>
             </p>
           </div>
@@ -384,10 +337,10 @@ function AdminLoginForm() {
               {createDevUserMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Création...
+                  Creation...
                 </>
               ) : (
-                "Créer l'utilisateur dev"
+                "Creer l'utilisateur owner"
               )}
             </Button>
           )}
@@ -502,7 +455,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/50 p-4">
-      {IS_DEV_STAGE && <DevTenantSelector />}
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">{tenant?.name ?? "Caisse"}</CardTitle>
