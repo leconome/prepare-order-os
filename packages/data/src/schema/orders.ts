@@ -9,12 +9,18 @@ import {
   integer,
   boolean,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import { users, type UserRef } from "./auth.js";
 import { clients, type Client } from "./clients.js";
+import {
+  pointsOfSale,
+  type PointOfSale,
+} from "./points-of-sale.js";
+import { unitTypeEnum, unitTypeSchema } from "./products.js";
 import { tenants } from "./tenants.js";
 
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -31,11 +37,22 @@ export const preparationStatusEnum = pgEnum("preparation_status", [
   "picked_up",
 ]);
 
+export const orderSourceEnum = pgEnum("order_source", [
+  "comptoir",
+  "telephone",
+  "site_web",
+]);
+
+export const discountTypeEnum = pgEnum("discount_type", [
+  "percentage",
+  "fixed",
+]);
+
 export const orders = pgTable(
   "orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    ticketNumber: varchar("ticket_number", { length: 20 }).notNull().unique(),
+    ticketNumber: varchar("ticket_number", { length: 20 }).notNull(),
     // Reference to client
     clientId: uuid("client_id").references(() => clients.id),
     paymentStatus: paymentStatusEnum("payment_status")
@@ -52,13 +69,27 @@ export const orders = pgTable(
     // References to users table (text ID from better-auth)
     createdById: text("created_by_id").references(() => users.id),
     assignedToId: text("assigned_to_id").references(() => users.id),
+    posId: uuid("pos_id").references(() => pointsOfSale.id, {
+      onDelete: "set null",
+    }),
+    source: orderSourceEnum("source").notNull().default("comptoir"),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    discountType: discountTypeEnum("discount_type"),
+    discountValue: decimal("discount_value", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0"),
+    discountAmount: decimal("discount_amount", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
     taxTotal: decimal("tax_total", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
     total: decimal("total", { precision: 10, scale: 2 })
+      .notNull()
+      .default("0.00"),
+    paidAmount: decimal("paid_amount", { precision: 10, scale: 2 })
       .notNull()
       .default("0.00"),
     tenantId: uuid("tenant_id")
@@ -72,7 +103,10 @@ export const orders = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("orders_tenant_id_idx").on(table.tenantId)],
+  (table) => [
+    index("orders_tenant_id_idx").on(table.tenantId),
+    unique("orders_tenant_ticket_unique").on(table.tenantId, table.ticketNumber),
+  ],
 );
 
 export const orderItems = pgTable("order_items", {
@@ -82,9 +116,10 @@ export const orderItems = pgTable("order_items", {
     .references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull(),
   productName: varchar("product_name", { length: 200 }).notNull(),
-  quantity: integer("quantity").notNull().default(1),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  unit: unitTypeEnum("unit").notNull().default("piece"),
   isMenu: boolean("is_menu").notNull().default(false),
   isPrepared: boolean("is_prepared").notNull().default(false),
   notes: text("notes"),
@@ -121,6 +156,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     fields: [orders.assignedToId],
     references: [users.id],
     relationName: "assignedOrders",
+  }),
+  pointOfSale: one(pointsOfSale, {
+    fields: [orders.posId],
+    references: [pointsOfSale.id],
   }),
   items: many(orderItems),
 }));
@@ -173,15 +212,20 @@ export const preparationStatusSchema = z.enum([
 export const createOrderItemSchema = z.object({
   productId: z.string().uuid(),
   productName: z.string(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().positive(),
   unitPrice: z.string(),
+  unit: unitTypeSchema.default("piece"),
   notes: z.string().optional(),
   menuId: z.string().uuid().optional(),
 });
 
+export const orderSourceSchema = z.enum(["comptoir", "telephone", "site_web"]);
+
+export const discountTypeSchema = z.enum(["percentage", "fixed"]);
+
 export const createOrderSchema = z.object({
   clientId: z.string().uuid().optional(),
-  pickupDate: z.coerce.date().optional(),
+  pickupDate: z.coerce.date(),
   pickupTimeStart: z.string().optional(),
   pickupTimeEnd: z.string().optional(),
   clientNote: z.string().optional(),
@@ -189,6 +233,10 @@ export const createOrderSchema = z.object({
   // createdById is auto-filled from logged-in user, but can be overridden
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
+  posId: z.string().uuid().nullable().optional(),
+  source: orderSourceSchema.optional(),
+  discountType: discountTypeSchema.nullable().optional(),
+  discountValue: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
 });
 
@@ -201,14 +249,21 @@ export const updateOrderSchema = z.object({
   pickupTimeEnd: z.string().nullable().optional(),
   clientNote: z.string().nullable().optional(),
   internalNote: z.string().nullable().optional(),
+  createdById: z.string().nullable().optional(),
   assignedToId: z.string().nullable().optional(),
+  posId: z.string().uuid().nullable().optional(),
+  source: orderSourceSchema.optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
+  discountType: discountTypeSchema.nullable().optional(),
+  discountValue: z.string().nullable().optional(),
+  paidAmount: z.string().nullable().optional(),
   items: z.array(createOrderItemSchema).min(1).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),
   preparationStatus: preparationStatusSchema.optional(),
+  paidAmount: z.string().optional(),
 });
 
 export const orderFiltersSchema = z.object({
@@ -218,6 +273,7 @@ export const orderFiltersSchema = z.object({
   preparationStatus: preparationStatusSchema.optional(),
   createdById: z.string().optional(),
   assignedToId: z.string().optional(),
+  posId: z.string().uuid().optional(),
   pickupDate: z.coerce.date().optional(),
   pickupDateFrom: z.coerce.date().optional(),
   pickupDateTo: z.coerce.date().optional(),
@@ -230,6 +286,9 @@ export const orderFiltersSchema = z.object({
 // Client reference type (minimal info for display)
 export type ClientRef = Pick<Client, "id" | "name" | "phone" | "email">;
 
+// Point of sale reference type (minimal info for display)
+export type PointOfSaleRef = Pick<PointOfSale, "id" | "name" | "type">;
+
 // Types
 export type OrderItemWithMenuItems = OrderItem & {
   menuItems?: OrderMenuItem[];
@@ -239,7 +298,9 @@ export type OrderWithItems = Order & {
   client?: ClientRef | null;
   createdBy?: UserRef;
   assignedTo?: UserRef;
+  pointOfSale?: PointOfSaleRef | null;
 };
+export type OrderSourceType = z.infer<typeof orderSourceSchema>;
 export type PaymentStatusType = z.infer<typeof paymentStatusSchema>;
 export type PreparationStatusType = z.infer<typeof preparationStatusSchema>;
 export type CreateOrderItem = z.infer<typeof createOrderItemSchema>;
@@ -247,6 +308,11 @@ export type CreateOrder = z.infer<typeof createOrderSchema>;
 export type UpdateOrder = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatus = z.infer<typeof updateOrderStatusSchema>;
 export type OrderFilters = z.infer<typeof orderFiltersSchema>;
+
+export const updateOrderItemsSchema = z.object({
+  items: z.array(createOrderItemSchema).min(1),
+});
+export type UpdateOrderItems = z.infer<typeof updateOrderItemsSchema>;
 
 export const toggleItemPreparedSchema = z.object({
   isPrepared: z.boolean(),

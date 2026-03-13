@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createProductSchema, updateProductSchema } from "@prepareos/data";
+import { createProductSchema, parseQty, updateProductSchema, UNIT_CONFIG } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -60,7 +60,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
-      stock: initialData?.stock ?? undefined,
+      stock: initialData?.stock != null ? parseQty(initialData.stock) : undefined,
+      unitType: initialData?.unitType ?? "piece",
+      defaultQty: initialData?.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -75,7 +77,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
-        stock: initialData.stock ?? undefined,
+        stock: initialData.stock != null ? parseQty(initialData.stock) : undefined,
+        unitType: initialData.unitType ?? "piece",
+        defaultQty: initialData.defaultQty != null ? parseQty(initialData.defaultQty) : undefined,
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
@@ -109,6 +113,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
   const error = createMutation.error || updateMutation.error;
+  const watchedUnit = form.watch("unitType") || "piece";
+  const unitConfig = UNIT_CONFIG[watchedUnit as keyof typeof UNIT_CONFIG];
 
   const onSubmit = form.handleSubmit((data) => {
     if (isEditMode) {
@@ -160,21 +166,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prix (€)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="10.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="stock"
@@ -192,6 +184,75 @@ export function ProductForm({ initialData }: ProductFormProps) {
                           field.onChange(val === "" ? null : Number(val));
                         }}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unitType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unité</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || "piece"}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="piece">Pièce (à l'unité)</SelectItem>
+                        <SelectItem value="kg">Kilogramme (au poids)</SelectItem>
+                        <SelectItem value="litre">Litre (au volume)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="defaultQty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quantité par défaut</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step={unitConfig.step}
+                      placeholder={String(unitConfig.defaultQty)}
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        field.onChange(val === "" ? null : Number(val));
+                      }}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Quantité ajoutée au panier par défaut ({unitConfig.defaultQty} {unitConfig.suffix || "unité"} si vide)
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
+                    <FormControl>
+                      <Input placeholder="10.00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,20 +1,19 @@
+import { ChefHat, PackageCheck } from "lucide-react";
+
 type PreparationStatus = "pending" | "in_preparation" | "ready" | "picked_up";
 
 const TABS = [
   {
     key: "to_prepare",
     label: "À préparer",
+    icon: ChefHat,
     statuses: ["pending", "in_preparation"] as PreparationStatus[],
   },
   {
     key: "ready",
-    label: "Prêt",
-    statuses: ["ready"] as PreparationStatus[],
-  },
-  {
-    key: "picked_up",
-    label: "Récupéré",
-    statuses: ["picked_up"] as PreparationStatus[],
+    label: "À récupérer",
+    icon: PackageCheck,
+    statuses: ["ready", "picked_up"] as PreparationStatus[],
   },
 ];
 

@@ -38,9 +38,9 @@ function extractSlug(hostname: string): string | undefined {
 export const tenantMiddleware: MiddlewareHandler = async (c, next) => {
   let slug: string | undefined;
 
-  // In dev stage, use DEV_TENANT_SLUG directly (local + deployed dev)
-  if (process.env.STAGE === "dev" && process.env.DEV_TENANT_SLUG) {
-    slug = process.env.DEV_TENANT_SLUG;
+  // In dev stage, check header override first, then fall back to DEV_TENANT_SLUG
+  if (process.env.STAGE === "dev") {
+    slug = c.req.header("x-dev-tenant") || process.env.DEV_TENANT_SLUG;
   } else {
     // 1. Try Origin header (cross-origin requests from client)
     //    e.g. Origin: https://fromagerie.prepareos.fr

@@ -1,14 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createClientSchema, updateOrderSchema } from "@prepareos/data";
+import { createClientSchema, updateOrderSchema, UNIT_CONFIG, formatQtyLabel, lineTotal, roundQty, parseQty, type Unit } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   CalendarIcon,
+  ChefHat,
   Coffee,
   FileText,
   Check,
@@ -32,8 +34,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -58,19 +60,32 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   type CreateClient,
   createClient,
+  deleteOrder,
   fetchClients,
   fetchMenus,
   fetchOrder,
+  fetchPointsOfSale,
   fetchProducts,
   fetchStaff,
   formatCurrency,
@@ -80,12 +95,10 @@ import {
   updateOrder,
   updateOrderStatus,
 } from "@/lib/api";
-import { PAYMENT_LABELS, PREPARATION_STATUS_LABELS } from "@/lib/constants";
-import {
-  getPaymentBadgeVariant,
-  getPreparationBadgeVariant,
-} from "@/lib/helpers";
 import { cn } from "@/lib/utils";
+import { ItemCard } from "./components/ItemCard";
+import { MenuItemCard } from "./components/MenuItemCard";
+import { computeProgress } from "./helpers";
 
 const editOrderSchema = updateOrderSchema.omit({
   paymentStatus: true,
@@ -101,6 +114,7 @@ type EditOrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
+  unit: Unit;
 };
 
 type TimeInterval = {
@@ -164,7 +178,10 @@ function orderToFormValues(order: {
   pickupTimeEnd?: string | null;
   clientNote?: string | null;
   internalNote?: string | null;
+  createdById?: string | null;
   assignedToId?: string | null;
+  posId?: string | null;
+  source?: string | null;
 }): UpdateOrder {
   return {
     clientId: order.clientId ?? null,
@@ -173,12 +190,17 @@ function orderToFormValues(order: {
     pickupTimeEnd: order.pickupTimeEnd ?? null,
     clientNote: order.clientNote ?? null,
     internalNote: order.internalNote ?? null,
+    createdById: order.createdById ?? null,
     assignedToId: order.assignedToId ?? null,
+    posId: order.posId ?? null,
+    source: (order.source as "comptoir" | "telephone" | "site_web") ?? "comptoir",
   };
 }
 
 export default function OrderDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const orderId = params.id as string;
   const queryClient = useQueryClient();
 
@@ -186,6 +208,7 @@ export default function OrderDetailPage() {
     null,
   );
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
 
   const clientForm = useForm({
@@ -221,7 +244,10 @@ export default function OrderDetailPage() {
       pickupTimeEnd: null,
       clientNote: null,
       internalNote: null,
+      createdById: null,
       assignedToId: null,
+      posId: null,
+      source: "comptoir",
     },
   });
 
@@ -255,10 +281,16 @@ export default function OrderDetailPage() {
       fetchClients({ limit: 20, search: clientSearchQuery || undefined }),
   });
 
+  // View mode: "produits" (read-only item list) or "preparation" (two-column prep layout)
+  const [viewMode, setViewMode] = useState<"produits" | "preparation">("produits");
+  const viewModeInitialized = useRef(false);
+
   // Item editing state
   const [isEditingItems, setIsEditingItems] = useState(false);
   const [editableItems, setEditableItems] = useState<EditOrderItem[]>([]);
   const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [editDiscountType, setEditDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [editDiscountValue, setEditDiscountValue] = useState("");
 
   const { data: productsData } = useQuery({
     queryKey: ["products", productSearchQuery],
@@ -277,11 +309,19 @@ export default function OrderDetailPage() {
     enabled: isEditingItems,
   });
 
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale-active"],
+    queryFn: () => fetchPointsOfSale({ isActive: true, limit: 100 }),
+  });
+  const pointsOfSale = posData?.data ?? [];
+
   // Item editing helpers
   const getItemKey = (item: EditOrderItem) =>
     item.menuId ? `menu-${item.menuId}` : item.productId;
 
   const addProductToOrder = (product: Product) => {
+    const unitType = product.unitType || "piece";
+    const increment = product.defaultQty ? parseQty(product.defaultQty) : UNIT_CONFIG[unitType].defaultQty;
     const existing = editableItems.find(
       (item) => item.productId === product.id && !item.menuId,
     );
@@ -289,7 +329,7 @@ export default function OrderDetailPage() {
       setEditableItems(
         editableItems.map((item) =>
           item.productId === product.id && !item.menuId
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: roundQty(item.quantity + increment, item.unit) }
             : item,
         ),
       );
@@ -299,8 +339,9 @@ export default function OrderDetailPage() {
         {
           productId: product.id,
           productName: product.name,
-          quantity: 1,
+          quantity: increment,
           unitPrice: product.price,
+          unit: unitType,
         },
       ]);
     }
@@ -310,9 +351,14 @@ export default function OrderDetailPage() {
     id: string;
     name: string;
     price: string | null;
+    products: { product: { price: string }; quantity: number }[];
   }) => {
     const existing = editableItems.find((item) => item.menuId === menu.id);
-    const menuPrice = menu.price || "0";
+    const productsTotal = menu.products.reduce(
+      (sum, mp) => sum + parseFloat(mp.product.price) * mp.quantity,
+      0,
+    );
+    const menuPrice = menu.price || productsTotal.toFixed(2);
     if (existing) {
       setEditableItems(
         editableItems.map((item) =>
@@ -330,6 +376,7 @@ export default function OrderDetailPage() {
           quantity: 1,
           unitPrice: menuPrice,
           menuId: menu.id,
+          unit: "piece",
         },
       ]);
     }
@@ -338,18 +385,39 @@ export default function OrderDetailPage() {
   const updateItemQuantity = (key: string, delta: number) => {
     setEditableItems(
       editableItems
-        .map((item) =>
-          getItemKey(item) === key
-            ? { ...item, quantity: Math.max(0, item.quantity + delta) }
-            : item,
-        )
+        .map((item) => {
+          if (getItemKey(item) !== key) return item;
+          const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
+          const newQty = roundQty(item.quantity + step, item.unit);
+          return { ...item, quantity: Math.max(0, newQty) };
+        })
         .filter((item) => item.quantity > 0),
     );
+  };
+
+  const setItemQuantity = (key: string, quantity: number) => {
+    if (quantity <= 0) {
+      setEditableItems(editableItems.filter((item) => getItemKey(item) !== key));
+    } else {
+      setEditableItems(
+        editableItems.map((item) =>
+          getItemKey(item) === key ? { ...item, quantity } : item,
+        ),
+      );
+    }
   };
 
   const removeItem = (key: string) => {
     setEditableItems(
       editableItems.filter((item) => getItemKey(item) !== key),
+    );
+  };
+
+  const updateItemPrice = (key: string, price: string) => {
+    setEditableItems(
+      editableItems.map((item) =>
+        getItemKey(item) === key ? { ...item, unitPrice: price } : item,
+      ),
     );
   };
 
@@ -361,48 +429,73 @@ export default function OrderDetailPage() {
     );
   };
 
-  const calculateEditTotal = () => {
+  const calculateEditSubtotal = () => {
     return editableItems.reduce(
-      (total, item) => total + Number.parseFloat(item.unitPrice) * item.quantity,
+      (total, item) => total + lineTotal(item.quantity, item.unitPrice),
       0,
     );
   };
 
+  const calculateEditDiscount = () => {
+    const subtotal = calculateEditSubtotal();
+    const val = parseFloat(editDiscountValue);
+    if (!editDiscountValue || isNaN(val) || val <= 0) return 0;
+    const amount = editDiscountType === "percentage" ? (subtotal * val) / 100 : val;
+    return Math.min(amount, subtotal);
+  };
+
+  const calculateEditTotal = () => {
+    return calculateEditSubtotal() - calculateEditDiscount();
+  };
+
   const enterItemEditMode = () => {
     if (!order) return;
+    const productsList = productsData?.data ?? [];
     // Convert server-expanded items back to collapsed editable form
     const collapsed: EditOrderItem[] = [];
     const menuGroups = new Map<string, EditOrderItem>();
 
     for (const item of order.items) {
+      const qty = parseQty(item.quantity);
+      const product = productsList.find((p: any) => p.id === item.productId);
+      const unitType = product?.unitType ?? (item as any).unit ?? "piece";
       if (item.isMenu) {
         // Group menu items by productId (which is the menuId)
         const existing = menuGroups.get(item.productId);
         if (existing) {
-          existing.quantity += item.quantity;
+          existing.quantity += qty;
         } else {
           menuGroups.set(item.productId, {
             productId: item.productId,
             productName: item.productName,
-            quantity: item.quantity,
+            quantity: qty,
             unitPrice: item.unitPrice,
             notes: item.notes ?? undefined,
             menuId: item.productId,
+            unit: unitType,
           });
         }
       } else {
         collapsed.push({
           productId: item.productId,
           productName: item.productName,
-          quantity: item.quantity,
+          quantity: qty,
           unitPrice: item.unitPrice,
           notes: item.notes ?? undefined,
+          unit: unitType,
         });
       }
     }
 
     collapsed.push(...menuGroups.values());
     setEditableItems(collapsed);
+    if ((order as any).discountType) {
+      setEditDiscountType((order as any).discountType);
+      setEditDiscountValue((order as any).discountValue || "");
+    } else {
+      setEditDiscountType("percentage");
+      setEditDiscountValue("");
+    }
     setIsEditingItems(true);
     setProductSearchQuery("");
   };
@@ -424,14 +517,25 @@ export default function OrderDetailPage() {
     setSelectedClient(order.client ?? null);
   }, [order, form]);
 
+  // Auto-set view mode based on preparation status or search param (only on first load)
+  useEffect(() => {
+    if (!order || viewModeInitialized.current) return;
+    viewModeInitialized.current = true;
+    if (searchParams.get("view") === "preparation" || ["in_preparation", "ready"].includes(order.preparationStatus)) {
+      setViewMode("preparation");
+    }
+  }, [order, searchParams]);
+
   const updateStatusMutation = useMutation({
     mutationFn: (data: {
       paymentStatus?: string;
       preparationStatus?: string;
+      paidAmount?: string;
     }) => updateOrderStatus(orderId, data as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
     },
   });
 
@@ -440,9 +544,19 @@ export default function OrderDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["order", orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
       setIsEditingItems(false);
       setEditableItems([]);
       setProductSearchQuery("");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteOrder(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["preparation-orders"] });
+      router.push("/orders");
     },
   });
 
@@ -450,6 +564,8 @@ export default function OrderDetailPage() {
     const payload: UpdateOrder = { ...data };
     if (isEditingItems) {
       payload.items = editableItems;
+      payload.discountType = editDiscountValue && parseFloat(editDiscountValue) > 0 ? editDiscountType : null;
+      payload.discountValue = editDiscountValue && parseFloat(editDiscountValue) > 0 ? editDiscountValue : null;
     }
     updateOrderMutation.mutate(payload);
   });
@@ -580,19 +696,90 @@ export default function OrderDetailPage() {
               </>
             ) : (
               <>
-                <Badge
-                  variant={getPreparationBadgeVariant(order.preparationStatus)}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
                 >
-                  {PREPARATION_STATUS_LABELS[order.preparationStatus] ||
-                    order.preparationStatus}
-                </Badge>
-                <Badge variant={getPaymentBadgeVariant(order.paymentStatus)}>
-                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                </Badge>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Supprimer
+                </Button>
+                <Select
+                  value={order.preparationStatus}
+                  onValueChange={(value) =>
+                    updateStatusMutation.mutate({ preparationStatus: value })
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <SelectTrigger className="w-[160px] h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="in_preparation">En préparation</SelectItem>
+                    <SelectItem value="ready">Prêt</SelectItem>
+                    <SelectItem value="picked_up">Récupéré</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={order.paymentStatus}
+                  onValueChange={(value) =>
+                    updateStatusMutation.mutate({ paymentStatus: value })
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <SelectTrigger className="w-[160px] h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">En attente</SelectItem>
+                    <SelectItem value="paid">Payé</SelectItem>
+                    <SelectItem value="partially_paid">Partiellement payé</SelectItem>
+                    <SelectItem value="refunded">Remboursé</SelectItem>
+                  </SelectContent>
+                </Select>
+                {updateStatusMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                )}
               </>
             )}
           </div>
         </div>
+
+        {order.paymentStatus === "partially_paid" && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              Paiement partiel — reste{" "}
+              <span className="font-semibold">
+                {formatCurrency(String(Math.max(0, parseFloat(order.total) - parseFloat(order.paidAmount || "0"))))}
+              </span>
+              {" "}à encaisser
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-amber-600 whitespace-nowrap">Reçu :</span>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max={order.total}
+                placeholder="0.00"
+                defaultValue={parseFloat(order.paidAmount || "0") > 0 ? order.paidAmount : ""}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val && val !== (order.paidAmount || "0")) {
+                    updateStatusMutation.mutate({ paidAmount: val });
+                  }
+                }}
+                className="h-7 w-[90px] text-sm bg-white border-amber-300"
+              />
+              <span className="text-xs text-amber-600 whitespace-nowrap">
+                / {formatCurrency(order.total)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {updateOrderMutation.isError && (
           <div className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
@@ -609,25 +796,54 @@ export default function OrderDetailPage() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Package className="h-5 w-5" />
-                      Articles (
+                      Produits (
                       {isEditingItems
-                        ? editableItems.reduce(
-                            (sum, i) => sum + i.quantity,
-                            0,
-                          )
+                        ? editableItems.length
                         : order.items?.length || 0}
                       )
                     </CardTitle>
-                    {!isEditingItems && canEditItems && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={enterItemEditMode}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Modifier
-                      </Button>
+                    {!isEditingItems && (
+                      <div className="flex items-center gap-2">
+                        {viewMode === "produits" && canEditItems && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={enterItemEditMode}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Modifier
+                          </Button>
+                        )}
+                        {viewMode === "produits" ? (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (order.preparationStatus === "pending") {
+                                updateStatusMutation.mutate(
+                                  { preparationStatus: "in_preparation" },
+                                  { onSuccess: () => setViewMode("preparation") },
+                                );
+                              } else {
+                                setViewMode("preparation");
+                              }
+                            }}
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            <ChefHat className="mr-2 h-4 w-4" />
+                            {order.preparationStatus === "pending" ? "Lancer la préparation" : "Préparation"}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewMode("produits")}
+                          >
+                            <Package className="mr-2 h-4 w-4" />
+                            Produits
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {isEditingItems && (
                       <Button
@@ -641,17 +857,46 @@ export default function OrderDetailPage() {
                       </Button>
                     )}
                   </div>
+                  {viewMode === "preparation" && !isEditingItems && order.items && order.items.length > 0 && (() => {
+                    const { totalUnits, preparedUnits } = computeProgress(order.items);
+                    const pct = totalUnits > 0 ? (preparedUnits / totalUnits) * 100 : 0;
+                    return (
+                      <div className="space-y-1.5 mt-2">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>{preparedUnits} / {totalUnits} éléments préparés</span>
+                          <span>{Math.round(pct)}%</span>
+                        </div>
+                        <Progress value={pct} className="h-3" />
+                      </div>
+                    );
+                  })()}
                 </CardHeader>
                 <CardContent>
                   {isEditingItems ? (
                     <div className="space-y-4">
-                      <Tabs defaultValue="produits">
+                      <Tabs defaultValue={editableItems.some((i) => !!i.menuId) && !editableItems.some((i) => !i.menuId) ? "menus" : "produits"}>
                         <TabsList className="w-full">
                           <TabsTrigger value="produits" className="flex-1">
                             Produits
+                            {(() => {
+                              const count = editableItems.filter((i) => !i.menuId).length;
+                              return count > 0 ? (
+                                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                                  {count}
+                                </span>
+                              ) : null;
+                            })()}
                           </TabsTrigger>
                           <TabsTrigger value="menus" className="flex-1">
                             Menus
+                            {(() => {
+                              const count = editableItems.filter((i) => !!i.menuId).length;
+                              return count > 0 ? (
+                                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                                  {count}
+                                </span>
+                              ) : null;
+                            })()}
                           </TabsTrigger>
                         </TabsList>
 
@@ -689,7 +934,7 @@ export default function OrderDetailPage() {
                                 const cartQty = inCart?.quantity ?? 0;
                                 const remaining =
                                   product.stock !== null
-                                    ? product.stock - cartQty
+                                    ? parseQty(product.stock) - cartQty
                                     : null;
                                 const isOutOfStock =
                                   remaining !== null &&
@@ -725,7 +970,7 @@ export default function OrderDetailPage() {
                                       </div>
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <span>
-                                          {formatCurrency(product.price)}
+                                          {formatCurrency(product.price)}{product.unitType !== "piece" ? UNIT_CONFIG[product.unitType].priceSuffix : ""}
                                         </span>
                                         {product.stock !== null && (
                                           <span
@@ -743,7 +988,7 @@ export default function OrderDetailPage() {
                                             {remaining !== null &&
                                             remaining <= 0
                                               ? "Rupture"
-                                              : `Stock: ${remaining}`}
+                                              : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
                                           </span>
                                         )}
                                       </div>
@@ -753,7 +998,7 @@ export default function OrderDetailPage() {
                                         variant="default"
                                         className="ml-2 shrink-0"
                                       >
-                                        {inCart.quantity}
+                                        {formatQtyLabel(inCart.quantity, inCart.unit)}
                                       </Badge>
                                     )}
                                   </button>
@@ -795,9 +1040,18 @@ export default function OrderDetailPage() {
                                         </Badge>
                                       </div>
                                       <div className="text-sm text-muted-foreground">
-                                        {menu.price
-                                          ? formatCurrency(menu.price)
-                                          : "Prix variable"}
+                                        {formatCurrency(
+                                          menu.price ||
+                                            menu.products
+                                              .reduce(
+                                                (sum, mp) =>
+                                                  sum +
+                                                  parseFloat(mp.product.price) *
+                                                    mp.quantity,
+                                                0,
+                                              )
+                                              .toFixed(2),
+                                        )}
                                       </div>
                                     </div>
                                     {inCart && (
@@ -824,9 +1078,12 @@ export default function OrderDetailPage() {
                       {editableItems.length > 0 && (
                         <div className="space-y-3">
                           <Separator />
-                          <div className="text-sm font-medium flex items-center gap-2">
-                            <ShoppingCart className="h-4 w-4" />
-                            Panier
+                          <div className="text-sm font-medium flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
+                            <ShoppingCart className="h-4 w-4 text-blue-600" />
+                            <span>Panier</span>
+                            <Badge variant="secondary" className="ml-auto bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                              {editableItems.length}
+                            </Badge>
                           </div>
                           <div className="space-y-3 max-h-[400px] overflow-y-auto">
                             {editableItems.map((item) => {
@@ -834,83 +1091,110 @@ export default function OrderDetailPage() {
                               return (
                                 <div
                                   key={key}
-                                  className="rounded-lg border p-3 space-y-2"
+                                  className="rounded-lg border bg-muted/30 p-3 space-y-2"
                                 >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium truncate flex items-center gap-2">
-                                        {item.productName}
-                                        {item.menuId && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs shrink-0"
-                                          >
-                                            Menu
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {formatCurrency(item.unitPrice)} x{" "}
-                                        {item.quantity}
-                                      </div>
-                                    </div>
-                                    <div className="text-right font-medium">
-                                      {formatCurrency(
-                                        Number.parseFloat(item.unitPrice) *
-                                          item.quantity,
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
+                                      {item.productName}
+                                      {item.menuId && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs shrink-0"
+                                        >
+                                          Menu
+                                        </Badge>
                                       )}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-7 w-7"
-                                        onClick={() =>
-                                          updateItemQuantity(key, -1)
-                                        }
-                                      >
-                                        <Minus className="h-3 w-3" />
-                                      </Button>
-                                      <span className="w-8 text-center text-sm font-medium">
-                                        {item.quantity}
-                                      </span>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-7 w-7"
-                                        onClick={() =>
-                                          updateItemQuantity(key, 1)
-                                        }
-                                      >
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
                                     </div>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
                                       onClick={() => removeItem(key)}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
-                                  <Input
-                                    placeholder={
-                                      item.menuId
-                                        ? "Notes pour ce menu..."
-                                        : "Notes pour ce produit..."
-                                    }
-                                    value={item.notes || ""}
-                                    onChange={(e) =>
-                                      updateItemNotes(key, e.target.value)
-                                    }
-                                    className="h-8 text-sm"
-                                  />
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() =>
+                                          updateItemQuantity(key, -1)
+                                        }
+                                      >
+                                        <Minus className="h-4 w-4" />
+                                      </Button>
+                                      <div className="flex items-center gap-1.5">
+                                        <Input
+                                          type="text"
+                                          inputMode="decimal"
+                                          defaultValue={item.quantity}
+                                          key={`${key}-${item.quantity}`}
+                                          onBlur={(e) => {
+                                            const val = parseFloat(e.target.value.replace(",", "."));
+                                            if (!isNaN(val) && val > 0) {
+                                              const rounded = roundQty(val, item.unit);
+                                              setItemQuantity(key, rounded);
+                                            } else {
+                                              e.target.value = String(item.quantity);
+                                            }
+                                          }}
+                                          className={`h-9 text-center font-semibold text-base px-1 ${item.unit === "kg" ? "w-20" : "w-14"}`}
+                                        />
+                                        <span className="text-sm font-semibold text-muted-foreground">
+                                          {UNIT_CONFIG[item.unit].suffix || "x"}
+                                        </span>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() =>
+                                          updateItemQuantity(key, 1)
+                                        }
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                    <div className="text-right font-medium text-sm">
+                                      {formatCurrency(
+                                        lineTotal(item.quantity, item.unitPrice),
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        defaultValue={parseFloat(item.unitPrice).toFixed(2)}
+                                        key={`price-${key}-${item.unitPrice}`}
+                                        onBlur={(e) => {
+                                          const val = parseFloat(e.target.value.replace(",", "."));
+                                          if (!isNaN(val) && val >= 0) {
+                                            updateItemPrice(key, val.toFixed(2));
+                                          } else {
+                                            e.target.value = parseFloat(item.unitPrice).toFixed(2);
+                                          }
+                                        }}
+                                        className="h-5 w-14 text-center text-xs px-1 bg-white dark:bg-background"
+                                      />
+                                      <span>€{UNIT_CONFIG[item.unit].priceSuffix}</span>
+                                    </div>
+                                    <Input
+                                      placeholder="Notes..."
+                                      value={item.notes || ""}
+                                      onChange={(e) =>
+                                        updateItemNotes(key, e.target.value)
+                                      }
+                                      className="h-5 text-xs flex-1 max-w-[60%]"
+                                    />
+                                  </div>
                                 </div>
                               );
                             })}
@@ -924,12 +1208,49 @@ export default function OrderDetailPage() {
                                 Sous-total
                               </span>
                               <span>
-                                {formatCurrency(calculateEditTotal())}
+                                {formatCurrency(calculateEditSubtotal())}
                               </span>
                             </div>
-                            <div className="flex justify-between font-medium text-lg">
+
+                            {/* Discount input */}
+                            <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2">
+                              <span className="text-sm text-muted-foreground shrink-0">Remise</span>
+                              <div className="flex items-center gap-1 flex-1">
+                                <div className="flex rounded-md border overflow-hidden h-7">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditDiscountType("percentage")}
+                                    className={`px-2 text-xs font-medium transition-colors ${editDiscountType === "percentage" ? "bg-primary text-primary-foreground" : "bg-white dark:bg-background hover:bg-muted"}`}
+                                  >
+                                    %
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditDiscountType("fixed")}
+                                    className={`px-2 text-xs font-medium transition-colors ${editDiscountType === "fixed" ? "bg-primary text-primary-foreground" : "bg-white dark:bg-background hover:bg-muted"}`}
+                                  >
+                                    €
+                                  </button>
+                                </div>
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={editDiscountValue}
+                                  onChange={(e) => setEditDiscountValue(e.target.value.replace(",", "."))}
+                                  className="h-7 w-20 text-center text-sm bg-white dark:bg-background"
+                                />
+                              </div>
+                              {calculateEditDiscount() > 0 && (
+                                <span className="text-sm text-destructive font-semibold">
+                                  -{formatCurrency(calculateEditDiscount())}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex justify-between items-center font-semibold text-lg rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 -mx-1">
                               <span>Total</span>
-                              <span>
+                              <span className="text-blue-700 dark:text-blue-400">
                                 {formatCurrency(calculateEditTotal())}
                               </span>
                             </div>
@@ -947,36 +1268,98 @@ export default function OrderDetailPage() {
                         </div>
                       )}
                     </div>
+                  ) : viewMode === "preparation" && order.items && order.items.length > 0 ? (
+                    (() => {
+                      const items = order.items ?? [];
+                      const toPrepare = items.filter((i) => !i.isPrepared);
+                      const prepared = items.filter((i) => i.isPrepared);
+                      return (
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* To prepare column */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                              <span className="h-2 w-2 rounded-full bg-amber-400" />
+                              À préparer
+                              {toPrepare.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">{toPrepare.length}</Badge>
+                              )}
+                            </div>
+                            {toPrepare.length > 0 ? (
+                              <div className="space-y-2">
+                                {toPrepare.map((item) =>
+                                  item.isMenu ? (
+                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                  ) : (
+                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={false} />
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                Tous les articles sont préparés
+                              </div>
+                            )}
+                          </div>
+                          {/* Prepared column */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2">
+                              <span className="h-2 w-2 rounded-full bg-green-500" />
+                              Prêt
+                              {prepared.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">{prepared.length}</Badge>
+                              )}
+                            </div>
+                            {prepared.length > 0 ? (
+                              <div className="space-y-2">
+                                {prepared.map((item) =>
+                                  item.isMenu ? (
+                                    <MenuItemCard key={item.id} item={item} orderId={orderId} />
+                                  ) : (
+                                    <ItemCard key={item.id} item={item} orderId={orderId} isPreparedSide={true} />
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                                Aucun article préparé
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()
                   ) : order.items && order.items.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {order.items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-start justify-between rounded-lg border p-3"
+                          className="flex items-center gap-3 rounded-lg border p-3"
                         >
-                          <div className="space-y-1">
-                            <div className="font-medium">
-                              {item.productName}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {item.productName}
+                              </span>
                               {item.isMenu && (
-                                <Badge
-                                  variant="outline"
-                                  className="ml-2 text-xs"
-                                >
+                                <Badge variant="outline" className="text-xs shrink-0">
                                   Menu
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {formatCurrency(item.unitPrice)} x {item.quantity}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              <span>{formatCurrency(item.unitPrice)}{UNIT_CONFIG[item.unit ?? "piece"].priceSuffix}</span>
+                              {item.notes && (
+                                <span className="italic truncate">- {item.notes}</span>
+                              )}
                             </div>
-                            {item.notes && (
-                              <div className="text-sm text-muted-foreground italic">
-                                Note: {item.notes}
-                              </div>
-                            )}
                           </div>
-                          <div className="text-right font-medium">
-                            {formatCurrency(item.totalPrice)}
+                          <div className="text-right shrink-0">
+                            <div className="font-semibold text-base">
+                              {formatQtyLabel(item.quantity, item.unit)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatCurrency(item.totalPrice)}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -990,6 +1373,19 @@ export default function OrderDetailPage() {
                           </span>
                           <span>{formatCurrency(order.subtotal)}</span>
                         </div>
+                        {Number.parseFloat((order as any).discountAmount || "0") > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Remise
+                              {(order as any).discountType === "percentage" && (
+                                <span className="ml-1">({(order as any).discountValue}%)</span>
+                              )}
+                            </span>
+                            <span className="text-destructive">
+                              -{formatCurrency((order as any).discountAmount)}
+                            </span>
+                          </div>
+                        )}
                         {Number.parseFloat(order.taxTotal) > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">
@@ -1410,21 +1806,32 @@ export default function OrderDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {order.createdBy && (
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        <UserStar className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-muted-foreground">
-                          Créée par
-                        </div>
-                        <div className="font-medium">
-                          {order.createdBy.name}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <FormField
+                    control={form.control}
+                    name="createdById"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prise par</FormLabel>
+                        <Select
+                          value={field.value ?? ""}
+                          onValueChange={(v) => field.onChange(v || null)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Sélectionner un membre" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {staffData?.data.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.name || user.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="assignedToId"
@@ -1463,84 +1870,118 @@ export default function OrderDetailPage() {
                       </FormItem>
                     )}
                   />
-                </CardContent>
-              </Card>
-
-              {/* Status Management */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Statuts</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Préparation
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={order.preparationStatus}
-                        onValueChange={(value) =>
-                          updateStatusMutation.mutate({
-                            preparationStatus: value,
-                          })
-                        }
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="in_preparation">
-                            En préparation
-                          </SelectItem>
-                          <SelectItem value="ready">Prêt</SelectItem>
-                          <SelectItem value="picked_up">Récupéré</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {updateStatusMutation.isPending && (
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="posId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Point de retrait</FormLabel>
+                          <Select
+                            onValueChange={(v) => field.onChange(v === "none" ? null : v)}
+                            value={field.value ?? "none"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Aucun" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none">Aucun</SelectItem>
+                              {pointsOfSale.filter((p) => p.type === "permanent_pos").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait permanents</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "permanent_pos").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              {pointsOfSale.filter((p) => p.type === "pickup_location").length > 0 && (
+                                <SelectGroup>
+                                  <SelectSeparator />
+                                  <SelectLabel>Points de retrait</SelectLabel>
+                                  {pointsOfSale.filter((p) => p.type === "pickup_location").map((p) => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Paiement
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={order.paymentStatus}
-                        onValueChange={(value) =>
-                          updateStatusMutation.mutate({
-                            paymentStatus: value,
-                          })
-                        }
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">En attente</SelectItem>
-                          <SelectItem value="paid">Payé</SelectItem>
-                          <SelectItem value="partially_paid">
-                            Partiellement payé
-                          </SelectItem>
-                          <SelectItem value="refunded">Remboursé</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {updateStatusMutation.isPending && (
-                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                    />
+                    <FormField
+                      control={form.control}
+                      name="source"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Provenance</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value ?? "comptoir"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Comptoir" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="comptoir">Comptoir</SelectItem>
+                              <SelectItem value="telephone">Téléphone</SelectItem>
+                              <SelectItem value="site_web">Site web</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   </div>
                 </CardContent>
               </Card>
+
             </div>
           </div>
         </Form>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer la commande</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer la commande #{order.ticketNumber} ?
+              Cette action est irréversible et le stock sera restauré.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteMutation.isError && (
+            <p className="text-sm text-destructive">
+              Erreur: {(deleteMutation.error as Error).message}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Supprimer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

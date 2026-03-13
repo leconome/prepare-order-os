@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  store:
+    name: Build Store
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        id: build
+        run: |
+          set -o pipefail
+          pnpm build:store 2>&1 | tee /tmp/build.log
+        continue-on-error: true
+
+      - name: Comment PR on failure
+        if: steps.build.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/build.log', 'utf8');
+            const lines = log.split('\n');
+            const errors = lines.filter(l => /error|Error|ERR_|failed/i.test(l)).slice(0, 30);
+            const body = `### ❌ Store Build Failed\n\n\`\`\`\n${errors.join('\n') || lines.slice(-30).join('\n')}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Fail if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
+
+  migrate-develop:
+    name: Migrate Develop DB
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'develop'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build data package
+        run: pnpm --filter @prepareos/data build
+
+      - name: Run migrations
+        id: migrate
+        env:
+          DATABASE_URL: ${{ secrets.DEVELOP_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm db:migrate 2>&1 | tee /tmp/migrate.log
+        continue-on-error: true
+
+      - name: Comment PR on failure
+        if: steps.migrate.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/migrate.log', 'utf8');
+            const lines = log.split('\n');
+            const errors = lines.filter(l => /error|Error|ERR_|failed/i.test(l)).slice(0, 30);
+            const body = `### ❌ Develop DB Migration Failed\n\n\`\`\`\n${errors.join('\n') || lines.slice(-30).join('\n')}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Comment PR on success
+        if: steps.migrate.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '### ✅ Develop DB Migration Succeeded'
+            });
+
+      - name: Fail if migration failed
+        if: steps.migrate.outcome == 'failure'
+        run: exit 1
+
+  client:
+    name: Build Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        id: build
+        run: |
+          set -o pipefail
+          pnpm build:client 2>&1 | tee /tmp/build.log
+        continue-on-error: true
+
+      - name: Comment PR on failure
+        if: steps.build.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/build.log', 'utf8');
+            const lines = log.split('\n');
+            const errors = lines.filter(l => /error|Error|ERR_|failed/i.test(l)).slice(0, 30);
+            const body = `### ❌ Client Build Failed\n\n\`\`\`\n${errors.join('\n') || lines.slice(-30).join('\n')}\n\`\`\``;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Fail if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1

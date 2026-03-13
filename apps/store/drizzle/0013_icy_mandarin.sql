@@ -1,0 +1,1 @@
+ALTER TABLE "products" ALTER COLUMN "stock" SET DATA TYPE numeric(10, 3);

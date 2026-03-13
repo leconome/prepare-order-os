@@ -6,6 +6,7 @@ import {
   orderItems,
   orderMenuItems,
   orders,
+  pointsOfSale,
   products,
   tenants,
   ticketCounters,
@@ -163,8 +164,9 @@ const PRODUCTS: Array<{
   price: string;
   categoryIndex: number;
   sortOrder: number;
-  stock: number | null;
+  stock: string | null;
   imageUrl: string;
+  unitType?: "piece" | "kg";
 }> = [
   // Pâte molle (index 0)
   {
@@ -174,7 +176,7 @@ const PRODUCTS: Array<{
     price: "8.50",
     categoryIndex: 0,
     sortOrder: 1,
-    stock: 12,
+    stock: "12",
     imageUrl: "https://picsum.photos/seed/camembert/400/300",
   },
   {
@@ -184,7 +186,7 @@ const PRODUCTS: Array<{
     price: "12.90",
     categoryIndex: 0,
     sortOrder: 2,
-    stock: 5,
+    stock: "5",
     imageUrl: "https://picsum.photos/seed/brie/400/300",
   },
   {
@@ -194,7 +196,7 @@ const PRODUCTS: Array<{
     price: "14.50",
     categoryIndex: 0,
     sortOrder: 3,
-    stock: 3,
+    stock: "3",
     imageUrl: "https://picsum.photos/seed/epoisses/400/300",
   },
   {
@@ -204,7 +206,7 @@ const PRODUCTS: Array<{
     price: "18.90",
     categoryIndex: 0,
     sortOrder: 4,
-    stock: 0,
+    stock: "0",
     imageUrl: "https://picsum.photos/seed/montdor/400/300",
   },
   {
@@ -214,7 +216,7 @@ const PRODUCTS: Array<{
     price: "9.80",
     categoryIndex: 0,
     sortOrder: 5,
-    stock: 8,
+    stock: "8",
     imageUrl: "https://picsum.photos/seed/reblochon/400/300",
   },
 
@@ -226,7 +228,7 @@ const PRODUCTS: Array<{
     price: "24.90",
     categoryIndex: 1,
     sortOrder: 1,
-    stock: 15,
+    stock: "15",
     imageUrl: "https://picsum.photos/seed/comte18/400/300",
   },
   {
@@ -236,7 +238,7 @@ const PRODUCTS: Array<{
     price: "38.50",
     categoryIndex: 1,
     sortOrder: 2,
-    stock: 2,
+    stock: "2",
     imageUrl: "https://picsum.photos/seed/comte36/400/300",
   },
   {
@@ -246,7 +248,7 @@ const PRODUCTS: Array<{
     price: "32.00",
     categoryIndex: 1,
     sortOrder: 3,
-    stock: 4,
+    stock: "4",
     imageUrl: "https://picsum.photos/seed/beaufort/400/300",
   },
   {
@@ -256,7 +258,7 @@ const PRODUCTS: Array<{
     price: "16.50",
     categoryIndex: 1,
     sortOrder: 4,
-    stock: 10,
+    stock: "10",
     imageUrl: "https://picsum.photos/seed/tomme/400/300",
   },
   {
@@ -266,7 +268,7 @@ const PRODUCTS: Array<{
     price: "14.90",
     categoryIndex: 1,
     sortOrder: 5,
-    stock: 7,
+    stock: "7",
     imageUrl: "https://picsum.photos/seed/cantal/400/300",
   },
   {
@@ -276,7 +278,7 @@ const PRODUCTS: Array<{
     price: "22.50",
     categoryIndex: 1,
     sortOrder: 6,
-    stock: 6,
+    stock: "6",
     imageUrl: "https://picsum.photos/seed/ossau/400/300",
   },
 
@@ -288,7 +290,7 @@ const PRODUCTS: Array<{
     price: "26.90",
     categoryIndex: 2,
     sortOrder: 1,
-    stock: 9,
+    stock: "9",
     imageUrl: "https://picsum.photos/seed/roquefort/400/300",
   },
   {
@@ -297,7 +299,7 @@ const PRODUCTS: Array<{
     price: "18.50",
     categoryIndex: 2,
     sortOrder: 2,
-    stock: 0,
+    stock: "0",
     imageUrl: "https://picsum.photos/seed/bleuauvergne/400/300",
   },
   {
@@ -307,7 +309,7 @@ const PRODUCTS: Array<{
     price: "16.90",
     categoryIndex: 2,
     sortOrder: 3,
-    stock: 4,
+    stock: "4",
     imageUrl: "https://picsum.photos/seed/fourme/400/300",
   },
   {
@@ -316,7 +318,7 @@ const PRODUCTS: Array<{
     price: "19.50",
     categoryIndex: 2,
     sortOrder: 4,
-    stock: 1,
+    stock: "1",
     imageUrl: "https://picsum.photos/seed/bleugex/400/300",
   },
 
@@ -327,7 +329,7 @@ const PRODUCTS: Array<{
     price: "4.50",
     categoryIndex: 3,
     sortOrder: 1,
-    stock: 20,
+    stock: "20",
     imageUrl: "https://picsum.photos/seed/crottin/400/300",
   },
   {
@@ -337,7 +339,7 @@ const PRODUCTS: Array<{
     price: "8.90",
     categoryIndex: 3,
     sortOrder: 2,
-    stock: 8,
+    stock: "8",
     imageUrl: "https://picsum.photos/seed/saintemaure/400/300",
   },
   {
@@ -347,7 +349,7 @@ const PRODUCTS: Array<{
     price: "9.50",
     categoryIndex: 3,
     sortOrder: 3,
-    stock: 5,
+    stock: "5",
     imageUrl: "https://picsum.photos/seed/valencay/400/300",
   },
   {
@@ -356,7 +358,7 @@ const PRODUCTS: Array<{
     price: "3.90",
     categoryIndex: 3,
     sortOrder: 4,
-    stock: 15,
+    stock: "15",
     imageUrl: "https://picsum.photos/seed/rocamadour/400/300",
   },
   {
@@ -365,7 +367,7 @@ const PRODUCTS: Array<{
     price: "4.20",
     categoryIndex: 3,
     sortOrder: 5,
-    stock: 10,
+    stock: "10",
     imageUrl: "https://picsum.photos/seed/camembert/400/300",
   },
 
@@ -377,7 +379,7 @@ const PRODUCTS: Array<{
     price: "4.50",
     categoryIndex: 4,
     sortOrder: 1,
-    stock: 6,
+    stock: "6",
     imageUrl: "https://picsum.photos/seed/faisselle/400/300",
   },
   {
@@ -386,7 +388,7 @@ const PRODUCTS: Array<{
     price: "6.90",
     categoryIndex: 4,
     sortOrder: 2,
-    stock: 3,
+    stock: "3",
     imageUrl: "https://picsum.photos/seed/brousse/400/300",
   },
   {
@@ -396,7 +398,7 @@ const PRODUCTS: Array<{
     price: "5.50",
     categoryIndex: 4,
     sortOrder: 3,
-    stock: 8,
+    stock: "8",
     imageUrl: "https://picsum.photos/seed/fontainebleau/400/300",
   },
   {
@@ -405,7 +407,7 @@ const PRODUCTS: Array<{
     price: "5.90",
     categoryIndex: 4,
     sortOrder: 4,
-    stock: 4,
+    stock: "4",
     imageUrl: "https://picsum.photos/seed/brie/400/300",
   },
 
@@ -454,6 +456,26 @@ const PRODUCTS: Array<{
     sortOrder: 5,
     stock: null,
     imageUrl: "https://picsum.photos/seed/fruitssecs/400/300",
+  },
+  {
+    name: "Beurre de baratte AOP",
+    description: "Beurre doux de baratte, fabrication artisanale. Vendu au poids.",
+    price: "18.50",
+    categoryIndex: 5,
+    sortOrder: 6,
+    stock: "5.000",
+    imageUrl: "https://picsum.photos/seed/beurre/400/300",
+    unitType: "kg",
+  },
+  {
+    name: "Lait cru fermier",
+    description: "Lait cru entier de vache, directement de la ferme. Vendu au litre (kg).",
+    price: "2.80",
+    categoryIndex: 5,
+    sortOrder: 7,
+    stock: "12.000",
+    imageUrl: "https://picsum.photos/seed/laitcru/400/300",
+    unitType: "kg",
   },
 ];
 
@@ -549,9 +571,20 @@ const MENUS: Array<{
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+
+const dayAfterTomorrow = new Date(today);
+dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
 // Menu orders — orders that include at least one menu
 type MenuOrderItem = { menuName: string; quantity: number };
-type ProductOrderItem = { productName: string; price: string; quantity: number };
+type ProductOrderItem = {
+  productName: string;
+  price: string;
+  quantity: number;
+  unit?: "piece" | "kg";
+};
 type SampleOrderItem = ProductOrderItem | MenuOrderItem;
 function isMenuOrderItem(item: SampleOrderItem): item is MenuOrderItem {
   return "menuName" in item;
@@ -569,9 +602,7 @@ type SeedOrder = {
 
 const MENU_ORDERS: SeedOrder[] = [
   {
-    items: [
-      { menuName: "Plateau Découverte", quantity: 1 },
-    ],
+    items: [{ menuName: "Plateau Découverte", quantity: 1 }],
     paymentStatus: "paid",
     preparationStatus: "pending",
     clientNote: "Plateau pour 4 personnes ce soir",
@@ -592,13 +623,11 @@ const MENU_ORDERS: SeedOrder[] = [
     pickupTimeEnd: "14:00",
   },
   {
-    items: [
-      { menuName: "Plateau Chèvre", quantity: 2 },
-    ],
+    items: [{ menuName: "Plateau Chèvre", quantity: 2 }],
     paymentStatus: "pending",
     preparationStatus: "pending",
     clientNote: "2 plateaux chèvre pour buffet",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "09:00",
     pickupTimeEnd: "12:00",
   },
@@ -627,9 +656,7 @@ const MENU_ORDERS: SeedOrder[] = [
     pickupTimeEnd: "14:00",
   },
   {
-    items: [
-      { menuName: "Apéro Fromager", quantity: 3 },
-    ],
+    items: [{ menuName: "Apéro Fromager", quantity: 3 }],
     paymentStatus: "paid",
     preparationStatus: "picked_up",
     clientNote: "3 plateaux apéro pour événement d'entreprise",
@@ -648,13 +675,11 @@ const MENU_ORDERS: SeedOrder[] = [
     clientNote: "2 plateaux différents pour soirée découverte",
   },
   {
-    items: [
-      { menuName: "Plateau Dégustation Premium", quantity: 2 },
-    ],
+    items: [{ menuName: "Plateau Dégustation Premium", quantity: 2 }],
     paymentStatus: "pending",
     preparationStatus: "pending",
     clientNote: "Commande traiteur - 2 plateaux premium",
-    pickupDate: today,
+    pickupDate: dayAfterTomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -714,7 +739,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Soirée chèvre entre amis",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -753,6 +778,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Pour faire une tartiflette - récupération samedi",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -793,7 +821,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Retrait prévu vendredi matin",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "09:00",
     pickupTimeEnd: "12:00",
   },
@@ -815,7 +843,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Chèvres assortis pour apéro",
-    pickupDate: today,
+    pickupDate: tomorrow,
     pickupTimeStart: "14:00",
     pickupTimeEnd: "18:00",
   },
@@ -846,7 +874,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Dégustation de bleus",
-    pickupDate: today,
+    pickupDate: dayAfterTomorrow,
     pickupTimeStart: "12:00",
     pickupTimeEnd: "14:00",
   },
@@ -857,6 +885,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Pour tartiflette de 8 personnes",
+    pickupDate: tomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -883,7 +914,11 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Picodon AOP", price: "4.20", quantity: 6 },
-      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 2 },
+      {
+        productName: "Sainte-Maure de Touraine AOP",
+        price: "8.90",
+        quantity: 2,
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
@@ -935,6 +970,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Frais du jour",
+    pickupDate: tomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -944,6 +982,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Soirée raclette / fondue entre amis",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -966,7 +1007,11 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 3 },
+      {
+        productName: "Sainte-Maure de Touraine AOP",
+        price: "8.90",
+        quantity: 3,
+      },
       { productName: "Valençay AOP", price: "9.50", quantity: 2 },
       { productName: "Picodon AOP", price: "4.20", quantity: 3 },
     ],
@@ -1013,6 +1058,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Rocamadour au miel pour cocktail",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
@@ -1069,6 +1117,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Tartiflette géante - fête des voisins",
+    pickupDate: dayAfterTomorrow,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
   },
   {
     items: [
@@ -1093,7 +1144,11 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 1 },
+      {
+        productName: "Sainte-Maure de Touraine AOP",
+        price: "8.90",
+        quantity: 1,
+      },
       { productName: "Valençay AOP", price: "9.50", quantity: 1 },
     ],
     paymentStatus: "paid" as const,
@@ -1131,6 +1186,9 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
     clientNote: "Sélection pâtes molles complète",
+    pickupDate: tomorrow,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
   },
   {
     items: [
@@ -1143,9 +1201,7 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     clientNote: "Bleu du Jura et accompagnements",
   },
   {
-    items: [
-      { productName: "Cervelle de Canut", price: "5.90", quantity: 4 },
-    ],
+    items: [{ productName: "Cervelle de Canut", price: "5.90", quantity: 4 }],
     paymentStatus: "paid" as const,
     preparationStatus: "in_preparation" as const,
     clientNote: "Spécialité Lyon pour bouchon",
@@ -1176,11 +1232,18 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
     clientNote: "Mont d'Or au four pour groupe",
+    pickupDate: tomorrow,
+    pickupTimeStart: "14:00",
+    pickupTimeEnd: "18:00",
   },
   {
     items: [
       { productName: "Picodon AOP", price: "4.20", quantity: 5 },
-      { productName: "Sainte-Maure de Touraine AOP", price: "8.90", quantity: 1 },
+      {
+        productName: "Sainte-Maure de Touraine AOP",
+        price: "8.90",
+        quantity: 1,
+      },
       { productName: "Valençay AOP", price: "9.50", quantity: 1 },
       { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 2 },
     ],
@@ -1200,6 +1263,42 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
     clientNote: "Plateau complet 5 familles + accompagnements",
+  },
+  // ---- Orders with kg products ----
+  {
+    items: [
+      { productName: "Beurre de baratte AOP", price: "18.50", quantity: 0.5, unit: "kg" as const },
+      { productName: "Lait cru fermier", price: "2.80", quantity: 2, unit: "kg" as const },
+      { productName: "Pain aux noix artisanal", price: "4.50", quantity: 1 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "pending" as const,
+    clientNote: "Pour recette de gâteau breton",
+    pickupDate: today,
+    pickupTimeStart: "09:00",
+    pickupTimeEnd: "12:00",
+  },
+  {
+    items: [
+      { productName: "Beurre de baratte AOP", price: "18.50", quantity: 0.25, unit: "kg" as const },
+      { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
+      { productName: "Comté AOP 18 mois", price: "24.90", quantity: 1 },
+    ],
+    paymentStatus: "pending" as const,
+    preparationStatus: "in_preparation" as const,
+    clientNote: "Beurre pour tartines + fromage plateau",
+    pickupDate: today,
+    pickupTimeStart: "12:00",
+    pickupTimeEnd: "14:00",
+  },
+  {
+    items: [
+      { productName: "Lait cru fermier", price: "2.80", quantity: 3, unit: "kg" as const },
+      { productName: "Faisselle fermière", price: "4.50", quantity: 2 },
+    ],
+    paymentStatus: "paid" as const,
+    preparationStatus: "ready" as const,
+    clientNote: "Lait pour fabrication fromage maison",
   },
 ];
 
@@ -1228,6 +1327,7 @@ async function clearDatabase() {
   await db.delete(orderMenuItems);
   await db.delete(orderItems);
   await db.delete(orders);
+  await db.delete(pointsOfSale);
   await db.delete(ticketCounters);
   await db.delete(menuProducts);
   await db.delete(menus);
@@ -1237,6 +1337,37 @@ async function clearDatabase() {
   // Don't delete users with BetterAuth accounts, only seed users
   // We'll upsert staff instead
   console.log("✅ Database cleared");
+}
+
+async function seedPointsOfSale(tenantId: string) {
+  console.log("📍 Seeding points of sale...");
+  const posData = [
+    {
+      name: "Comptoir principal",
+      description: "Point de vente permanent en boutique",
+      type: "permanent_pos" as const,
+      sortOrder: 1,
+      tenantId,
+    },
+    {
+      name: "Marché du samedi",
+      description: "Stand au marché hebdomadaire",
+      address: "Place du Marché, Centre-ville",
+      type: "pickup_location" as const,
+      sortOrder: 2,
+      tenantId,
+    },
+    {
+      name: "Retrait Drive",
+      description: "Retrait commande en ligne sur le parking",
+      type: "pickup_location" as const,
+      sortOrder: 3,
+      tenantId,
+    },
+  ];
+  const inserted = await db.insert(pointsOfSale).values(posData).returning();
+  console.log(`✅ Created ${inserted.length} points of sale`);
+  return inserted;
 }
 
 async function seedCategories(tenantId: string) {
@@ -1249,7 +1380,10 @@ async function seedCategories(tenantId: string) {
   return inserted;
 }
 
-async function seedProducts(tenantId: string, categoryList: (typeof categories.$inferSelect)[]) {
+async function seedProducts(
+  tenantId: string,
+  categoryList: (typeof categories.$inferSelect)[],
+) {
   console.log("🧀 Seeding products...");
   const productsToInsert = PRODUCTS.map((p) => ({
     name: p.name,
@@ -1259,6 +1393,7 @@ async function seedProducts(tenantId: string, categoryList: (typeof categories.$
     sortOrder: p.sortOrder,
     stock: p.stock,
     imageUrl: p.imageUrl,
+    unitType: p.unitType ?? ("piece" as const),
     isActive: true,
     tenantId,
   }));
@@ -1271,7 +1406,10 @@ async function seedProducts(tenantId: string, categoryList: (typeof categories.$
   return inserted;
 }
 
-async function seedMenus(tenantId: string, productList: (typeof products.$inferSelect)[]) {
+async function seedMenus(
+  tenantId: string,
+  productList: (typeof products.$inferSelect)[],
+) {
   console.log("📋 Seeding menus...");
 
   const productMap = new Map(productList.map((p) => [p.name, p.id]));
@@ -1325,12 +1463,16 @@ async function seedOrders(
   productList: (typeof products.$inferSelect)[],
   menuList: (typeof menus.$inferSelect)[],
   clientList: (typeof clients.$inferSelect)[],
+  posList: (typeof pointsOfSale.$inferSelect)[],
 ) {
   console.log("🧾 Seeding orders...");
 
   const productMap = new Map(productList.map((p) => [p.name, p]));
   // Build menu map: name → { menu, products }
-  const menuMap = new Map<string, { menu: typeof menus.$inferSelect; products: typeof productList }>();
+  const menuMap = new Map<
+    string,
+    { menu: typeof menus.$inferSelect; products: typeof productList }
+  >();
   for (const menu of menuList) {
     // Get menu products from DB
     const mps = await db.query.menuProducts.findMany({
@@ -1344,7 +1486,7 @@ async function seedOrders(
 
   let orderCount = 0;
 
-  async function createSeedOrder(orderData: SeedOrder, clientId?: string) {
+  async function createSeedOrder(orderData: SeedOrder, clientId?: string, posId?: string) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1366,7 +1508,9 @@ async function seedOrders(
     let subtotal = 0;
 
     // Separate regular items and menu items
-    const regularItems = orderData.items.filter((i) => !isMenuOrderItem(i)) as ProductOrderItem[];
+    const regularItems = orderData.items.filter(
+      (i) => !isMenuOrderItem(i),
+    ) as ProductOrderItem[];
     const menuItems = orderData.items.filter(isMenuOrderItem);
 
     // Regular items
@@ -1380,6 +1524,7 @@ async function seedOrders(
         quantity: item.quantity,
         unitPrice: item.price,
         totalPrice: totalPrice.toFixed(2),
+        unit: item.unit ?? ("piece" as const),
         isMenu: false,
       };
     });
@@ -1392,7 +1537,11 @@ async function seedOrders(
       unitPrice: string;
       totalPrice: string;
       isMenu: boolean;
-      menuProducts: Array<{ productId: string; productName: string; quantity: number }>;
+      menuProducts: Array<{
+        productId: string;
+        productName: string;
+        quantity: number;
+      }>;
     }> = [];
 
     for (const menuItem of menuItems) {
@@ -1437,6 +1586,7 @@ async function seedOrders(
         preparationStatus: orderData.preparationStatus,
         clientNote: orderData.clientNote ?? null,
         clientId: clientId ?? null,
+        posId: posId ?? null,
         pickupDate: orderData.pickupDate ?? null,
         pickupTimeStart: orderData.pickupTimeStart ?? null,
         pickupTimeEnd: orderData.pickupTimeEnd ?? null,
@@ -1452,6 +1602,7 @@ async function seedOrders(
       await db.insert(orderItems).values(
         regularItemsToInsert.map((item) => ({
           ...item,
+          quantity: String(item.quantity),
           orderId: order.id,
         })),
       );
@@ -1465,7 +1616,7 @@ async function seedOrders(
           orderId: order.id,
           productId: menuItem.productId,
           productName: menuItem.productName,
-          quantity: menuItem.quantity,
+          quantity: String(menuItem.quantity),
           unitPrice: menuItem.unitPrice,
           totalPrice: menuItem.totalPrice,
           isMenu: true,
@@ -1487,19 +1638,23 @@ async function seedOrders(
     orderCount++;
   }
 
-  // Seed regular orders — distribute clients round-robin
+  // Seed regular orders — distribute clients & POS round-robin
   for (let i = 0; i < SAMPLE_ORDERS.length; i++) {
     const client = clientList[i % clientList.length];
-    await createSeedOrder(SAMPLE_ORDERS[i], client?.id);
+    const pos = posList.length > 0 ? posList[i % posList.length] : undefined;
+    await createSeedOrder(SAMPLE_ORDERS[i], client?.id, pos?.id);
   }
 
-  // Seed menu orders — continue distributing clients
+  // Seed menu orders — continue distributing clients & POS
   for (let i = 0; i < MENU_ORDERS.length; i++) {
     const client = clientList[(SAMPLE_ORDERS.length + i) % clientList.length];
-    await createSeedOrder(MENU_ORDERS[i], client?.id);
+    const pos = posList.length > 0 ? posList[(SAMPLE_ORDERS.length + i) % posList.length] : undefined;
+    await createSeedOrder(MENU_ORDERS[i], client?.id, pos?.id);
   }
 
-  console.log(`✅ Created ${orderCount} orders (including ${MENU_ORDERS.length} with menus)`);
+  console.log(
+    `✅ Created ${orderCount} orders (including ${MENU_ORDERS.length} with menus)`,
+  );
 }
 
 function getDateKey(): string {
@@ -1580,16 +1735,18 @@ async function main() {
 
     const staffList = await seedStaff(tenantId);
     const clientList = await seedClients(tenantId);
+    const posList = await seedPointsOfSale(tenantId);
     const categoryList = await seedCategories(tenantId);
     const productList = await seedProducts(tenantId, categoryList);
     const menuList = await seedMenus(tenantId, productList);
-    await seedOrders(tenantId, productList, menuList, clientList);
+    await seedOrders(tenantId, productList, menuList, clientList, posList);
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("\nSummary:");
     console.log(`  - Tenant: fromagerie (${tenantId})`);
     console.log(`  - ${staffList.length} staff members`);
     console.log(`  - ${clientList.length} clients`);
+    console.log(`  - ${posList.length} points of sale`);
     console.log(`  - ${categoryList.length} categories`);
     console.log(`  - ${productList.length} products`);
     console.log(`  - ${MENUS.length} menus`);

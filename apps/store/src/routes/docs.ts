@@ -104,7 +104,7 @@ function buildSpec() {
         price: z.string().openapi({ description: "Decimal string, e.g. 19.99" }),
         categoryId: z.string().uuid().nullable(),
         imageUrl: z.string().nullable(),
-        stock: z.number().int().nullable(),
+        stock: z.number().nullable().openapi({ description: "Decimal stock, e.g. 10 or 2.5" }),
         isActive: z.boolean(),
         sortOrder: z.number().int(),
         tenantId: z.string().uuid(),

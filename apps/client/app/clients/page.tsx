@@ -4,9 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createClientSchema } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Mail, Phone, Plus, RefreshCw, Search, User, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -27,6 +29,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -46,6 +55,8 @@ import {
 } from "@/lib/api";
 
 function ClientsTable({ clients }: { clients: Client[] }) {
+  const router = useRouter();
+
   if (clients.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -59,6 +70,7 @@ function ClientsTable({ clients }: { clients: Client[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>Nom</TableHead>
+          <TableHead>Type</TableHead>
           <TableHead>Téléphone</TableHead>
           <TableHead>Email</TableHead>
           <TableHead>Notes</TableHead>
@@ -67,7 +79,11 @@ function ClientsTable({ clients }: { clients: Client[] }) {
       </TableHeader>
       <TableBody>
         {clients.map((client) => (
-          <TableRow key={client.id}>
+          <TableRow
+            key={client.id}
+            className="cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => router.push(`/clients/${client.id}`)}
+          >
             <TableCell className="font-medium">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs text-white shrink-0">
@@ -75,6 +91,11 @@ function ClientsTable({ clients }: { clients: Client[] }) {
                 </div>
                 {client.name}
               </div>
+            </TableCell>
+            <TableCell>
+              <Badge variant={client.type === "professionnel" ? "default" : "secondary"}>
+                {client.type === "professionnel" ? "Pro" : "Particulier"}
+              </Badge>
             </TableCell>
             <TableCell>
               {client.phone ? (
@@ -133,6 +154,7 @@ function CreateClientDialog() {
     resolver: zodResolver(createClientSchema),
     defaultValues: {
       name: "",
+      type: "particulier" as const,
       phone: "",
       email: "",
       notes: "",
@@ -169,19 +191,45 @@ function CreateClientDialog() {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={onSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nom du client" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nom *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nom du client" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="particulier">Particulier</SelectItem>
+                        <SelectItem value="professionnel">Professionnel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="phone"

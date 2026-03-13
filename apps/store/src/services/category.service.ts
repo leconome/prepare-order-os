@@ -1,4 +1,4 @@
-import { eq, and, isNull, sql, asc } from "drizzle-orm";
+import { eq, and, isNull, ilike, sql, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   categories,
@@ -9,10 +9,14 @@ import {
 } from "@prepareos/data";
 
 export async function listCategories(tenantId: string, filters: CategoryFilters) {
-  const { parentId, isActive, page = 1, limit = 20 } = filters;
+  const { search, parentId, isActive, page = 1, limit = 20 } = filters;
   const offset = (page - 1) * limit;
 
   const conditions = [eq(categories.tenantId, tenantId)];
+
+  if (search) {
+    conditions.push(ilike(categories.name, `%${search}%`));
+  }
 
   if (parentId === null) {
     conditions.push(isNull(categories.parentId));

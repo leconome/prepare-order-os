@@ -2,58 +2,102 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchOrders, fetchTenantSettings } from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { fetchOrders, fetchPointsOfSale, fetchTenantSettings } from "@/lib/api";
 import { OrderRow } from "./components/OrderRow";
 import { type PreparationStatus, TABS } from "./constants";
 
 export default function PreparationPage() {
+  return (
+    <Suspense>
+      <PreparationPageContent />
+    </Suspense>
+  );
+}
+
+function PreparationPageContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const defaultTab = TABS.some((t) => t.key === tabParam)
+    ? (tabParam as string)
+    : "to_prepare";
   const [search, setSearch] = useState("");
+  const [posFilter, setPosFilter] = useState<string>("all");
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
     queryFn: fetchTenantSettings,
   });
 
-  const filterDays = tenant?.preparationFilterDays ?? 0;
-  const trimmedSearch = search.trim();
-
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["preparation-orders", filterDays, trimmedSearch],
-    queryFn: () => {
-      const pickupDateFrom = new Date();
-      pickupDateFrom.setDate(pickupDateFrom.getDate() - filterDays);
-      pickupDateFrom.setHours(0, 0, 0, 0);
-      return fetchOrders({
-        limit: 200,
-        pickupDateFrom,
-        pickupDateTo: new Date(new Date().setHours(23, 59, 59, 999)),
-        search: trimmedSearch || undefined,
-      });
-    },
-    refetchInterval: 30000,
+  const { data: posData } = useQuery({
+    queryKey: ["points-of-sale"],
+    queryFn: () => fetchPointsOfSale({ limit: 100 }),
   });
 
-  const orders = data?.data ?? [];
+  const filterDays = tenant?.preparationFilterDays ?? 0;
+  const trimmedSearch = search.trim();
+  const posId = posFilter !== "all" ? posFilter : undefined;
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["preparation-orders", trimmedSearch, posId],
+    queryFn: () =>
+      fetchOrders({
+        limit: 200,
+        search: trimmedSearch || undefined,
+        posId,
+      }),
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const allOrders = data?.data ?? [];
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  // Show future orders + past orders unless already picked up
+  const orders = allOrders.filter((o) => {
+    const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
+    if (!pickup) return o.preparationStatus !== "picked_up";
+    if (pickup >= todayStart) return true;
+    return o.preparationStatus !== "picked_up";
+  });
 
   const tabData = TABS.map((tab) => ({
     ...tab,
-    orders: orders.filter((o) =>
-      tab.statuses.includes(o.preparationStatus as PreparationStatus),
-    ),
+    orders: orders
+      .filter((o) =>
+        tab.statuses.includes(o.preparationStatus as PreparationStatus),
+      )
+      .sort((a, b) => {
+        // picked_up orders go last
+        const pa = a.preparationStatus === "picked_up" ? 1 : 0;
+        const pb = b.preparationStatus === "picked_up" ? 1 : 0;
+        if (pa !== pb) return pa - pb;
+        const da = a.pickupDate ? new Date(a.pickupDate).getTime() : 0;
+        const db = b.pickupDate ? new Date(b.pickupDate).getTime() : 0;
+        return da - db;
+      }),
   }));
 
   return (
     <DashboardLayout
       title="Préparation"
-      description="Suivi des commandes du jour"
+      description="Suivi des préparations du jour"
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -77,6 +121,22 @@ export default function PreparationPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Select
+              value={posFilter}
+              onValueChange={setPosFilter}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Lieu de retrait" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les lieux</SelectItem>
+                {posData?.data?.map((pos) => (
+                  <SelectItem key={pos.id} value={pos.id}>
+                    {pos.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div className="text-sm text-muted-foreground whitespace-nowrap">
               {orders.length} commande{orders.length !== 1 ? "s" : ""}
             </div>
@@ -106,10 +166,14 @@ export default function PreparationPage() {
             ))}
           </div>
         ) : (
-          <Tabs defaultValue="to_prepare">
+          <Tabs defaultValue={defaultTab}>
             <TabsList>
               {tabData.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key}>
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                >
+                  <tab.icon className="h-4 w-4" />
                   {tab.label}
                   <Badge
                     variant="secondary"
@@ -123,9 +187,8 @@ export default function PreparationPage() {
 
             {tabData.map((tab) => (
               <TabsContent key={tab.key} value={tab.key}>
-                <div className="grid grid-cols-10 px-4 py-2 text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-8 px-4 py-2 text-xs font-medium text-muted-foreground">
                   <div className="col-span-6">Commande</div>
-                  <div className="col-span-2">Paiement</div>
                   <div className="col-span-2">Statut</div>
                 </div>
                 {tab.orders.length === 0 ? (
@@ -133,9 +196,9 @@ export default function PreparationPage() {
                     Aucune commande
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {tab.orders.map((order) => (
-                      <OrderRow key={order.id} order={order} />
+                  <div className="rounded-lg overflow-hidden border-2">
+                    {tab.orders.map((order, index) => (
+                      <OrderRow key={order.id} order={order} even={index % 2 === 0} />
                     ))}
                   </div>
                 )}

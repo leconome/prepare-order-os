@@ -57,6 +57,90 @@
       "when": 1771944111035,
       "tag": "0007_busy_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772011266077,
+      "tag": "0008_unique_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772011424286,
+      "tag": "0009_short_songbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772012367753,
+      "tag": "0010_hot_gladiator",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772013180476,
+      "tag": "0011_lean_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772028949685,
+      "tag": "0012_graceful_stark_industries",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772031194936,
+      "tag": "0013_icy_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772035000000,
+      "tag": "0014_peaceful_toad",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1772533706809,
+      "tag": "0015_hard_korath",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1772534000000,
+      "tag": "0016_add_litre_unit",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772535000000,
+      "tag": "0017_add_default_qty",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773137509977,
+      "tag": "0018_simple_richard_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773406392510,
+      "tag": "0019_illegal_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

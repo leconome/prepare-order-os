@@ -7,6 +7,8 @@ import type {
   CreateClient,
   CreateMenu,
   CreateOrder,
+  CreateOrderItem,
+  CreatePointOfSale,
   CreateProduct,
   CreateStaff,
   GrantCredits,
@@ -18,6 +20,8 @@ import type {
   OrderItemWithMenuItems,
   OrderMenuItem,
   OrderWithItems,
+  PointOfSale,
+  PointOfSaleFilters,
   Product,
   ProductFilters,
   RevokeCredits,
@@ -33,6 +37,7 @@ import type {
   UpdateMenu,
   UpdateOrder,
   UpdateOrderStatus,
+  UpdatePointOfSale,
   UpdateProduct,
   UpdateStaff,
   UpdateTenantSettings,
@@ -42,17 +47,55 @@ import type {
 const API_URL =
   process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
 
+const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
+
+// ============ DEV TENANT SELECTION ============
+
+const DEV_TENANT_KEY = "dev-tenant-slug";
+
+export function getDevTenant(): string | null {
+  if (!IS_DEV || typeof window === "undefined") return null;
+  return localStorage.getItem(DEV_TENANT_KEY);
+}
+
+export function setDevTenant(slug: string | null) {
+  if (typeof window === "undefined") return;
+  if (slug) {
+    localStorage.setItem(DEV_TENANT_KEY, slug);
+  } else {
+    localStorage.removeItem(DEV_TENANT_KEY);
+  }
+}
+
+export type DevTenant = { id: string; name: string; slug: string };
+
+export async function fetchDevTenants(): Promise<{ tenants: DevTenant[] }> {
+  const url = `${API_URL}/api/dev/tenants`;
+  const res = await fetch(url);
+  if (!res.ok) return { tenants: [] };
+  return res.json();
+}
+
+// ============ FETCH WRAPPER ============
+
 async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_URL}/api${endpoint}`;
 
+  const devHeaders: Record<string, string> = {};
+  if (IS_DEV) {
+    const slug = getDevTenant();
+    if (slug) devHeaders["X-Dev-Tenant"] = slug;
+  }
+
   const response = await fetch(url, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...devHeaders,
       ...options.headers,
     },
   });
@@ -108,6 +151,7 @@ export async function fetchOrders(
   if (params?.fromDate)
     searchParams.set("fromDate", params.fromDate.toISOString());
   if (params?.toDate) searchParams.set("toDate", params.toDate.toISOString());
+  if (params?.posId) searchParams.set("posId", params.posId);
 
   const query = searchParams.toString();
   return fetchApi<OrdersResponse>(`/orders${query ? `?${query}` : ""}`);
@@ -139,6 +183,16 @@ export async function updateOrderStatus(
   data: UpdateOrderStatus,
 ): Promise<OrderWithItems> {
   return fetchApi<OrderWithItems>(`/orders/${orderId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateOrderItems(
+  orderId: string,
+  data: { items: CreateOrderItem[] },
+): Promise<OrderWithItems> {
+  return fetchApi<OrderWithItems>(`/orders/${orderId}/items`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
@@ -264,6 +318,7 @@ export async function fetchCategories(
   if (params?.parentId) searchParams.set("parentId", params.parentId);
   if (params?.isActive !== undefined)
     searchParams.set("isActive", String(params.isActive));
+  if (params?.search) searchParams.set("search", params.search);
 
   const query = searchParams.toString();
   return fetchApi<CategoriesResponse>(`/categories${query ? `?${query}` : ""}`);
@@ -307,7 +362,7 @@ export async function deleteCategory(categoryId: string): Promise<void> {
 
 // ============ MENUS ============
 
-export type MenusResponse = PaginatedResponse<Menu>;
+export type MenusResponse = PaginatedResponse<MenuWithProducts>;
 
 export async function fetchMenus(
   params?: Partial<MenuFilters>,
@@ -318,6 +373,7 @@ export async function fetchMenus(
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.isActive !== undefined)
     searchParams.set("isActive", String(params.isActive));
+  if (params?.search) searchParams.set("search", params.search);
 
   const query = searchParams.toString();
   return fetchApi<MenusResponse>(`/menus${query ? `?${query}` : ""}`);
@@ -513,6 +569,97 @@ export async function fetchAllTenants(): Promise<{
   return fetchApi<{ data: Tenant[] }>("/admin/tenants");
 }
 
+export type AdminUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+// Create tenant
+export async function createTenant(data: {
+  name: string;
+  slug: string;
+}): Promise<{ data: Tenant }> {
+  return fetchApi("/admin/tenants", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Get single tenant
+export async function fetchTenant(
+  tenantId: string,
+): Promise<{ data: Tenant & { ownerCount: number } }> {
+  return fetchApi(`/admin/tenants/${tenantId}`);
+}
+
+// List owners for a tenant
+export async function fetchTenantOwners(
+  tenantId: string,
+): Promise<{ data: AdminUser[] }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners`);
+}
+
+// Create owner for a tenant
+export async function createTenantOwner(
+  tenantId: string,
+  data: { name: string; email: string; password: string },
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Toggle owner active status
+export async function toggleOwnerActive(
+  tenantId: string,
+  userId: string,
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/tenants/${tenantId}/owners/${userId}`, {
+    method: "PATCH",
+  });
+}
+
+// List platform admins
+export async function fetchAdminUsers(): Promise<{ data: AdminUser[] }> {
+  return fetchApi("/admin/users");
+}
+
+// Create platform admin
+export async function createAdminUser(data: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ data: AdminUser }> {
+  return fetchApi("/admin/users", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Update platform admin
+export async function updateAdminUser(
+  userId: string,
+  data: { name?: string; email?: string },
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// Toggle admin active status (deactivate/reactivate)
+export async function toggleAdminActive(
+  userId: string,
+): Promise<{ data: AdminUser }> {
+  return fetchApi(`/admin/users/${userId}/active`, {
+    method: "PATCH",
+  });
+}
+
 // ============ ADMIN SMS ============
 
 export async function fetchAdminSmsCredits(): Promise<{
@@ -613,6 +760,54 @@ export async function refreshSmsStatus(messageId: string): Promise<SmsMessage> {
   });
 }
 
+// ============ POINTS OF SALE ============
+
+export type PointsOfSaleResponse = PaginatedResponse<PointOfSale>;
+
+export async function fetchPointsOfSale(
+  params?: Partial<PointOfSaleFilters>,
+): Promise<PointsOfSaleResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.type) searchParams.set("type", params.type);
+  if (params?.isActive !== undefined)
+    searchParams.set("isActive", String(params.isActive));
+  const query = searchParams.toString();
+  return fetchApi<PointsOfSaleResponse>(
+    `/points-of-sale${query ? `?${query}` : ""}`,
+  );
+}
+
+export async function fetchPointOfSale(id: string): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>(`/points-of-sale/${id}`);
+}
+
+export async function createPointOfSale(
+  data: CreatePointOfSale,
+): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>("/points-of-sale", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePointOfSale(
+  id: string,
+  data: UpdatePointOfSale,
+): Promise<PointOfSale> {
+  return fetchApi<PointOfSale>(`/points-of-sale/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePointOfSale(id: string): Promise<void> {
+  await fetchApi<{ success: boolean }>(`/points-of-sale/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // ============ UTILS ============
 
 export function formatCurrency(
@@ -633,6 +828,33 @@ export function formatDate(date: string | Date): string {
   }).format(new Date(date));
 }
 
+export function formatDateWithAgo(date: string | Date): {
+  full: string;
+  ago: string;
+} {
+  const d = new Date(date);
+  const full = new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  let ago: string;
+  if (seconds < 60) ago = "à l'instant";
+  else if (seconds < 3600)
+    ago = `il y a ${Math.floor(seconds / 60)} min`;
+  else if (seconds < 86400)
+    ago = `il y a ${Math.floor(seconds / 3600)}h`;
+  else if (seconds < 2592000)
+    ago = `il y a ${Math.floor(seconds / 86400)}j`;
+  else ago = `il y a ${Math.floor(seconds / 2592000)} mois`;
+
+  return { full, ago };
+}
+
 // Re-export types for convenience
 export type {
   Order,
@@ -641,6 +863,7 @@ export type {
   OrderMenuItem,
   OrderFilters,
   CreateOrder,
+  CreateOrderItem,
   UpdateOrder,
   UpdateOrderStatus,
   Product,
@@ -673,4 +896,8 @@ export type {
   GrantCredits,
   RevokeCredits,
   SendSms,
+  PointOfSale,
+  CreatePointOfSale,
+  UpdatePointOfSale,
+  PointOfSaleFilters,
 };

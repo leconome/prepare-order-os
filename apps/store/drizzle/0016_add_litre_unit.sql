@@ -1,0 +1,1 @@
+ALTER TYPE unit_type ADD VALUE IF NOT EXISTS 'litre';

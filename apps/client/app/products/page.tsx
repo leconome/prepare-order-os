@@ -1,7 +1,8 @@
 "use client";
 
+import { parseQty, UNIT_CONFIG } from "@prepareos/data";
 import { useQuery } from "@tanstack/react-query";
-import { ImageIcon, Plus, RefreshCw, X } from "lucide-react";
+import { ImageIcon, Plus, RefreshCw, Search, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -10,6 +11,7 @@ import { TablePagination } from "@/components/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -36,7 +38,7 @@ function ProductsTable({
 }) {
   const categoryMap = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
-    [categories]
+    [categories],
   );
 
   if (products.length === 0) {
@@ -55,8 +57,8 @@ function ProductsTable({
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
           <TableHead>Description</TableHead>
-          <TableHead>Prix</TableHead>
           <TableHead>Stock</TableHead>
+          <TableHead>Prix</TableHead>
           <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
@@ -133,22 +135,33 @@ function ProductsTable({
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {formatCurrency(product.price)}
+                  {product.stock == null ? (
+                    <span className="text-muted-foreground text-xs">-</span>
+                  ) : parseQty(product.stock) === 0 ? (
+                    <Badge variant="destructive">Rupture</Badge>
+                  ) : parseQty(product.stock) <= 5 ? (
+                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
+                      {parseQty(product.stock)}{" "}
+                      <span className="font-normal">
+                        {UNIT_CONFIG[product.unitType].suffix || "u"}
+                      </span>
+                    </Badge>
+                  ) : (
+                    <span className="text-sm">
+                      {parseQty(product.stock)}{" "}
+                      <span className="text-muted-foreground text-xs">
+                        {UNIT_CONFIG[product.unitType].suffix || "u"}
+                      </span>
+                    </span>
+                  )}
                 </Link>
               </TableCell>
               <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {product.stock == null ? (
-                    <span className="text-muted-foreground text-xs">-</span>
-                  ) : product.stock === 0 ? (
-                    <Badge variant="destructive">Rupture</Badge>
-                  ) : product.stock <= 5 ? (
-                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-300">
-                      {product.stock}
-                    </Badge>
-                  ) : (
-                    <span className="text-sm">{product.stock}</span>
-                  )}
+                  {formatCurrency(product.price)}
+                  <span className="text-muted-foreground text-xs">
+                    {UNIT_CONFIG[product.unitType].priceSuffix}
+                  </span>
                 </Link>
               </TableCell>
               <TableCell>
@@ -186,9 +199,11 @@ const PAGE_SIZE = 20;
 
 export default function ProductsPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    null
+    null,
   );
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const trimmedSearch = search.trim();
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -196,12 +211,13 @@ export default function ProductsPage() {
   });
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["products", selectedCategoryId, page],
+    queryKey: ["products", selectedCategoryId, page, trimmedSearch],
     queryFn: () =>
       fetchProducts({
         page,
         limit: PAGE_SIZE,
         categoryId: selectedCategoryId ?? undefined,
+        search: trimmedSearch || undefined,
       }),
   });
 
@@ -213,13 +229,39 @@ export default function ProductsPage() {
       description="Gérez votre catalogue de produits"
     >
       <div className="space-y-4">
+        {/* Search bar */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un produit..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         {/* Category filters */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground mr-2">
             Filtrer par catégorie:
           </span>
           <button
-            onClick={() => { setSelectedCategoryId(null); setPage(1); }}
+            onClick={() => {
+              setSelectedCategoryId(null);
+              setPage(1);
+            }}
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
               selectedCategoryId === null
                 ? "bg-primary text-primary-foreground"
@@ -233,7 +275,7 @@ export default function ProductsPage() {
               key={category.id}
               onClick={() => {
                 setSelectedCategoryId(
-                  selectedCategoryId === category.id ? null : category.id
+                  selectedCategoryId === category.id ? null : category.id,
                 );
                 setPage(1);
               }}
@@ -297,7 +339,11 @@ export default function ProductsPage() {
               />
               Actualiser
             </Button>
-            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button
+              size="sm"
+              asChild
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+            >
               <Link href="/products/create">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouveau produit

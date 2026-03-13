@@ -2,12 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   Check,
-  CheckCircle2,
   Clock,
   MessageSquare,
+  Pencil,
   Undo2,
   UserRound,
   UserStar,
@@ -19,7 +20,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +49,6 @@ import {
   updateOrderStatus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { PAYMENT_LABELS } from "@/lib/constants";
 import { ItemCard } from "./components/ItemCard";
 import { MenuItemCard } from "./components/MenuItemCard";
 import { computeProgress } from "./helpers";
@@ -137,11 +136,6 @@ export default function PreparationDetailPage() {
     setSmsDialogOpen(true);
   };
 
-  const togglePayment = () => {
-    const next = order?.paymentStatus === "paid" ? "pending" : "paid";
-    statusMutation.mutate({ paymentStatus: next });
-  };
-
   if (isLoading) {
     return (
       <DashboardLayout title="Préparation" description="Chargement...">
@@ -184,21 +178,31 @@ export default function PreparationDetailPage() {
       ? `${order.pickupTimeStart}–${order.pickupTimeEnd}`
       : order.pickupTimeStart || null;
 
+  const isOverdue = (() => {
+    if (!order.pickupDate) return false;
+    if (order.preparationStatus === "picked_up") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(order.pickupDate) < today;
+  })();
+
   return (
     <DashboardLayout
       title={`Commande #${order.ticketNumber}`}
       description="Préparation de commande"
     >
       <div className="space-y-4">
-        {/* Back button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push("/preparation")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Retour
-        </Button>
+        {/* Back button + Edit link */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/preparation")}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Retour
+          </Button>
+        </div>
 
         {/* Header card */}
         <Card className="p-4">
@@ -208,7 +212,7 @@ export default function PreparationDetailPage() {
               <div className="flex items-center gap-3">
                 <Link
                   href={`/orders/${order.id}`}
-                  className="font-mono font-bold text-lg hover:underline"
+                  className="font-mono font-bold text-lg underline underline-offset-2 text-primary"
                 >
                   #{order.ticketNumber}
                 </Link>
@@ -222,6 +226,17 @@ export default function PreparationDetailPage() {
                     <div className="flex items-center gap-1">
                       <UserRound className="h-3.5 w-3.5" />
                       {order.client.name}
+                    </div>
+                  )}
+                  {order.pickupDate && (
+                    <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
+                      {isOverdue ? <AlertTriangle className="h-3.5 w-3.5" /> : <Calendar className="h-3.5 w-3.5" />}
+                      {isOverdue ? "En retard · " : "Retrait "}
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      }).format(new Date(order.pickupDate))}
                     </div>
                   )}
                   {pickupTime && (
@@ -298,31 +313,6 @@ export default function PreparationDetailPage() {
 
             {/* Right: CTAs */}
             <div className="flex flex-wrap items-center gap-2 sm:justify-end shrink-0">
-              {/* Payment toggle */}
-              <label
-                className={`flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 transition-all select-none ${
-                  order.paymentStatus === "paid"
-                    ? "bg-green-50"
-                    : "bg-background"
-                }`}
-              >
-                <Checkbox
-                  checked={order.paymentStatus === "paid"}
-                  onCheckedChange={() => togglePayment()}
-                  disabled={statusMutation.isPending}
-                  className="h-4 w-4 bg-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                />
-                <span
-                  className={`text-sm font-medium ${
-                    order.paymentStatus === "paid"
-                      ? "text-green-700"
-                      : "text-gray-700"
-                  }`}
-                >
-                  {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
-                </span>
-              </label>
-
               {/* Send SMS */}
               {order.client?.phone && (
                 <Button
@@ -356,19 +346,6 @@ export default function PreparationDetailPage() {
                   </Button>
                 )}
 
-              {/* Mark as picked up (header duplicate) */}
-              {order.preparationStatus === "ready" && (
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    statusMutation.mutate({ preparationStatus: "picked_up" })
-                  }
-                  disabled={statusMutation.isPending}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Récupéré
-                </Button>
-              )}
             </div>
           </div>
 
@@ -408,7 +385,7 @@ export default function PreparationDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 pb-1">
               <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="text-sm font-medium">A preparer</span>
+              <span className="text-sm font-medium">À préparer</span>
               <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                 {toPrepare.length}
               </Badge>
@@ -439,7 +416,7 @@ export default function PreparationDetailPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2 pb-1">
               <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">Prepare</span>
+              <span className="text-sm font-medium">Prêt</span>
               <Badge variant="secondary" className="ml-auto text-xs h-5 px-1.5">
                 {prepared.length}
               </Badge>
@@ -497,17 +474,6 @@ export default function PreparationDetailPage() {
               </Button>
             )}
 
-          {order.preparationStatus === "ready" && (
-            <Button
-              onClick={() =>
-                statusMutation.mutate({ preparationStatus: "picked_up" })
-              }
-              disabled={statusMutation.isPending}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Marquer comme récupéré
-            </Button>
-          )}
         </div>
       </div>
 

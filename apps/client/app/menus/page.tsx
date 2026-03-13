@@ -1,12 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Search, X } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -91,14 +93,36 @@ function MenusTableSkeleton() {
 }
 
 export default function MenusPage() {
+  const [search, setSearch] = useState("");
+  const trimmedSearch = search.trim();
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["menus"],
-    queryFn: () => fetchMenus({ limit: 50 }),
+    queryKey: ["menus", trimmedSearch],
+    queryFn: () => fetchMenus({ limit: 50, search: trimmedSearch || undefined }),
   });
 
   return (
     <DashboardLayout title="Menus" description="Gérez vos menus et formules">
       <div className="space-y-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un menu..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">

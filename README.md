@@ -1,4 +1,4 @@
-# Prepare Order OS
+# PrepareOS
 
 A simple POS (Point of Sale) system with order management.
 

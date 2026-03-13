@@ -19,9 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   checkUserExists,
+  type DevTenant,
+  fetchDevTenants,
   fetchLoginStaff,
   fetchTenantSettings,
+  getDevTenant,
   type LoginStaffMember,
+  setDevTenant,
   signUpDevUser,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -34,6 +38,60 @@ const DEFAULT_CREDENTIALS = {
 const IS_DEV_STAGE = process.env.NEXT_PUBLIC_STAGE === "dev";
 
 type LoginMode = "staff" | "admin";
+
+// ============ DEV TENANT SELECTOR ============
+
+function DevTenantSelector() {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<string | null>(() => getDevTenant());
+
+  const { data } = useQuery({
+    queryKey: ["dev-tenants"],
+    queryFn: fetchDevTenants,
+    enabled: IS_DEV_STAGE,
+  });
+
+  const tenantList = data?.tenants ?? [];
+
+  // Auto-select first tenant if none selected
+  useEffect(() => {
+    if (tenantList.length > 0 && !selected) {
+      const first = tenantList[0].slug;
+      setSelected(first);
+      setDevTenant(first);
+    }
+  }, [tenantList, selected]);
+
+  if (!IS_DEV_STAGE || tenantList.length === 0) return null;
+
+  const handleSelect = (tenant: DevTenant) => {
+    setSelected(tenant.slug);
+    setDevTenant(tenant.slug);
+    // Refetch tenant-scoped data for the newly selected tenant
+    queryClient.invalidateQueries({ queryKey: ["login-staff"] });
+    queryClient.invalidateQueries({ queryKey: ["tenant-settings"] });
+    queryClient.invalidateQueries({ queryKey: ["devUserCheck"] });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+      {tenantList.map((t) => (
+        <button
+          key={t.slug}
+          type="button"
+          onClick={() => handleSelect(t)}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer border ${
+            selected === t.slug
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-muted text-muted-foreground border-transparent hover:border-border"
+          }`}
+        >
+          {t.name}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 // ============ PIN PAD ============
 
@@ -443,7 +501,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/50 p-4">
+      {IS_DEV_STAGE && <DevTenantSelector />}
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">{tenant?.name ?? "Caisse"}</CardTitle>
@@ -452,7 +511,7 @@ export default function LoginPage() {
               ? selectedStaff
                 ? `Entrez le PIN de ${selectedStaff.name || "l'employé"}`
                 : "Sélectionnez votre profil"
-              : "Connexion administrateur"}
+              : "Connexion propriétaire"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -536,7 +595,7 @@ export default function LoginPage() {
                 }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
-                Connexion admin
+                Connexion propriétaire
               </button>
             ) : (
               <button
