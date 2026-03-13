@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, MessageSquare, Shield, Store } from "lucide-react";
+import { LogOut, Shield, ShieldCheck, Store } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Tenants", icon: Store },
-  { href: "/admin/sms", label: "SMS", icon: MessageSquare },
+  { href: "/admin/users", label: "Administrateurs", icon: ShieldCheck },
 ];
 
 function AdminTopBar() {
@@ -36,7 +36,7 @@ function AdminTopBar() {
           {NAV_ITEMS.map((item) => {
             const isActive =
               item.href === "/admin"
-                ? pathname === "/admin"
+                ? pathname === "/admin" || pathname.startsWith("/admin/tenants")
                 : pathname.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href}>

@@ -511,7 +511,7 @@ export default function LoginPage() {
               ? selectedStaff
                 ? `Entrez le PIN de ${selectedStaff.name || "l'employé"}`
                 : "Sélectionnez votre profil"
-              : "Connexion administrateur"}
+              : "Connexion propriétaire"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -595,7 +595,7 @@ export default function LoginPage() {
                 }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
-                Connexion admin
+                Connexion propriétaire
               </button>
             ) : (
               <button
