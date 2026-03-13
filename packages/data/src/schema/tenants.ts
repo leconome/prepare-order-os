@@ -39,3 +39,26 @@ export const updateTenantSettingsSchema = z.object({
   preparationFilterDays: z.number().int().min(0).max(30).optional(),
 });
 export type UpdateTenantSettings = z.infer<typeof updateTenantSettingsSchema>;
+
+// Owner creation (admin creates owner for a tenant)
+export const createOwnerSchema = z.object({
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  email: z.string().email("Email invalide"),
+  password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
+});
+export type CreateOwner = z.infer<typeof createOwnerSchema>;
+
+// Platform admin creation
+export const createAdminSchema = z.object({
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  email: z.string().email("Email invalide"),
+  password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
+});
+export type CreateAdmin = z.infer<typeof createAdminSchema>;
+
+// Update admin schema
+export const updateAdminSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+});
+export type UpdateAdmin = z.infer<typeof updateAdminSchema>;
