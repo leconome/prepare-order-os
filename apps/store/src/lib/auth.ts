@@ -49,11 +49,20 @@ export const auth = betterAuth({
   },
   advanced: {
     cookiePrefix: "prepareos",
+    // In production, API is on api.prepareos.fr while clients are on *.prepareos.fr
+    // so we need cross-subdomain cookies. In dev, same-hostname is used (no need).
+    ...(isLocalhost
+      ? {}
+      : {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: baseDomain,
+          },
+        }),
     defaultCookieAttributes: {
       secure: !isLocalhost,
       sameSite: "lax",
       path: "/",
-      domain: `.${baseDomain}`,
     },
   },
   user: {

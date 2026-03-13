@@ -44,8 +44,9 @@ import type {
   User,
 } from "@prepareos/data";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+// In dev: empty string (requests go to /api/* on same origin, proxied by Next.js rewrites).
+// In prod: explicit API URL (e.g. https://api.prepareos.fr).
+const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL || "";
 
 // ============ FETCH WRAPPER ============
 

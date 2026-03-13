@@ -10,8 +10,10 @@ import {
 } from "react";
 import { loginWithPin as loginWithPinApi } from "./api";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_STORE_API_URL || "http://localhost:9000";
+// In dev: use current origin (requests go to /api/* on same origin, proxied by Next.js rewrites).
+// In prod: explicit API URL (e.g. https://api.prepareos.fr).
+const API_URL = process.env.NEXT_PUBLIC_STORE_API_URL
+  || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
 
 const authClient = createAuthClient({
   baseURL: `${API_URL}/api/auth`,
@@ -47,12 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = useCallback(async () => {
     try {
       const session = await authClient.getSession();
+      console.log("[checkAuth] session result:", JSON.stringify(session.data, null, 2));
       if (session.data?.user) {
         setUser(session.data.user as User);
       } else {
+        console.log("[checkAuth] No user in session, setting null");
         setUser(null);
       }
-    } catch {
+    } catch (err) {
+      console.error("[checkAuth] Error:", err);
       setUser(null);
     } finally {
       setIsLoading(false);

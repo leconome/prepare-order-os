@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(ls -la /Users/nezzarkefif/Documents/GitHub/prepare-order-os/apps/client/app/\\\\\\(admin\\\\\\)/admin/)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "WebFetch(domain:better-auth.com)",
+      "Bash(git reset:*)"
     ],
     "additionalDirectories": [
       "/Users/nezzarkefif/Documents/GitHub/prepare-order-os/docs/superpowers",
