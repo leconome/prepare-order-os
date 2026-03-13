@@ -8,7 +8,7 @@ import {
 import { users } from "@prepareos/data/schema";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { setSignedCookie } from "hono/cookie";
+import { setCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../db/index.js";
@@ -165,15 +165,17 @@ usersRoutes.post(
       },
     );
 
-    // Set signed cookie (same way better-auth does internally)
+    // Set plain cookie (must match Better Auth's format — no Hono signing)
     const cookieName = authCtx.authCookies.sessionToken.name;
-    const isLocalhost = (process.env.BASE_DOMAIN || "localhost") === "localhost";
-    await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
+    const baseDomain = process.env.BASE_DOMAIN || "localhost";
+    const isLocalhost = baseDomain === "localhost";
+    setCookie(c, cookieName, session.token, {
       path: "/",
       httpOnly: true,
       sameSite: "Lax",
       maxAge: 7 * 24 * 60 * 60,
       secure: !isLocalhost,
+      domain: `.${baseDomain}`,
     });
 
     return c.json({

@@ -53,6 +53,7 @@ export const auth = betterAuth({
       secure: !isLocalhost,
       sameSite: "lax",
       path: "/",
+      domain: `.${baseDomain}`,
     },
   },
   user: {
