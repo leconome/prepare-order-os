@@ -193,38 +193,38 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Catégorie parente</FormLabel>
-                    <Select
-                      onValueChange={(value) =>
-                        field.onChange(value === "none" ? undefined : value)
-                      }
-                      value={field.value || "none"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Aucune" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Aucune</SelectItem>
-                        {availableParents?.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="parentId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Catégorie parente</FormLabel>
+                  <Select
+                    onValueChange={(value) =>
+                      field.onChange(value === "none" ? undefined : value)
+                    }
+                    value={field.value || "none"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Aucune" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Aucune</SelectItem>
+                      {availableParents?.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            {isEditMode && (
               <FormField
                 control={form.control}
                 name="sortOrder"
@@ -242,7 +242,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                   </FormItem>
                 )}
               />
-            </div>
+            )}
 
             <FormField
               control={form.control}
@@ -261,26 +261,28 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Active</FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      La catégorie sera visible dans le catalogue
-                    </p>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {isEditMode && (
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel>Active</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        La catégorie sera visible dans le catalogue
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex items-center justify-between pt-4">
               {isEditMode ? (

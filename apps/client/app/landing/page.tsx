@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { getAdminPath } from "@/lib/tenant";
+
+const adminLink = getAdminPath();
 
 export default function LandingPage() {
   return (
@@ -16,7 +19,7 @@ export default function LandingPage() {
           </p>
           <div className="flex gap-4 justify-center">
             <Link
-              href="https://admin.prepareos.fr"
+              href={adminLink}
               className="inline-flex items-center px-6 py-3 rounded-lg bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors"
             >
               Accéder au tableau de bord

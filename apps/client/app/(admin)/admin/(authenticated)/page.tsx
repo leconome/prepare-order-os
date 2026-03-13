@@ -46,23 +46,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { createTenant, fetchAllTenants, formatDate } from "@/lib/api";
-
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "localhost";
-const IS_DEV = process.env.NODE_ENV === "development";
-const PROTOCOL = IS_DEV ? "http" : "https";
-
-function getTenantUrl(slug: string): string {
-  return `${PROTOCOL}://${slug}.${BASE_DOMAIN}${IS_DEV ? ":3000" : ""}`;
-}
-
-function slugify(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { slugify } from "@/lib/helpers";
+import { getTenantUrl } from "@/lib/tenant";
 
 function CreateTenantDialog() {
   const [open, setOpen] = useState(false);

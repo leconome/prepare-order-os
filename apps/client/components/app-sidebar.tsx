@@ -100,11 +100,6 @@ const navigation = [
     url: "/clients",
     icon: UserRound,
   },
-  {
-    title: "Statistiques",
-    url: "/stats",
-    icon: BarChart3,
-  },
 ];
 
 const catalogueNavigation = [
@@ -126,6 +121,12 @@ const catalogueNavigation = [
 ];
 
 const managementNavigation = [
+  {
+    title: "Statistiques",
+    url: "/stats",
+    icon: BarChart3,
+    roles: ["admin", "owner"],
+  },
   {
     title: "Équipe",
     url: "/staff",
