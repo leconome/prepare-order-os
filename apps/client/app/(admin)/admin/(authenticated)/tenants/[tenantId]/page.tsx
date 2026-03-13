@@ -75,7 +75,7 @@ import {
 
 // ============ INFORMATIONS TAB ============
 
-function InformationsTab({ tenant }: { tenant: { name: string; slug: string; preparationFilterDays: number; smsCredits: number; ownerCount: number; createdAt: string } }) {
+function InformationsTab({ tenant }: { tenant: { name: string; slug: string; preparationFilterDays: number; smsCredits: number; ownerCount: number; createdAt: string | Date } }) {
   return (
     <Card>
       <CardHeader>
