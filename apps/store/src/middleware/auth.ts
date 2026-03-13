@@ -40,6 +40,12 @@ export const authMiddleware: MiddlewareHandler = async (
   const user = session.user as Record<string, unknown>;
   const userTenantId = (user.tenantId as string) ?? null;
 
+  // Block deactivated users
+  const isActive = user.isActive as boolean | undefined;
+  if (isActive === false) {
+    return c.json({ error: "Account deactivated" }, 403);
+  }
+
   // Cross-tenant guard: tenant-scoped users must belong to the current tenant.
   // Platform admins (tenantId = null) can access any tenant.
   const currentTenantId = c.get("tenantId") as string | undefined;
@@ -74,6 +80,12 @@ export const optionalAuthMiddleware: MiddlewareHandler = async (
   if (session) {
     const user = session.user as Record<string, unknown>;
     const userTenantId = (user.tenantId as string) ?? null;
+
+    // Block deactivated users
+    const isActive = user.isActive as boolean | undefined;
+    if (isActive === false) {
+      return c.json({ error: "Account deactivated" }, 403);
+    }
 
     const currentTenantId = c.get("tenantId") as string | undefined;
     if (

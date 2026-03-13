@@ -46,9 +46,9 @@ function getMotivationMessage(progress: number, toPrepare: number) {
   return "C'est parti, bonne journée !";
 }
 
-function isToday(dateStr: string | null | undefined) {
+function isToday(dateStr: string | Date | null | undefined) {
   if (!dateStr) return false;
-  const d = new Date(dateStr);
+  const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   const now = new Date();
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
