@@ -59,8 +59,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  type AdminUser,
-  type SmsTenant,
   createTenantOwner,
   fetchAdminSmsCredits,
   fetchAdminSmsTenants,
@@ -75,7 +73,18 @@ import {
 
 // ============ INFORMATIONS TAB ============
 
-function InformationsTab({ tenant }: { tenant: { name: string; slug: string; preparationFilterDays: number; smsCredits: number; ownerCount: number; createdAt: string | Date } }) {
+function InformationsTab({
+  tenant,
+}: {
+  tenant: {
+    name: string;
+    slug: string;
+    preparationFilterDays: number;
+    smsCredits: number;
+    ownerCount: number;
+    createdAt: string | Date;
+  };
+}) {
   return (
     <Card>
       <CardHeader>
@@ -96,21 +105,30 @@ function InformationsTab({ tenant }: { tenant: { name: string; slug: string; pre
             </dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-muted-foreground">Filtre préparation</dt>
+            <dt className="text-sm font-medium text-muted-foreground">
+              Filtre préparation
+            </dt>
             <dd className="text-sm">
-              {tenant.preparationFilterDays} jour{tenant.preparationFilterDays !== 1 ? "s" : ""}
+              {tenant.preparationFilterDays} jour
+              {tenant.preparationFilterDays !== 1 ? "s" : ""}
             </dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-muted-foreground">Créé le</dt>
+            <dt className="text-sm font-medium text-muted-foreground">
+              Créé le
+            </dt>
             <dd className="text-sm">{formatDate(tenant.createdAt)}</dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-muted-foreground">Crédits SMS</dt>
+            <dt className="text-sm font-medium text-muted-foreground">
+              Crédits SMS
+            </dt>
             <dd className="text-sm font-mono">{tenant.smsCredits}</dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-muted-foreground">Propriétaires</dt>
+            <dt className="text-sm font-medium text-muted-foreground">
+              Propriétaires
+            </dt>
             <dd className="text-sm">{tenant.ownerCount}</dd>
           </div>
         </dl>
@@ -121,7 +139,13 @@ function InformationsTab({ tenant }: { tenant: { name: string; slug: string; pre
 
 // ============ SMS TAB ============
 
-function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string }) {
+function SmsTab({
+  tenantId,
+  tenantName,
+}: {
+  tenantId: string;
+  tenantName: string;
+}) {
   const queryClient = useQueryClient();
   const [dialogState, setDialogState] = useState<{
     open: boolean;
@@ -165,7 +189,9 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-sms-tenants"] });
       queryClient.invalidateQueries({ queryKey: ["admin-sms-credits"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-tenant-transactions", tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-tenant-transactions", tenantId],
+      });
       queryClient.invalidateQueries({ queryKey: ["admin-tenant", tenantId] });
       closeDialog();
     },
@@ -205,14 +231,26 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
           ) : ovhCredits && !("error" in ovhCredits) ? (
             <div className="flex flex-wrap items-center gap-6">
               <div>
-                <span className="text-3xl font-bold">{ovhCredits.creditsLeft}</span>
+                <span className="text-3xl font-bold">
+                  {ovhCredits.creditsLeft}
+                </span>
                 <span className="ml-2 text-muted-foreground">crédits OVH</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{totalDistributed}</span> distribués &middot;{" "}
-                <span className="font-medium text-foreground">{available ?? "?"}</span> disponibles
+                <span className="font-medium text-foreground">
+                  {totalDistributed}
+                </span>{" "}
+                distribués &middot;{" "}
+                <span className="font-medium text-foreground">
+                  {available ?? "?"}
+                </span>{" "}
+                disponibles
               </div>
-              <a href={ovhCredits.buyUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                href={ovhCredits.buyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Button variant="outline" size="sm">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Acheter des crédits
@@ -233,12 +271,19 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
               <CardTitle>Crédits de {tenantName}</CardTitle>
               <CardDescription>Solde actuel et actions</CardDescription>
             </div>
-            <div className="text-3xl font-bold font-mono">{thisTenant?.smsCredits ?? 0}</div>
+            <div className="text-3xl font-bold font-mono">
+              {thisTenant?.smsCredits ?? 0}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => openDialog("grant")} disabled={grantDisabled}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openDialog("grant")}
+              disabled={grantDisabled}
+            >
               <Plus className="mr-1 h-3 w-3" />
               Attribuer
             </Button>
@@ -307,11 +352,16 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
       </Card>
 
       {/* Grant / Revoke Dialog */}
-      <Dialog open={dialogState.open} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog
+        open={dialogState.open}
+        onOpenChange={(open) => !open && closeDialog()}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogState.mode === "grant" ? "Attribuer des crédits" : "Révoquer des crédits"}
+              {dialogState.mode === "grant"
+                ? "Attribuer des crédits"
+                : "Révoquer des crédits"}
             </DialogTitle>
             <DialogDescription>
               {dialogState.mode === "grant"
@@ -332,7 +382,11 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
                 id="amount"
                 type="number"
                 min="1"
-                max={dialogState.mode === "revoke" ? thisTenant?.smsCredits : maxGrant}
+                max={
+                  dialogState.mode === "revoke"
+                    ? thisTenant?.smsCredits
+                    : maxGrant
+                }
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
@@ -362,11 +416,17 @@ function SmsTab({ tenantId, tenantName }: { tenantId: string; tenantName: string
                 disabled={
                   !amount ||
                   Number(amount) < 1 ||
-                  (dialogState.mode === "grant" && maxGrant !== undefined && Number(amount) > maxGrant) ||
+                  (dialogState.mode === "grant" &&
+                    maxGrant !== undefined &&
+                    Number(amount) > maxGrant) ||
                   mutation.isPending
                 }
               >
-                {mutation.isPending ? "En cours..." : dialogState.mode === "grant" ? "Attribuer" : "Révoquer"}
+                {mutation.isPending
+                  ? "En cours..."
+                  : dialogState.mode === "grant"
+                    ? "Attribuer"
+                    : "Révoquer"}
               </Button>
             </div>
           </form>
@@ -391,7 +451,9 @@ function CreateOwnerDialog({ tenantId }: { tenantId: string }) {
     mutationFn: (data: { name: string; email: string; password: string }) =>
       createTenantOwner(tenantId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-tenant-owners", tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-tenant-owners", tenantId],
+      });
       queryClient.invalidateQueries({ queryKey: ["admin-tenant", tenantId] });
       setOpen(false);
       form.reset();
@@ -403,7 +465,16 @@ function CreateOwnerDialog({ tenantId }: { tenantId: string }) {
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { form.reset(); mutation.reset(); } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) {
+          form.reset();
+          mutation.reset();
+        }
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="mr-2 h-4 w-4" />
@@ -439,7 +510,11 @@ function CreateOwnerDialog({ tenantId }: { tenantId: string }) {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="jean@example.com" {...field} />
+                    <Input
+                      type="email"
+                      placeholder="jean@example.com"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -461,15 +536,22 @@ function CreateOwnerDialog({ tenantId }: { tenantId: string }) {
             />
             {mutation.isError && (
               <p className="text-sm text-destructive">
-                {(mutation.error as Error).message || "Erreur lors de la création"}
+                {(mutation.error as Error).message ||
+                  "Erreur lors de la création"}
               </p>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
               <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {mutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Créer
               </Button>
             </DialogFooter>
@@ -491,7 +573,9 @@ function OwnersTab({ tenantId }: { tenantId: string }) {
   const toggleMutation = useMutation({
     mutationFn: (userId: string) => toggleOwnerActive(tenantId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-tenant-owners", tenantId] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-tenant-owners", tenantId],
+      });
     },
   });
 
@@ -503,7 +587,9 @@ function OwnersTab({ tenantId }: { tenantId: string }) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Propriétaires</CardTitle>
-            <CardDescription>Comptes propriétaires de ce tenant</CardDescription>
+            <CardDescription>
+              Comptes propriétaires de ce tenant
+            </CardDescription>
           </div>
           <CreateOwnerDialog tenantId={tenantId} />
         </div>
@@ -532,8 +618,12 @@ function OwnersTab({ tenantId }: { tenantId: string }) {
             <TableBody>
               {owners.map((owner) => (
                 <TableRow key={owner.id}>
-                  <TableCell className="font-medium">{owner.name || "-"}</TableCell>
-                  <TableCell className="text-muted-foreground">{owner.email}</TableCell>
+                  <TableCell className="font-medium">
+                    {owner.name || "-"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {owner.email}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={owner.isActive ? "active" : "inactive"}>
                       {owner.isActive ? "Actif" : "Inactif"}
@@ -547,7 +637,11 @@ function OwnersTab({ tenantId }: { tenantId: string }) {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (confirm(`Êtes-vous sûr de vouloir ${owner.isActive ? "désactiver" : "réactiver"} ce propriétaire ?`)) {
+                        if (
+                          confirm(
+                            `Êtes-vous sûr de vouloir ${owner.isActive ? "désactiver" : "réactiver"} ce propriétaire ?`,
+                          )
+                        ) {
                           toggleMutation.mutate(owner.id);
                         }
                       }}

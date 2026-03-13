@@ -1,8 +1,8 @@
 "use client";
 
+import { formatQtyLabel } from "@prepareos/data";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
-import { formatQtyLabel } from "@prepareos/data";
 import {
   formatCurrency,
   type OrderWithItems,

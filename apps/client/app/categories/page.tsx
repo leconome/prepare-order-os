@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, RefreshCw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { ColorBadge } from "@/components/color-picker";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ColorBadge } from "@/components/color-picker";
 import { type Category, fetchCategories } from "@/lib/api";
 
 function CategoriesTable({ categories }: { categories: Category[] }) {
@@ -48,9 +48,14 @@ function CategoriesTable({ categories }: { categories: Category[] }) {
             className="cursor-pointer hover:bg-muted/50 transition-colors"
           >
             <TableCell>
-              <Link href={`/categories/${category.id}`} className="block w-full">
+              <Link
+                href={`/categories/${category.id}`}
+                className="block w-full"
+              >
                 <ColorBadge color={category.color} />
-                {!category.color && <span className="text-muted-foreground">-</span>}
+                {!category.color && (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </Link>
             </TableCell>
             <TableCell className="font-medium">
@@ -68,17 +73,26 @@ function CategoriesTable({ categories }: { categories: Category[] }) {
               </Link>
             </TableCell>
             <TableCell className="max-w-[300px] truncate text-muted-foreground">
-              <Link href={`/categories/${category.id}`} className="block w-full">
+              <Link
+                href={`/categories/${category.id}`}
+                className="block w-full"
+              >
                 {category.description || "-"}
               </Link>
             </TableCell>
             <TableCell>
-              <Link href={`/categories/${category.id}`} className="block w-full">
+              <Link
+                href={`/categories/${category.id}`}
+                className="block w-full"
+              >
                 {category.sortOrder}
               </Link>
             </TableCell>
             <TableCell>
-              <Link href={`/categories/${category.id}`} className="block w-full">
+              <Link
+                href={`/categories/${category.id}`}
+                className="block w-full"
+              >
                 <Badge variant={category.isActive ? "active" : "inactive"}>
                   {category.isActive ? "Active" : "Inactive"}
                 </Badge>
@@ -112,7 +126,8 @@ export default function CategoriesPage() {
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["categories", trimmedSearch],
-    queryFn: () => fetchCategories({ limit: 50, search: trimmedSearch || undefined }),
+    queryFn: () =>
+      fetchCategories({ limit: 50, search: trimmedSearch || undefined }),
   });
 
   return (
@@ -158,7 +173,7 @@ export default function CategoriesPage() {
               />
               Actualiser
             </Button>
-            <Button size="sm" asChild className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button size="sm" asChild>
               <Link href="/categories/create">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouvelle catégorie

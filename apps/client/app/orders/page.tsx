@@ -40,6 +40,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -50,13 +57,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   deleteOrder,
   fetchOrders,
@@ -382,11 +382,7 @@ export default function OrdersPage() {
               />
               Actualiser
             </Button>
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              asChild
-            >
+            <Button size="sm" asChild>
               <Link href="/orders/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Nouvelle commande

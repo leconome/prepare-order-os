@@ -27,7 +27,13 @@ import {
 import { type PreparationStatus, STATUS_BADGE } from "../constants";
 import { computeProgress } from "../helpers";
 
-function OrderRow({ order, even = false }: { order: OrderWithItems; even?: boolean }) {
+function OrderRow({
+  order,
+  even = false,
+}: {
+  order: OrderWithItems;
+  even?: boolean;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 

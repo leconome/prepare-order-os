@@ -11,6 +11,14 @@ import { ColorPicker } from "@/components/color-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -29,21 +37,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   type Category,
   type CreateCategory,
-  type UpdateCategory,
   createCategory,
   deleteCategory,
   fetchCategories,
   fetchCategoryProductCount,
+  type UpdateCategory,
   updateCategory,
 } from "@/lib/api";
 
@@ -62,7 +62,9 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
   });
 
   const form = useForm({
-    resolver: zodResolver(isEditMode ? updateCategorySchema : createCategorySchema),
+    resolver: zodResolver(
+      isEditMode ? updateCategorySchema : createCategorySchema,
+    ),
     defaultValues: {
       name: initialData?.name ?? "",
       description: initialData?.description ?? "",
@@ -99,7 +101,9 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
     mutationFn: (data: UpdateCategory) => updateCategory(initialData!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["category", initialData!.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["category", initialData!.id],
+      });
       router.push("/categories");
     },
   });
@@ -144,7 +148,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
 
   // Filter out current category from parent options (for edit mode)
   const availableParents = categoriesData?.data.filter(
-    (c) => !initialData || c.id !== initialData.id
+    (c) => !initialData || c.id !== initialData.id,
   );
 
   return (
@@ -297,11 +301,7 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                 <div />
               )}
 
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -332,18 +332,20 @@ export function CategoryForm({ initialData }: CategoryFormProps) {
                     <>
                       <p>
                         Cette catégorie contient{" "}
-                        <strong>{productCount} produit{productCount > 1 ? "s" : ""}</strong>.
+                        <strong>
+                          {productCount} produit{productCount > 1 ? "s" : ""}
+                        </strong>
+                        .
                       </p>
                       <p>
-                        En supprimant cette catégorie, ces produits se retrouveront
-                        <strong> sans catégorie</strong>. Vous devrez leur réattribuer
-                        une catégorie manuellement.
+                        En supprimant cette catégorie, ces produits se
+                        retrouveront
+                        <strong> sans catégorie</strong>. Vous devrez leur
+                        réattribuer une catégorie manuellement.
                       </p>
                     </>
                   ) : (
-                    <p>
-                      Êtes-vous sûr de vouloir supprimer cette catégorie ?
-                    </p>
+                    <p>Êtes-vous sûr de vouloir supprimer cette catégorie ?</p>
                   )}
                 </div>
               </DialogDescription>

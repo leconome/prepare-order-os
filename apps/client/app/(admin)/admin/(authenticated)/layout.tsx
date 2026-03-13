@@ -27,7 +27,7 @@ function AdminTopBar() {
     <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-rose-500 to-pink-600 text-white shadow-md">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-md">
             <Link href="/admin">
               <Shield className="h-4 w-4" />
             </Link>

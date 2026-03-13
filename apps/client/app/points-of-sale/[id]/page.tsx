@@ -44,7 +44,9 @@ export default function PointOfSaleEditPage() {
     return (
       <DashboardLayout title="Point de retrait non trouvé" description="">
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Ce point de retrait n'existe pas.</p>
+          <p className="text-muted-foreground">
+            Ce point de retrait n'existe pas.
+          </p>
           <Button asChild className="mt-4">
             <Link href="/points-of-sale">Retour aux points de retrait</Link>
           </Button>

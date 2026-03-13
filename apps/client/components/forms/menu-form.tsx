@@ -22,12 +22,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   type CreateMenu,
-  type MenuWithProducts,
-  type UpdateMenu,
   createMenu,
   deleteMenu,
   fetchProducts,
   formatCurrency,
+  type MenuWithProducts,
+  type UpdateMenu,
   updateMenu,
 } from "@/lib/api";
 
@@ -75,10 +75,11 @@ export function MenuForm({ initialData }: MenuFormProps) {
       price: initialData?.price ?? "",
       isActive: initialData?.isActive ?? true,
       sortOrder: initialData?.sortOrder ?? 0,
-      products: initialData?.products?.map((p) => ({
-        productId: p.product.id,
-        quantity: p.quantity,
-      })) ?? [],
+      products:
+        initialData?.products?.map((p) => ({
+          productId: p.product.id,
+          quantity: p.quantity,
+        })) ?? [],
     },
   });
 
@@ -96,12 +97,13 @@ export function MenuForm({ initialData }: MenuFormProps) {
   // Reset form when initialData changes (for edit mode)
   useEffect(() => {
     if (initialData) {
-      const prods = initialData.products?.map((p) => ({
-        productId: p.product.id,
-        productName: p.product.name,
-        price: p.product.price,
-        quantity: p.quantity,
-      })) ?? [];
+      const prods =
+        initialData.products?.map((p) => ({
+          productId: p.product.id,
+          productName: p.product.name,
+          price: p.product.price,
+          quantity: p.quantity,
+        })) ?? [];
       setSelectedProducts(prods);
       form.reset({
         name: initialData.name,
@@ -158,9 +160,7 @@ export function MenuForm({ initialData }: MenuFormProps) {
     if (existing) {
       setSelectedProducts(
         selectedProducts.map((p) =>
-          p.productId === product.id
-            ? { ...p, quantity: p.quantity + 1 }
-            : p,
+          p.productId === product.id ? { ...p, quantity: p.quantity + 1 } : p,
         ),
       );
     } else {
@@ -289,10 +289,7 @@ export function MenuForm({ initialData }: MenuFormProps) {
               {selectedProducts.length > 0 && (
                 <div className="space-y-2 rounded-lg border p-3">
                   {selectedProducts.map((sp) => (
-                    <div
-                      key={sp.productId}
-                      className="flex items-center gap-3"
-                    >
+                    <div key={sp.productId} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium truncate block">
                           {sp.productName}
@@ -336,7 +333,8 @@ export function MenuForm({ initialData }: MenuFormProps) {
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground pt-1 border-t">
-                    {selectedProducts.reduce((sum, p) => sum + p.quantity, 0)} produit(s) au total
+                    {selectedProducts.reduce((sum, p) => sum + p.quantity, 0)}{" "}
+                    produit(s) au total
                   </p>
                 </div>
               )}
@@ -427,7 +425,9 @@ export function MenuForm({ initialData }: MenuFormProps) {
                   type="button"
                   variant="destructive"
                   onClick={() => {
-                    if (confirm("Êtes-vous sûr de vouloir supprimer ce menu ?")) {
+                    if (
+                      confirm("Êtes-vous sûr de vouloir supprimer ce menu ?")
+                    ) {
                       deleteMutation.mutate();
                     }
                   }}
@@ -444,11 +444,7 @@ export function MenuForm({ initialData }: MenuFormProps) {
                 <div />
               )}
 
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
-              >
+              <Button type="submit" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
