@@ -6,7 +6,7 @@ import {
   updateStaffSchema,
 } from "@prepareos/data";
 import { users } from "@prepareos/data/schema";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { setSignedCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
@@ -80,6 +80,7 @@ usersRoutes.get("/login-staff", async (c) => {
       eq(users.isActive, true),
       isNotNull(users.pin),
       eq(users.tenantId, tenantId),
+      ne(users.role, "admin"),
     ),
     columns: {
       id: true,
@@ -220,7 +221,7 @@ usersRoutes.get(
     const { role, isActive, page = 1, limit = 20 } = c.req.valid("query");
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(users.tenantId, tenantId)];
+    const conditions = [eq(users.tenantId, tenantId), ne(users.role, "admin")];
 
     if (role) {
       conditions.push(eq(users.role, role));
