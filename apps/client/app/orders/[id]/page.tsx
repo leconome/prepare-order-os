@@ -113,6 +113,7 @@ const editOrderSchema = updateOrderSchema.omit({
   paymentStatus: true,
   preparationStatus: true,
   smsNotifiedAt: true,
+  emailNotifiedAt: true,
   items: true,
 });
 

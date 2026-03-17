@@ -7,8 +7,8 @@ import {
   Calendar,
   Check,
   Clock,
+  Mail,
   MessageSquare,
-  Pencil,
   Undo2,
   UserRound,
   UserStar,
@@ -43,6 +43,8 @@ import {
   fetchTenantSettings,
   formatCurrency,
   type OrderWithItems,
+  renderOrderReadyEmail,
+  sendEmail,
   sendSms,
   type UpdateOrderStatus,
   updateOrder,
@@ -79,6 +81,9 @@ export default function PreparationDetailPage() {
 
   const [smsDialogOpen, setSmsDialogOpen] = useState(false);
   const [smsBody, setSmsBody] = useState("");
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
@@ -129,6 +134,59 @@ export default function PreparationDetailPage() {
       setSmsDialogOpen(false);
     },
   });
+
+  const emailMutation = useMutation({
+    mutationFn: async () => {
+      if (!order?.client?.email) throw new Error("No client email");
+      await sendEmail({
+        recipientEmail: order.client.email,
+        recipientName: order.client.name ?? undefined,
+        subject: emailSubject,
+        html: emailBody,
+        type: "order_ready",
+      });
+      await updateOrder(orderId, { emailNotifiedAt: new Date() });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      setEmailDialogOpen(false);
+    },
+  });
+
+  const openEmailDialog = async () => {
+    if (!order) return;
+    const shopName = tenant?.name ?? "";
+    setEmailSubject(
+      `Votre commande #${order.ticketNumber} est prete — ${shopName}`,
+    );
+    const pickupTime =
+      order.pickupTimeStart && order.pickupTimeEnd
+        ? `entre ${order.pickupTimeStart} et ${order.pickupTimeEnd}`
+        : order.pickupTimeStart
+          ? `a ${order.pickupTimeStart}`
+          : undefined;
+    try {
+      const { html } = await renderOrderReadyEmail({
+        clientName: order.client?.name ?? "",
+        ticketNumber: order.ticketNumber,
+        shopName,
+        pickupTime,
+        items: (order.items ?? []).map((i) => ({
+          name: i.productName,
+          quantity: Number(i.quantity),
+        })),
+        total: formatCurrency(order.total),
+      });
+      setEmailBody(html);
+    } catch {
+      setEmailBody(
+        `<p>Bonjour ${order.client?.name ?? ""},</p>` +
+          `<p>Votre commande <strong>#${order.ticketNumber}</strong> est prete.</p>` +
+          `<p>A bientot !<br/>${shopName}</p>`,
+      );
+    }
+    setEmailDialogOpen(true);
+  };
 
   const openSmsDialog = () => {
     if (!order) return;
@@ -336,6 +394,23 @@ export default function PreparationDetailPage() {
                 </Button>
               )}
 
+              {/* Send Email */}
+              {order.client?.email && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openEmailDialog}
+                  disabled={
+                    order.preparationStatus !== "ready" ||
+                    !!order.emailNotifiedAt ||
+                    emailMutation.isPending
+                  }
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  {order.emailNotifiedAt ? "Email envoyé" : "Email"}
+                </Button>
+              )}
+
               {/* Mark as ready (header duplicate) */}
               {order.preparationStatus !== "ready" &&
                 order.preparationStatus !== "picked_up" && (
@@ -518,6 +593,63 @@ export default function PreparationDetailPage() {
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
                 {smsMutation.isPending ? "Envoi..." : "Envoyer"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Confirmation Dialog */}
+      <Dialog
+        open={emailDialogOpen}
+        onOpenChange={(open) => !open && setEmailDialogOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Envoyer un email au client</DialogTitle>
+            <DialogDescription>
+              Email a {order.client?.name ?? "client"} ({order.client?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Sujet</label>
+              <input
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Apercu</label>
+              <div
+                className="mt-1 p-3 border rounded-md text-sm max-h-60 overflow-y-auto bg-muted/50"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered email preview
+                dangerouslySetInnerHTML={{ __html: emailBody }}
+              />
+            </div>
+            {emailMutation.isError && (
+              <p className="text-sm text-destructive">
+                {emailMutation.error?.message || "Erreur lors de l'envoi"}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEmailDialogOpen(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={() => emailMutation.mutate()}
+                disabled={
+                  !emailSubject.trim() ||
+                  !emailBody.trim() ||
+                  emailMutation.isPending
+                }
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {emailMutation.isPending ? "Envoi..." : "Envoyer"}
               </Button>
             </div>
           </div>

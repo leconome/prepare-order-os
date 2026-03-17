@@ -1,25 +1,22 @@
+import { relations } from "drizzle-orm";
 import {
+  boolean,
+  decimal,
+  index,
+  integer,
+  pgEnum,
   pgTable,
-  uuid,
-  varchar,
   text,
   timestamp,
-  decimal,
-  pgEnum,
-  integer,
-  boolean,
-  index,
   unique,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import { users, type UserRef } from "./auth.js";
-import { clients, type Client } from "./clients.js";
-import {
-  pointsOfSale,
-  type PointOfSale,
-} from "./points-of-sale.js";
+import { type UserRef, users } from "./auth.js";
+import { type Client, clients } from "./clients.js";
+import { type PointOfSale, pointsOfSale } from "./points-of-sale.js";
 import { unitTypeEnum, unitTypeSchema } from "./products.js";
 import { tenants } from "./tenants.js";
 
@@ -96,6 +93,7 @@ export const orders = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     smsNotifiedAt: timestamp("sms_notified_at", { withTimezone: true }),
+    emailNotifiedAt: timestamp("email_notified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -105,7 +103,10 @@ export const orders = pgTable(
   },
   (table) => [
     index("orders_tenant_id_idx").on(table.tenantId),
-    unique("orders_tenant_ticket_unique").on(table.tenantId, table.ticketNumber),
+    unique("orders_tenant_ticket_unique").on(
+      table.tenantId,
+      table.ticketNumber,
+    ),
   ],
 );
 
@@ -116,7 +117,9 @@ export const orderItems = pgTable("order_items", {
     .references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull(),
   productName: varchar("product_name", { length: 200 }).notNull(),
-  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull().default("1"),
+  quantity: decimal("quantity", { precision: 10, scale: 3 })
+    .notNull()
+    .default("1"),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
   unit: unitTypeEnum("unit").notNull().default("piece"),
@@ -254,6 +257,7 @@ export const updateOrderSchema = z.object({
   posId: z.string().uuid().nullable().optional(),
   source: orderSourceSchema.optional(),
   smsNotifiedAt: z.coerce.date().nullable().optional(),
+  emailNotifiedAt: z.coerce.date().nullable().optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().nullable().optional(),
   paidAmount: z.string().nullable().optional(),

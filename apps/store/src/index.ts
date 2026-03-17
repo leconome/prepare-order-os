@@ -3,23 +3,24 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { tenantMiddleware } from "./middleware/tenant.js";
 import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
 import categories from "./routes/categories.js";
 import clientsRoutes from "./routes/clients.js";
+import devRoutes from "./routes/dev.js";
+import docsRoutes from "./routes/docs.js";
+import emailRoutes from "./routes/email.js";
 import health from "./routes/health.js";
 import images from "./routes/images.js";
 import menus from "./routes/menus.js";
 import orders from "./routes/orders.js";
+import pointsOfSaleRoutes from "./routes/points-of-sale.js";
 import products from "./routes/products.js";
-import tenantsRoutes from "./routes/tenants.js";
 import smsRoutes from "./routes/sms.js";
+import tenantsRoutes from "./routes/tenants.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
-import pointsOfSaleRoutes from "./routes/points-of-sale.js";
-import docsRoutes from "./routes/docs.js";
-import devRoutes from "./routes/dev.js";
-import { tenantMiddleware } from "./middleware/tenant.js";
 
 const app = new Hono();
 
@@ -79,6 +80,7 @@ app.route("/api/users", usersRoutes);
 app.route("/api/clients", clientsRoutes);
 app.route("/api/tenants", tenantsRoutes);
 app.route("/api/sms", smsRoutes);
+app.route("/api/email", emailRoutes);
 app.route("/api/points-of-sale", pointsOfSaleRoutes);
 app.route("/api/uploads", uploads);
 
