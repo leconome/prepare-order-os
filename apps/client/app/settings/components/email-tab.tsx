@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, Mail, Send } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,17 +24,14 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  fetchBroadcasts,
   fetchEmailMessages,
   fetchTenantSettings,
   formatDate,
   renderBroadcastEmail,
   sendBroadcastEmail,
 } from "@/lib/api";
-import {
-  EMAIL_STATUS_LABELS,
-  EMAIL_STATUS_VARIANT,
-  EMAIL_TYPE_LABELS,
-} from "../constants";
+import { EMAIL_STATUS_LABELS, EMAIL_STATUS_VARIANT } from "../constants";
 
 export function EmailTab() {
   const queryClient = useQueryClient();
@@ -42,6 +39,9 @@ export function EmailTab() {
   const [broadcastContent, setBroadcastContent] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
+  const [expandedBroadcast, setExpandedBroadcast] = useState<string | null>(
+    null,
+  );
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
@@ -53,9 +53,13 @@ export function EmailTab() {
     queryFn: () => fetchEmailMessages({ limit: 20 }),
   });
 
+  const { data: broadcastsData } = useQuery({
+    queryKey: ["email-broadcasts"],
+    queryFn: () => fetchBroadcasts({ limit: 20 }),
+  });
+
   const broadcastMutation = useMutation({
     mutationFn: async () => {
-      // Render using server-side template
       const { html } = await renderBroadcastEmail({
         shopName: tenant?.name ?? "",
         content: broadcastContent,
@@ -66,7 +70,7 @@ export function EmailTab() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["email-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["email-broadcasts"] });
       setBroadcastSubject("");
       setBroadcastContent("");
       setPreviewHtml("");
@@ -88,6 +92,7 @@ export function EmailTab() {
   };
 
   const messages = messagesData?.data ?? [];
+  const broadcasts = broadcastsData?.data ?? [];
 
   return (
     <div className="space-y-2">
@@ -186,10 +191,90 @@ export function EmailTab() {
         </DialogContent>
       </Dialog>
 
-      {/* History */}
+      {/* Broadcasts History */}
       <Card>
         <CardHeader>
-          <CardTitle>Historique des emails</CardTitle>
+          <CardTitle>Diffusions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {broadcasts.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              Aucune diffusion envoyee
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Sujet</TableHead>
+                  <TableHead>Envoyes</TableHead>
+                  <TableHead>Echoues</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {broadcasts.map((b) => (
+                  <>
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer"
+                      onClick={() =>
+                        setExpandedBroadcast(
+                          expandedBroadcast === b.id ? null : b.id,
+                        )
+                      }
+                    >
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatDate(b.sentAt)}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium max-w-48 truncate">
+                        {b.subject}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default">
+                          {b.sent}/{b.totalRecipients}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {b.failed > 0 ? (
+                          <Badge variant="destructive">{b.failed}</Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {expandedBroadcast === b.id ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {expandedBroadcast === b.id && (
+                      <TableRow key={`${b.id}-preview`}>
+                        <TableCell colSpan={5} className="p-0">
+                          <div
+                            className="p-4 bg-muted/30 border-t text-sm max-h-60 overflow-y-auto"
+                            // biome-ignore lint/security/noDangerouslySetInnerHtml: stored email preview
+                            dangerouslySetInnerHTML={{ __html: b.html }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Individual Emails (order-ready) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Emails individuels</CardTitle>
         </CardHeader>
         <CardContent>
           {messages.length === 0 ? (
@@ -203,7 +288,6 @@ export function EmailTab() {
                   <TableHead>Date</TableHead>
                   <TableHead>Destinataire</TableHead>
                   <TableHead>Sujet</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
@@ -227,11 +311,6 @@ export function EmailTab() {
                     </TableCell>
                     <TableCell className="text-sm max-w-40 truncate">
                       {msg.subject}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {EMAIL_TYPE_LABELS[msg.type] ?? msg.type}
-                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge

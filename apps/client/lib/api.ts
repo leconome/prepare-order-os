@@ -11,6 +11,7 @@ import type {
   CreatePointOfSale,
   CreateProduct,
   CreateStaff,
+  EmailBroadcast,
   EmailFilters,
   EmailMessage,
   GrantCredits,
@@ -749,12 +750,20 @@ export async function fetchEmailMessages(
   params?: Partial<EmailFilters>,
 ): Promise<PaginatedResponse<EmailMessage>> {
   const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.set("status", params.status);
-  if (params?.type) searchParams.set("type", params.type);
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
   const query = searchParams.toString();
   return fetchApi(`/email/messages${query ? `?${query}` : ""}`);
+}
+
+export async function fetchBroadcasts(
+  params?: Partial<EmailFilters>,
+): Promise<PaginatedResponse<EmailBroadcast>> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/email/broadcasts${query ? `?${query}` : ""}`);
 }
 
 export async function sendEmail(data: SendEmail): Promise<EmailMessage> {
@@ -930,6 +939,7 @@ export type {
   GrantCredits,
   RevokeCredits,
   SendSms,
+  EmailBroadcast,
   EmailMessage,
   SendEmail,
   SendBroadcastEmail,

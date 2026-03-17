@@ -627,7 +627,6 @@ export default function OrderDetailPage() {
         recipientName: order.client.name ?? undefined,
         subject: emailSubject,
         html: emailBody,
-        type: "order_ready",
       });
       await updateOrder(orderId, { emailNotifiedAt: new Date() });
     },

@@ -38,7 +38,6 @@ email.post("/send", zValidator("json", sendEmailSchema), async (c) => {
       data.recipientEmail,
       data.subject,
       data.html,
-      data.type,
       user.id,
       data.recipientName,
     );
@@ -75,6 +74,14 @@ email.post(
     }
   },
 );
+
+// GET /email/broadcasts — broadcast history
+email.get("/broadcasts", zValidator("query", emailFiltersSchema), async (c) => {
+  const tenantId = c.get("tenantId") as string;
+  const filters = c.req.valid("query");
+  const result = await emailService.listBroadcasts(tenantId, filters);
+  return c.json(result);
+});
 
 // POST /email/render/order-ready — render email template to HTML
 email.post("/render/order-ready", async (c) => {
