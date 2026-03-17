@@ -61,7 +61,7 @@ export const auth = betterAuth({
         }),
     defaultCookieAttributes: {
       secure: !isLocalhost,
-      sameSite: "lax",
+      sameSite: isLocalhost ? "lax" : "none",
       path: "/",
     },
   },

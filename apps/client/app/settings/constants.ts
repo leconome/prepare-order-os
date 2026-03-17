@@ -30,3 +30,27 @@ export const TX_TYPE_LABELS: Record<string, string> = {
   spend: "Envoi SMS",
   revoke: "Revocation",
 };
+
+export const EMAIL_STATUS_LABELS: Record<string, string> = {
+  pending: "En attente",
+  sent: "Envoye",
+  delivered: "Delivre",
+  failed: "Echoue",
+  bounced: "Rejete",
+};
+
+export const EMAIL_STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  pending: "secondary",
+  sent: "outline",
+  delivered: "default",
+  failed: "destructive",
+  bounced: "destructive",
+};
+
+export const EMAIL_TYPE_LABELS: Record<string, string> = {
+  order_ready: "Commande prete",
+  broadcast: "Diffusion",
+};
