@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Mail, MessageSquare, Settings } from "lucide-react";
+import { Download, Mail, MessageSquare, Settings } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import { fetchTenantSettings } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { AccessDenied } from "./components/access-denied";
 import { EmailTab } from "./components/email-tab";
+import { ExportTab } from "./components/export-tab";
 import { GeneralTab } from "./components/general-tab";
 import { SmsTab } from "./components/sms-tab";
 
@@ -58,6 +59,10 @@ export default function SettingsPage() {
               <Mail className="mr-2 h-4 w-4" />
               Email
             </TabsTrigger>
+            <TabsTrigger value="export">
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="mt-2">
             <GeneralTab />
@@ -67,6 +72,9 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="email" className="mt-2">
             <EmailTab />
+          </TabsContent>
+          <TabsContent value="export" className="mt-2">
+            <ExportTab />
           </TabsContent>
         </Tabs>
       </div>
