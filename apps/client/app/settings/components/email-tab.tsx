@@ -23,7 +23,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchEmailMessages, formatDate, sendBroadcastEmail } from "@/lib/api";
+import {
+  fetchEmailMessages,
+  fetchTenantSettings,
+  formatDate,
+  renderBroadcastEmail,
+  sendBroadcastEmail,
+} from "@/lib/api";
 import {
   EMAIL_STATUS_LABELS,
   EMAIL_STATUS_VARIANT,
@@ -35,6 +41,12 @@ export function EmailTab() {
   const [broadcastSubject, setBroadcastSubject] = useState("");
   const [broadcastContent, setBroadcastContent] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
 
   const { data: messagesData } = useQuery({
     queryKey: ["email-messages"],
@@ -42,18 +54,38 @@ export function EmailTab() {
   });
 
   const broadcastMutation = useMutation({
-    mutationFn: () =>
-      sendBroadcastEmail({
+    mutationFn: async () => {
+      // Render using server-side template
+      const { html } = await renderBroadcastEmail({
+        shopName: tenant?.name ?? "",
+        content: broadcastContent,
+      });
+      return sendBroadcastEmail({
         subject: broadcastSubject,
-        html: broadcastContent,
-      }),
+        html,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["email-messages"] });
       setBroadcastSubject("");
       setBroadcastContent("");
+      setPreviewHtml("");
       setConfirmOpen(false);
     },
   });
+
+  const handlePreviewAndConfirm = async () => {
+    try {
+      const { html } = await renderBroadcastEmail({
+        shopName: tenant?.name ?? "",
+        content: broadcastContent,
+      });
+      setPreviewHtml(html);
+    } catch {
+      setPreviewHtml("");
+    }
+    setConfirmOpen(true);
+  };
 
   const messages = messagesData?.data ?? [];
 
@@ -78,28 +110,28 @@ export function EmailTab() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium">Contenu</label>
+            <label className="text-sm font-medium">Message</label>
             <Textarea
               value={broadcastContent}
               onChange={(e) => setBroadcastContent(e.target.value)}
-              placeholder="Contenu de l'email (HTML supporte)..."
+              placeholder="Ecrivez votre message ici..."
               rows={6}
               className="mt-1"
             />
           </div>
           <Button
-            onClick={() => setConfirmOpen(true)}
+            onClick={handlePreviewAndConfirm}
             disabled={!broadcastSubject.trim() || !broadcastContent.trim()}
           >
             <Mail className="mr-2 h-4 w-4" />
-            Envoyer a tous les clients
+            Apercu et envoi
           </Button>
         </CardContent>
       </Card>
 
-      {/* Confirmation dialog */}
+      {/* Confirmation dialog with preview */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Confirmer l'envoi</DialogTitle>
             <DialogDescription>
@@ -109,8 +141,18 @@ export function EmailTab() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-md bg-muted p-3 text-sm">
-              <p className="font-medium">{broadcastSubject}</p>
+              <p className="font-medium">Sujet : {broadcastSubject}</p>
             </div>
+            {previewHtml && (
+              <div>
+                <label className="text-sm font-medium">Apercu</label>
+                <div
+                  className="mt-1 p-3 border rounded-md text-sm max-h-60 overflow-y-auto bg-muted/50"
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: server-rendered email preview
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              </div>
+            )}
             {broadcastMutation.isError && (
               <p className="text-sm text-destructive">
                 {broadcastMutation.error?.message || "Erreur lors de l'envoi"}

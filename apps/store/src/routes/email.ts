@@ -6,6 +6,7 @@ import {
 } from "@prepareos/data";
 import { render } from "@react-email/components";
 import { Hono } from "hono";
+import { BroadcastEmail } from "../emails/broadcast.js";
 import { OrderReadyEmail } from "../emails/order-ready.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { ownerOrAdmin } from "../middleware/role-guard.js";
@@ -86,6 +87,18 @@ email.post("/render/order-ready", async (c) => {
       pickupTime: body.pickupTime,
       items: body.items ?? [],
       total: body.total ?? "0.00 €",
+    }),
+  );
+  return c.json({ html });
+});
+
+// POST /email/render/broadcast — render broadcast template to HTML
+email.post("/render/broadcast", async (c) => {
+  const body = await c.req.json();
+  const html = await render(
+    BroadcastEmail({
+      shopName: body.shopName ?? "",
+      content: body.content ?? "",
     }),
   );
   return c.json({ html });

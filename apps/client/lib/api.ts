@@ -778,6 +778,16 @@ export async function renderOrderReadyEmail(data: {
   });
 }
 
+export async function renderBroadcastEmail(data: {
+  shopName: string;
+  content: string;
+}): Promise<{ html: string }> {
+  return fetchApi("/email/render/broadcast", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function sendBroadcastEmail(
   data: SendBroadcastEmail,
 ): Promise<{ total: number; sent: number; failed: number }> {
