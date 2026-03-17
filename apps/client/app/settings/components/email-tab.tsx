@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Mail, Send } from "lucide-react";
+import { Mail, Search, Send } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,9 +39,10 @@ export function EmailTab() {
   const [broadcastContent, setBroadcastContent] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
-  const [expandedBroadcast, setExpandedBroadcast] = useState<string | null>(
-    null,
-  );
+  const [previewBroadcast, setPreviewBroadcast] = useState<{
+    subject: string;
+    html: string;
+  } | null>(null);
 
   const { data: tenant } = useQuery({
     queryKey: ["tenant-settings"],
@@ -214,62 +215,65 @@ export function EmailTab() {
               </TableHeader>
               <TableBody>
                 {broadcasts.map((b) => (
-                  <>
-                    <TableRow
-                      key={b.id}
-                      className="cursor-pointer"
-                      onClick={() =>
-                        setExpandedBroadcast(
-                          expandedBroadcast === b.id ? null : b.id,
-                        )
-                      }
-                    >
-                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                        {formatDate(b.sentAt)}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium max-w-48 truncate">
-                        {b.subject}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">
-                          {b.sent}/{b.totalRecipients}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {b.failed > 0 ? (
-                          <Badge variant="destructive">{b.failed}</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            —
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {expandedBroadcast === b.id ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                    {expandedBroadcast === b.id && (
-                      <TableRow key={`${b.id}-preview`}>
-                        <TableCell colSpan={5} className="p-0">
-                          <div
-                            className="p-4 bg-muted/30 border-t text-sm max-h-60 overflow-y-auto"
-                            // biome-ignore lint/security/noDangerouslySetInnerHtml: stored email preview
-                            dangerouslySetInnerHTML={{ __html: b.html }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
+                  <TableRow key={b.id}>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {formatDate(b.sentAt)}
+                    </TableCell>
+                    <TableCell className="text-sm font-medium max-w-48 truncate">
+                      {b.subject}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default">
+                        {b.sent}/{b.totalRecipients}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {b.failed > 0 ? (
+                        <Badge variant="destructive">{b.failed}</Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setPreviewBroadcast({
+                            subject: b.subject,
+                            html: b.html,
+                          })
+                        }
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {/* Broadcast Preview Modal */}
+      <Dialog
+        open={!!previewBroadcast}
+        onOpenChange={(open) => !open && setPreviewBroadcast(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{previewBroadcast?.subject}</DialogTitle>
+          </DialogHeader>
+          {previewBroadcast && (
+            <div
+              className="p-4 border rounded-md text-sm max-h-[60vh] overflow-y-auto bg-muted/30"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: stored email preview
+              dangerouslySetInnerHTML={{ __html: previewBroadcast.html }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Individual Emails (order-ready) */}
       <Card>
