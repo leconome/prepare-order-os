@@ -1,20 +1,34 @@
 "use client";
 
+import type { OrderWithItems, Tenant } from "@prepareos/data";
+import {
+  Document,
+  Page,
+  pdf,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { fetchOrder, fetchTenantSettings, formatCurrency } from "@/lib/api";
+
+// ─── Helpers ────────────────────────────────────────────────
 
 const PAYMENT_LABELS: Record<string, string> = {
   pending: "En attente",
-  paid: "Paye",
-  partially_paid: "Partiellement paye",
-  refunded: "Rembourse",
+  paid: "Payé",
+  partially_paid: "Partiellement payé",
+  refunded: "Remboursé",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
   comptoir: "Comptoir",
-  telephone: "Telephone",
+  telephone: "Téléphone",
   site_web: "Site web",
 };
 
@@ -38,9 +52,325 @@ function fmtDateTime(d: string | Date | null | undefined): string {
   }).format(new Date(d));
 }
 
+// ─── PDF Styles ─────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontSize: 10,
+    fontFamily: "Helvetica",
+    color: "#111827",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    paddingBottom: 12,
+    marginBottom: 20,
+  },
+  tenantName: { fontSize: 16, fontFamily: "Helvetica-Bold" },
+  posName: { fontSize: 8, color: "#6b7280", marginTop: 2 },
+  titleBlock: { textAlign: "right" },
+  title: { fontSize: 14, fontFamily: "Helvetica-Bold" },
+  ticketNumber: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    marginTop: 2,
+  },
+  infoGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  infoCol: { width: "48%" },
+  sectionLabel: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  clientName: { fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  clientDetail: { color: "#4b5563", marginBottom: 1 },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 2,
+  },
+  infoLabel: { color: "#6b7280", marginRight: 4 },
+  infoValue: { fontFamily: "Helvetica-Bold" },
+  noteBox: {
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 3,
+    padding: 8,
+    marginBottom: 6,
+  },
+  noteBoxAmber: {
+    backgroundColor: "#fffbeb",
+    borderWidth: 1,
+    borderColor: "#fde68a",
+    borderRadius: 3,
+    padding: 8,
+    marginBottom: 6,
+  },
+  noteLabel: { fontFamily: "Helvetica-Bold" },
+  // Table
+  tableHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 2,
+    borderBottomColor: "#111827",
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  tableHeaderCell: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#f3f4f6",
+    paddingVertical: 4,
+  },
+  colArticle: { flex: 1 },
+  colQty: { width: 50, textAlign: "center" },
+  colPrice: { width: 65, textAlign: "right" },
+  colTotal: { width: 65, textAlign: "right" },
+  menuItem: { fontSize: 8, color: "#6b7280", marginLeft: 8, marginTop: 1 },
+  itemNotes: { fontSize: 8, color: "#6b7280", marginTop: 1 },
+  menuLabel: { fontFamily: "Helvetica-Bold" },
+  // Totals
+  totalsBlock: { alignItems: "flex-end", marginTop: 12 },
+  totalsInner: { width: 180 },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  totalDivider: {
+    borderTopWidth: 2,
+    borderTopColor: "#111827",
+    paddingTop: 4,
+  },
+  totalBold: { fontFamily: "Helvetica-Bold", fontSize: 12 },
+  totalGreen: { color: "#15803d" },
+  totalAmber: { color: "#b45309", fontFamily: "Helvetica-Bold" },
+  totalMuted: { color: "#6b7280" },
+  // Footer
+  footer: {
+    marginTop: 30,
+    paddingTop: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: "#e5e7eb",
+    textAlign: "center",
+    fontSize: 8,
+    color: "#9ca3af",
+  },
+});
+
+// ─── PDF Document ───────────────────────────────────────────
+
+function OrderPdf({
+  order,
+  tenant,
+}: {
+  order: OrderWithItems;
+  tenant?: Tenant | null;
+}) {
+  const items = order.items ?? [];
+  const pickupTime = [order.pickupTimeStart, order.pickupTimeEnd]
+    .filter(Boolean)
+    .join(" – ");
+  const hasDiscount =
+    order.discountAmount && Number.parseFloat(order.discountAmount) > 0;
+
+  return (
+    <Document>
+      <Page size="A4" style={s.page}>
+        {/* Header */}
+        <View style={s.header}>
+          <View>
+            <Text style={s.tenantName}>{tenant?.name ?? "PrepareOS"}</Text>
+            {order.pointOfSale && (
+              <Text style={s.posName}>{order.pointOfSale.name}</Text>
+            )}
+          </View>
+          <View style={s.titleBlock}>
+            <Text style={s.title}>BON DE COMMANDE</Text>
+            <Text style={s.ticketNumber}>#{order.ticketNumber}</Text>
+          </View>
+        </View>
+
+        {/* Info grid */}
+        <View style={s.infoGrid}>
+          <View style={s.infoCol}>
+            <Text style={s.sectionLabel}>Client</Text>
+            {order.client ? (
+              <View>
+                <Text style={s.clientName}>{order.client.name}</Text>
+                {order.client.phone && (
+                  <Text style={s.clientDetail}>{order.client.phone}</Text>
+                )}
+                {order.client.email && (
+                  <Text style={s.clientDetail}>{order.client.email}</Text>
+                )}
+              </View>
+            ) : (
+              <Text style={s.clientDetail}>—</Text>
+            )}
+          </View>
+          <View style={s.infoCol}>
+            <InfoRow label="Date" value={fmtDateTime(order.createdAt)} />
+            <InfoRow label="Retrait" value={fmtDate(order.pickupDate)} />
+            {pickupTime && <InfoRow label="Horaire" value={pickupTime} />}
+            <InfoRow
+              label="Source"
+              value={SOURCE_LABELS[order.source] ?? order.source}
+            />
+            <InfoRow
+              label="Paiement"
+              value={PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}
+            />
+            {order.createdBy?.name && (
+              <InfoRow label="Créé par" value={order.createdBy.name} />
+            )}
+          </View>
+        </View>
+
+        {/* Notes */}
+        {order.clientNote && (
+          <View style={s.noteBox}>
+            <Text>
+              <Text style={s.noteLabel}>Note client : </Text>
+              {order.clientNote}
+            </Text>
+          </View>
+        )}
+        {order.internalNote && (
+          <View style={s.noteBoxAmber}>
+            <Text>
+              <Text style={s.noteLabel}>Note interne : </Text>
+              {order.internalNote}
+            </Text>
+          </View>
+        )}
+
+        {/* Items table */}
+        <View style={s.tableHeader}>
+          <Text style={[s.tableHeaderCell, s.colArticle]}>Article</Text>
+          <Text style={[s.tableHeaderCell, s.colQty]}>Qté</Text>
+          <Text style={[s.tableHeaderCell, s.colPrice]}>P.U.</Text>
+          <Text style={[s.tableHeaderCell, s.colTotal]}>Total</Text>
+        </View>
+        {items.map((item) => (
+          <View key={item.id} style={s.tableRow}>
+            <View style={s.colArticle}>
+              <Text style={item.isMenu ? s.menuLabel : undefined}>
+                {item.productName}
+              </Text>
+              {item.notes && <Text style={s.itemNotes}>{item.notes}</Text>}
+              {item.isMenu &&
+                item.menuItems?.map((mi) => (
+                  <Text key={mi.id} style={s.menuItem}>
+                    · {mi.quantity}x {mi.productName}
+                  </Text>
+                ))}
+            </View>
+            <Text style={s.colQty}>{Number(item.quantity)}</Text>
+            <Text style={s.colPrice}>{formatCurrency(item.unitPrice)}</Text>
+            <Text style={s.colTotal}>{formatCurrency(item.totalPrice)}</Text>
+          </View>
+        ))}
+
+        {/* Totals */}
+        <View style={s.totalsBlock}>
+          <View style={s.totalsInner}>
+            <View style={s.totalRow}>
+              <Text>Sous-total</Text>
+              <Text>{formatCurrency(order.subtotal)}</Text>
+            </View>
+            {hasDiscount && (
+              <View style={s.totalRow}>
+                <Text style={s.totalGreen}>
+                  Remise
+                  {order.discountType === "percentage"
+                    ? ` (${order.discountValue}%)`
+                    : ""}
+                </Text>
+                <Text style={s.totalGreen}>
+                  -{formatCurrency(order.discountAmount)}
+                </Text>
+              </View>
+            )}
+            {Number.parseFloat(order.taxTotal) > 0 && (
+              <View style={s.totalRow}>
+                <Text>Taxes</Text>
+                <Text>{formatCurrency(order.taxTotal)}</Text>
+              </View>
+            )}
+            <View style={[s.totalRow, s.totalDivider]}>
+              <Text style={s.totalBold}>Total</Text>
+              <Text style={s.totalBold}>{formatCurrency(order.total)}</Text>
+            </View>
+            {Number.parseFloat(order.paidAmount) > 0 && (
+              <View style={s.totalRow}>
+                <Text style={s.totalMuted}>Payé</Text>
+                <Text style={s.totalMuted}>
+                  {formatCurrency(order.paidAmount)}
+                </Text>
+              </View>
+            )}
+            {order.paymentStatus === "partially_paid" && (
+              <View style={s.totalRow}>
+                <Text style={s.totalAmber}>Reste</Text>
+                <Text style={s.totalAmber}>
+                  {formatCurrency(
+                    String(
+                      Math.max(
+                        0,
+                        Number.parseFloat(order.total) -
+                          Number.parseFloat(order.paidAmount || "0"),
+                      ),
+                    ),
+                  )}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Footer */}
+        <Text style={s.footer}>
+          {tenant?.name ?? "PrepareOS"} — Bon de commande #{order.ticketNumber}{" "}
+          — {fmtDateTime(order.createdAt)}
+        </Text>
+      </Page>
+    </Document>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={s.infoRow}>
+      <Text style={s.infoLabel}>{label} :</Text>
+      <Text style={s.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Page Component ─────────────────────────────────────────
+
 export default function OrderPrintPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const pdfUrlRef = useRef<string | null>(null);
 
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
@@ -52,267 +382,84 @@ export default function OrderPrintPage() {
     queryFn: fetchTenantSettings,
   });
 
-  // Auto-trigger print once data is loaded
   useEffect(() => {
-    if (order && tenant) {
-      const timeout = setTimeout(() => window.print(), 300);
-      return () => clearTimeout(timeout);
-    }
+    if (!order || !tenant) return;
+
+    let cancelled = false;
+    const generate = async () => {
+      const blob = await pdf(
+        <OrderPdf order={order} tenant={tenant} />,
+      ).toBlob();
+      if (cancelled) return;
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      pdfUrlRef.current = url;
+      setPdfUrl(url);
+    };
+    generate();
+
+    return () => {
+      cancelled = true;
+      if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
+    };
   }, [order, tenant]);
+
+  const handleDownload = () => {
+    if (!pdfUrl || !order) return;
+    const a = document.createElement("a");
+    a.href = pdfUrl;
+    a.download = `bon-commande-${order.ticketNumber}.pdf`;
+    a.click();
+  };
 
   if (isLoading || !order) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p className="text-muted-foreground">Chargement...</p>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const items = order.items ?? [];
-  const pickupTime = [order.pickupTimeStart, order.pickupTimeEnd]
-    .filter(Boolean)
-    .join(" – ");
-  const hasDiscount =
-    order.discountAmount && Number.parseFloat(order.discountAmount) > 0;
-
   return (
-    <>
-      {/* Print-specific styles */}
-      <style>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 15mm;
-          }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .no-print { display: none !important; }
-        }
-        @media screen {
-          body { background: #f1f5f9; }
-        }
-      `}</style>
-
-      <div className="max-w-[210mm] mx-auto bg-white p-8 print:p-0 print:shadow-none shadow-lg my-8 print:my-0 font-sans text-sm text-gray-900">
-        {/* Header */}
-        <div className="flex justify-between items-start border-b border-gray-200 pb-4 mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              {tenant?.name ?? "PrepareOS"}
-            </h1>
-            {order.pointOfSale && (
-              <p className="text-gray-500 text-xs mt-0.5">
-                {order.pointOfSale.name}
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <h2 className="text-lg font-bold">BON DE COMMANDE</h2>
-            <p className="font-mono text-base font-semibold mt-0.5">
-              #{order.ticketNumber}
-            </p>
-          </div>
+    <div className="flex flex-col h-screen bg-background">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between border-b px-4 py-2">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/orders/${orderId}`}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour
+            </Link>
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Bon de commande #{order.ticketNumber}
+          </span>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownload}
+          disabled={!pdfUrl}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Télécharger
+        </Button>
+      </div>
 
-        {/* Info grid */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
-          {/* Left: Client */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-              Client
-            </h3>
-            {order.client ? (
-              <div>
-                <p className="font-medium">{order.client.name}</p>
-                {order.client.phone && (
-                  <p className="text-gray-600">{order.client.phone}</p>
-                )}
-                {order.client.email && (
-                  <p className="text-gray-600">{order.client.email}</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-400">—</p>
-            )}
-          </div>
-
-          {/* Right: Order details */}
-          <div className="text-right">
-            <div className="space-y-0.5">
-              <InfoRow label="Date" value={fmtDateTime(order.createdAt)} />
-              <InfoRow label="Retrait" value={fmtDate(order.pickupDate)} />
-              {pickupTime && <InfoRow label="Horaire" value={pickupTime} />}
-              <InfoRow
-                label="Source"
-                value={SOURCE_LABELS[order.source] ?? order.source}
-              />
-              <InfoRow
-                label="Paiement"
-                value={
-                  PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus
-                }
-              />
-              {order.createdBy?.name && (
-                <InfoRow label="Cree par" value={order.createdBy.name} />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        {(order.clientNote || order.internalNote) && (
-          <div className="mb-6 space-y-1">
-            {order.clientNote && (
-              <div className="bg-gray-50 border border-gray-200 rounded px-3 py-2 text-sm">
-                <span className="font-medium">Note client : </span>
-                {order.clientNote}
-              </div>
-            )}
-            {order.internalNote && (
-              <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-sm">
-                <span className="font-medium">Note interne : </span>
-                {order.internalNote}
-              </div>
-            )}
+      {/* PDF Viewer */}
+      <div className="flex-1 bg-muted">
+        {pdfUrl ? (
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full border-0"
+            title="Bon de commande"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         )}
-
-        {/* Items table */}
-        <table className="w-full mb-6">
-          <thead>
-            <tr className="border-b-2 border-gray-900">
-              <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide">
-                Article
-              </th>
-              <th className="text-center py-2 text-xs font-semibold uppercase tracking-wide w-20">
-                Qte
-              </th>
-              <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide w-24">
-                P.U.
-              </th>
-              <th className="text-right py-2 text-xs font-semibold uppercase tracking-wide w-24">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b border-gray-100">
-                <td className="py-2">
-                  <span className={item.isMenu ? "font-medium" : ""}>
-                    {item.productName}
-                  </span>
-                  {item.notes && (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {item.notes}
-                    </p>
-                  )}
-                  {item.isMenu &&
-                    item.menuItems &&
-                    item.menuItems.length > 0 && (
-                      <div className="ml-3 mt-0.5">
-                        {item.menuItems.map((mi) => (
-                          <p
-                            key={mi.id}
-                            className="text-xs text-gray-500 leading-relaxed"
-                          >
-                            · {mi.quantity}x {mi.productName}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                </td>
-                <td className="py-2 text-center font-mono">
-                  {Number(item.quantity)}
-                </td>
-                <td className="py-2 text-right font-mono">
-                  {formatCurrency(item.unitPrice)}
-                </td>
-                <td className="py-2 text-right font-mono">
-                  {formatCurrency(item.totalPrice)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Totals */}
-        <div className="flex justify-end">
-          <div className="w-64 space-y-1">
-            <TotalRow label="Sous-total" value={formatCurrency(order.subtotal)} />
-            {hasDiscount && (
-              <TotalRow
-                label={`Remise${order.discountType === "percentage" ? ` (${order.discountValue}%)` : ""}`}
-                value={`-${formatCurrency(order.discountAmount)}`}
-                className="text-green-700"
-              />
-            )}
-            {Number.parseFloat(order.taxTotal) > 0 && (
-              <TotalRow label="Taxes" value={formatCurrency(order.taxTotal)} />
-            )}
-            <div className="border-t-2 border-gray-900 pt-1">
-              <TotalRow
-                label="Total"
-                value={formatCurrency(order.total)}
-                className="font-bold text-base"
-              />
-            </div>
-            {Number.parseFloat(order.paidAmount) > 0 && (
-              <TotalRow
-                label="Paye"
-                value={formatCurrency(order.paidAmount)}
-                className="text-gray-500"
-              />
-            )}
-            {order.paymentStatus === "partially_paid" && (
-              <TotalRow
-                label="Reste"
-                value={formatCurrency(
-                  String(
-                    Math.max(
-                      0,
-                      Number.parseFloat(order.total) -
-                        Number.parseFloat(order.paidAmount || "0"),
-                    ),
-                  ),
-                )}
-                className="text-amber-700 font-medium"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-10 pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
-          {tenant?.name ?? "PrepareOS"} — Bon de commande #
-          {order.ticketNumber} — {fmtDateTime(order.createdAt)}
-        </div>
       </div>
-    </>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <p className="text-sm">
-      <span className="text-gray-500">{label} : </span>
-      <span className="font-medium">{value}</span>
-    </p>
-  );
-}
-
-function TotalRow({
-  label,
-  value,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div className={`flex justify-between text-sm ${className}`}>
-      <span>{label}</span>
-      <span className="font-mono">{value}</span>
     </div>
   );
 }
