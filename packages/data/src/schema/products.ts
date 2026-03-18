@@ -31,6 +31,7 @@ export const products = pgTable(
     stock: decimal("stock", { precision: 10, scale: 3 }),
     unitType: unitTypeEnum("unit_type").notNull().default("piece"),
     defaultQty: decimal("default_qty", { precision: 10, scale: 3 }),
+    hasVariants: boolean("has_variants").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     tenantId: uuid("tenant_id")
@@ -46,11 +47,14 @@ export const products = pgTable(
   (table) => [index("products_tenant_id_idx").on(table.tenantId)],
 );
 
-export const productsRelations = relations(products, ({ one }) => ({
+import { productVariants } from "./product-variants.js";
+
+export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, {
     fields: [products.categoryId],
     references: [categories.id],
   }),
+  variants: many(productVariants),
 }));
 
 // Drizzle types
@@ -74,6 +78,7 @@ export const createProductSchema = z.object({
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.default("piece"),
   defaultQty: z.number().positive().nullable().optional(),
+  hasVariants: z.boolean().default(false),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
 });
@@ -90,6 +95,7 @@ export const updateProductSchema = z.object({
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.optional(),
   defaultQty: z.number().positive().nullable().optional(),
+  hasVariants: z.boolean().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 });
@@ -108,3 +114,10 @@ export type UnitType = z.infer<typeof unitTypeSchema>;
 export type CreateProduct = z.infer<typeof createProductSchema>;
 export type UpdateProduct = z.infer<typeof updateProductSchema>;
 export type ProductFilters = z.infer<typeof productFiltersSchema>;
+
+import type { ProductVariant } from "./product-variants.js";
+
+export type ProductWithVariants = Product & {
+  variants?: ProductVariant[];
+  category?: { id: string; name: string } | null;
+};

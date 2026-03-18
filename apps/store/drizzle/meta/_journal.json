@@ -155,6 +155,13 @@
       "when": 1773766690312,
       "tag": "0021_melted_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1773823503345,
+      "tag": "0022_smart_vermin",
+      "breakpoints": true
     }
   ]
 }

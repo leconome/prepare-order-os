@@ -8,9 +8,9 @@ import {
   updateProductSchema,
 } from "@prepareos/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ImageUpload } from "@/components/image-upload";
 import { Button } from "@/components/ui/button";
@@ -38,19 +38,46 @@ import {
   createProduct,
   deleteProduct,
   fetchCategories,
-  type Product,
+  type ProductWithVariants,
   type UpdateProduct,
   updateProduct,
+  upsertVariants,
 } from "@/lib/api";
 
+interface VariantRow {
+  id?: string;
+  name: string;
+  price: string;
+  stock: number | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
 interface ProductFormProps {
-  initialData?: Product;
+  initialData?: ProductWithVariants;
 }
 
 export function ProductForm({ initialData }: ProductFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditMode = !!initialData;
+
+  const [hasVariants, setHasVariants] = useState(
+    () => !!initialData?.variants && initialData.variants.length > 0,
+  );
+  const [variantRows, setVariantRows] = useState<VariantRow[]>(() => {
+    if (initialData?.variants && initialData.variants.length > 0) {
+      return initialData.variants.map((v) => ({
+        id: v.id,
+        name: v.name,
+        price: v.price,
+        stock: v.stock != null ? Number(v.stock) : null,
+        isActive: v.isActive,
+        sortOrder: v.sortOrder,
+      }));
+    }
+    return [];
+  });
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -98,6 +125,19 @@ export function ProductForm({ initialData }: ProductFormProps) {
         isActive: initialData.isActive,
         sortOrder: initialData.sortOrder,
       });
+      if (initialData.variants && initialData.variants.length > 0) {
+        setHasVariants(true);
+        setVariantRows(
+          initialData.variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            price: v.price,
+            stock: v.stock != null ? Number(v.stock) : null,
+            isActive: v.isActive,
+            sortOrder: v.sortOrder,
+          })),
+        );
+      }
     }
   }, [initialData, form]);
 
@@ -110,16 +150,22 @@ export function ProductForm({ initialData }: ProductFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateProduct) => updateProduct(initialData!.id, data),
+    mutationFn: (data: UpdateProduct) => {
+      if (!initialData) throw new Error("No product to update");
+      return updateProduct(initialData.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product", initialData!.id] });
+      queryClient.invalidateQueries({ queryKey: ["product", initialData?.id] });
       router.push("/products");
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteProduct(initialData!.id),
+    mutationFn: () => {
+      if (!initialData) throw new Error("No product to delete");
+      return deleteProduct(initialData.id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       router.push("/products");
@@ -131,11 +177,59 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const watchedUnit = form.watch("unitType") || "piece";
   const unitConfig = UNIT_CONFIG[watchedUnit as keyof typeof UNIT_CONFIG];
 
-  const onSubmit = form.handleSubmit((data) => {
-    if (isEditMode) {
-      updateMutation.mutate(data as UpdateProduct);
-    } else {
-      createMutation.mutate(data as CreateProduct);
+  // --- Variant helpers ---
+  function addVariantRow() {
+    setVariantRows((prev) => [
+      ...prev,
+      {
+        name: "",
+        price: "",
+        stock: null,
+        isActive: true,
+        sortOrder: prev.length,
+      },
+    ]);
+  }
+
+  function removeVariantRow(index: number) {
+    setVariantRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateVariantRow(
+    index: number,
+    field: keyof VariantRow,
+    value: string | number | null | boolean,
+  ) {
+    setVariantRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+  }
+
+  const onSubmit = form.handleSubmit(async (data) => {
+    try {
+      if (isEditMode) {
+        await updateMutation.mutateAsync(data as UpdateProduct);
+        if (hasVariants && variantRows.length > 0) {
+          await upsertVariants(initialData?.id, variantRows);
+        } else if (!hasVariants) {
+          // Clear all variants when toggle is off
+          await upsertVariants(initialData?.id, []);
+        }
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({
+          queryKey: ["product", initialData?.id],
+        });
+        router.push("/products");
+      } else {
+        const created = await createMutation.mutateAsync(data as CreateProduct);
+        if (hasVariants && variantRows.length > 0) {
+          await upsertVariants(created.id, variantRows);
+        }
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+        router.push("/products");
+      }
+    } catch {
+      // Error is handled by mutation state
     }
   });
 
@@ -181,17 +275,97 @@ export function ProductForm({ initialData }: ProductFormProps) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Variants toggle */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium">Variantes</p>
+                <p className="text-sm text-muted-foreground">
+                  Ce produit a plusieurs variantes (tailles, couleurs...)
+                </p>
+              </div>
+              <Switch
+                checked={hasVariants}
+                onCheckedChange={(checked) => {
+                  setHasVariants(checked);
+                  if (checked && variantRows.length === 0) {
+                    addVariantRow();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Product-level price & stock — hidden when hasVariants is ON */}
+            {!hasVariants && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Non suivi"
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            field.onChange(val === "" ? null : Number(val));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="unitType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unité</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "piece"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="piece">
+                            Pièce (à l'unité)
+                          </SelectItem>
+                          <SelectItem value="kg">
+                            Kilogramme (au poids)
+                          </SelectItem>
+                          <SelectItem value="litre">
+                            Litre (au volume)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {!hasVariants && (
               <FormField
                 control={form.control}
-                name="stock"
+                name="defaultQty"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Stock</FormLabel>
+                    <FormLabel>Quantité par défaut</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="Non suivi"
+                        step={unitConfig.step}
+                        placeholder={String(unitConfig.defaultQty)}
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) => {
@@ -200,89 +374,39 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         }}
                       />
                     </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Quantité ajoutée au panier par défaut (
+                      {unitConfig.defaultQty} {unitConfig.suffix || "unité"} si
+                      vide)
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="unitType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unité</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value || "piece"}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="piece">Pièce (à l'unité)</SelectItem>
-                        <SelectItem value="kg">
-                          Kilogramme (au poids)
-                        </SelectItem>
-                        <SelectItem value="litre">Litre (au volume)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="defaultQty"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quantité par défaut</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step={unitConfig.step}
-                      placeholder={String(unitConfig.defaultQty)}
-                      {...field}
-                      value={field.value ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === "" ? null : Number(val));
-                      }}
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Quantité ajoutée au panier par défaut (
-                    {unitConfig.defaultQty} {unitConfig.suffix || "unité"} si
-                    vide)
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
-                    <FormControl>
-                      <Input placeholder="10.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!hasVariants && (
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
+                      <FormControl>
+                        <Input placeholder="10.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
                 name="categoryId"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className={hasVariants ? "col-span-2" : ""}>
                     <FormLabel>Catégorie</FormLabel>
                     <Select
                       onValueChange={(value) =>
@@ -316,6 +440,89 @@ export function ProductForm({ initialData }: ProductFormProps) {
               />
             </div>
 
+            {/* Variant rows */}
+            {hasVariants && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <p className="text-sm font-medium">
+                  Variantes ({variantRows.length})
+                </p>
+                {variantRows.map((row, index) => (
+                  <div
+                    key={row.id ?? `new-${index}`}
+                    className="flex items-end gap-2"
+                  >
+                    <div className="flex-1">
+                      {index === 0 && (
+                        <p className="mb-1 text-xs text-muted-foreground">
+                          Nom
+                        </p>
+                      )}
+                      <Input
+                        placeholder="Ex: Petit, Grand..."
+                        value={row.name}
+                        onChange={(e) =>
+                          updateVariantRow(index, "name", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="w-28">
+                      {index === 0 && (
+                        <p className="mb-1 text-xs text-muted-foreground">
+                          Prix (€)
+                        </p>
+                      )}
+                      <Input
+                        placeholder="0.00"
+                        value={row.price}
+                        onChange={(e) =>
+                          updateVariantRow(index, "price", e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="w-24">
+                      {index === 0 && (
+                        <p className="mb-1 text-xs text-muted-foreground">
+                          Stock
+                        </p>
+                      )}
+                      <Input
+                        type="number"
+                        placeholder="—"
+                        value={row.stock ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          updateVariantRow(
+                            index,
+                            "stock",
+                            val === "" ? null : Number(val),
+                          );
+                        }}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeVariantRow(index)}
+                      className="shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addVariantRow}
+                  className="mt-2"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Ajouter une variante
+                </Button>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="imageUrl"
@@ -346,7 +553,9 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         <Input
                           type="number"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
                         />
                       </FormControl>
                       <FormMessage />

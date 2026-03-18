@@ -27,6 +27,8 @@ import type {
   PointOfSaleFilters,
   Product,
   ProductFilters,
+  ProductVariant,
+  ProductWithVariants,
   RevokeCredits,
   SendBroadcastEmail,
   SendEmail,
@@ -204,7 +206,7 @@ export async function toggleMenuItemPrepared(
 
 // ============ PRODUCTS ============
 
-export type ProductsResponse = PaginatedResponse<Product>;
+export type ProductsResponse = PaginatedResponse<ProductWithVariants>;
 
 export async function fetchProducts(
   params?: Partial<ProductFilters>,
@@ -224,8 +226,10 @@ export async function fetchProducts(
   return fetchApi<ProductsResponse>(`/products${query ? `?${query}` : ""}`);
 }
 
-export async function fetchProduct(productId: string): Promise<Product> {
-  return fetchApi<Product>(`/products/${productId}`);
+export async function fetchProduct(
+  productId: string,
+): Promise<ProductWithVariants> {
+  return fetchApi<ProductWithVariants>(`/products/${productId}`);
 }
 
 export async function createProduct(data: CreateProduct): Promise<Product> {
@@ -242,6 +246,31 @@ export async function updateProduct(
   return fetchApi<Product>(`/products/${productId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+// ============ PRODUCT VARIANTS ============
+
+export async function fetchVariants(
+  productId: string,
+): Promise<ProductVariant[]> {
+  return fetchApi<ProductVariant[]>(`/products/${productId}/variants`);
+}
+
+export async function upsertVariants(
+  productId: string,
+  variants: Array<{
+    id?: string;
+    name: string;
+    price: string;
+    stock?: number | null;
+    isActive?: boolean;
+    sortOrder?: number;
+  }>,
+): Promise<ProductVariant[]> {
+  return fetchApi<ProductVariant[]>(`/products/${productId}/variants`, {
+    method: "PUT",
+    body: JSON.stringify(variants),
   });
 }
 
@@ -910,6 +939,8 @@ export type {
   UpdateOrder,
   UpdateOrderStatus,
   Product,
+  ProductVariant,
+  ProductWithVariants,
   CreateProduct,
   UpdateProduct,
   ProductFilters,

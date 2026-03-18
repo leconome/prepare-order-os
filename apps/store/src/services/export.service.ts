@@ -91,7 +91,12 @@ export function flattenOrders(orders: OrderWithItems[]): ExportRow[] {
     montant_paye: o.paidAmount,
     nb_articles: o.items?.length ?? 0,
     articles: (o.items ?? [])
-      .map((i) => `${Number(i.quantity)}x ${i.productName}`)
+      .map((i) => {
+        const displayName = i.variantName
+          ? `${i.productName} — ${i.variantName}`
+          : i.productName;
+        return `${Number(i.quantity)}x ${displayName}`;
+      })
       .join("; "),
     note_client: o.clientNote ?? "",
     note_interne: o.internalNote ?? "",

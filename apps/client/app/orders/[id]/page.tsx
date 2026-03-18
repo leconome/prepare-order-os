@@ -5,6 +5,8 @@ import {
   createClientSchema,
   formatQtyLabel,
   lineTotal,
+  type ProductVariant,
+  type ProductWithVariants,
   parseQty,
   roundQty,
   UNIT_CONFIG,
@@ -110,7 +112,6 @@ import {
   fetchTenantSettings,
   formatCurrency,
   formatDate,
-  type Product,
   renderOrderReadyEmail,
   sendEmail,
   sendSms,
@@ -139,6 +140,8 @@ type EditOrderItem = {
   notes?: string;
   menuId?: string;
   unit: Unit;
+  variantId?: string;
+  variantName?: string;
 };
 
 type TimeInterval = {
@@ -330,6 +333,8 @@ export default function OrderDetailPage() {
     "percentage" | "fixed"
   >("percentage");
   const [editDiscountValue, setEditDiscountValue] = useState("");
+  const [variantPickerProduct, setVariantPickerProduct] =
+    useState<ProductWithVariants | null>(null);
 
   const { data: productsData } = useQuery({
     queryKey: ["products", productSearchQuery],
@@ -361,20 +366,47 @@ export default function OrderDetailPage() {
 
   // Item editing helpers
   const getItemKey = (item: EditOrderItem) =>
-    item.menuId ? `menu-${item.menuId}` : item.productId;
+    item.menuId
+      ? `menu-${item.menuId}`
+      : item.variantId
+        ? `${item.productId}-${item.variantId}`
+        : item.productId;
 
-  const addProductToOrder = (product: Product) => {
+  const addProductToOrder = (
+    product: ProductWithVariants,
+    variant?: ProductVariant,
+  ) => {
+    // If product has variants and no variant specified, handle picker logic
+    if (product.hasVariants && product.variants?.length && !variant) {
+      const activeVariants = product.variants.filter((v) => v.isActive);
+      if (activeVariants.length === 1) {
+        // Auto-select the only active variant
+        variant = activeVariants[0];
+      } else if (activeVariants.length > 1) {
+        // Open variant picker
+        setVariantPickerProduct(product);
+        return;
+      }
+    }
+
     const unitType = product.unitType || "piece";
     const increment = product.defaultQty
       ? parseQty(product.defaultQty)
       : UNIT_CONFIG[unitType].defaultQty;
+    const price = variant ? variant.price : product.price;
+
     const existing = editableItems.find(
-      (item) => item.productId === product.id && !item.menuId,
+      (item) =>
+        item.productId === product.id &&
+        !item.menuId &&
+        item.variantId === (variant?.id ?? undefined),
     );
     if (existing) {
       setEditableItems(
         editableItems.map((item) =>
-          item.productId === product.id && !item.menuId
+          item.productId === product.id &&
+          !item.menuId &&
+          item.variantId === (variant?.id ?? undefined)
             ? {
                 ...item,
                 quantity: roundQty(item.quantity + increment, item.unit),
@@ -389,8 +421,10 @@ export default function OrderDetailPage() {
           productId: product.id,
           productName: product.name,
           quantity: increment,
-          unitPrice: product.price,
+          unitPrice: price,
           unit: unitType,
+          variantId: variant?.id,
+          variantName: variant?.name,
         },
       ]);
     }
@@ -533,6 +567,8 @@ export default function OrderDetailPage() {
           unitPrice: item.unitPrice,
           notes: item.notes ?? undefined,
           unit: unitType,
+          variantId: item.variantId ?? undefined,
+          variantName: item.variantName ?? undefined,
         });
       }
     }
@@ -1211,24 +1247,41 @@ export default function OrderDetailPage() {
                                                 .priceSuffix
                                             : ""}
                                         </span>
-                                        {product.stock !== null && (
-                                          <span
-                                            className={cn(
-                                              "text-xs",
-                                              remaining !== null &&
-                                                remaining <= 0 &&
-                                                "text-destructive font-medium",
-                                              remaining !== null &&
-                                                remaining > 0 &&
-                                                remaining <= 3 &&
-                                                "text-amber-600 font-medium",
-                                            )}
-                                          >
-                                            {remaining !== null &&
-                                            remaining <= 0
-                                              ? "Rupture"
-                                              : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                        {product.hasVariants &&
+                                        product.variants?.length ? (
+                                          <span className="text-xs">
+                                            {
+                                              product.variants.filter(
+                                                (v) => v.isActive,
+                                              ).length
+                                            }{" "}
+                                            variante
+                                            {product.variants.filter(
+                                              (v) => v.isActive,
+                                            ).length > 1
+                                              ? "s"
+                                              : ""}
                                           </span>
+                                        ) : (
+                                          product.stock !== null && (
+                                            <span
+                                              className={cn(
+                                                "text-xs",
+                                                remaining !== null &&
+                                                  remaining <= 0 &&
+                                                  "text-destructive font-medium",
+                                                remaining !== null &&
+                                                  remaining > 0 &&
+                                                  remaining <= 3 &&
+                                                  "text-amber-600 font-medium",
+                                              )}
+                                            >
+                                              {remaining !== null &&
+                                              remaining <= 0
+                                                ? "Rupture"
+                                                : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                            </span>
+                                          )
                                         )}
                                       </div>
                                     </div>
@@ -1339,15 +1392,22 @@ export default function OrderDetailPage() {
                                   className="rounded-lg border bg-muted/30 p-3 space-y-2"
                                 >
                                   <div className="flex items-center justify-between gap-2">
-                                    <div className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
-                                      {item.productName}
-                                      {item.menuId && (
-                                        <Badge
-                                          variant="outline"
-                                          className="text-xs shrink-0"
-                                        >
-                                          Menu
-                                        </Badge>
+                                    <div className="font-medium truncate flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        {item.productName}
+                                        {item.menuId && (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs shrink-0"
+                                          >
+                                            Menu
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {item.variantName && (
+                                        <div className="text-xs text-muted-foreground">
+                                          {item.variantName}
+                                        </div>
                                       )}
                                     </div>
                                     <Button
@@ -1638,6 +1698,11 @@ export default function OrderDetailPage() {
                               <span className="font-medium">
                                 {item.productName}
                               </span>
+                              {item.variantName && (
+                                <span className="text-muted-foreground ml-1">
+                                  — {item.variantName}
+                                </span>
+                              )}
                               {item.isMenu && (
                                 <Badge
                                   variant="outline"
@@ -2403,6 +2468,44 @@ export default function OrderDetailPage() {
                 {emailMutation.isPending ? "Envoi..." : "Envoyer"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Variant Picker Dialog */}
+      <Dialog
+        open={!!variantPickerProduct}
+        onOpenChange={(open) => {
+          if (!open) setVariantPickerProduct(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {variantPickerProduct?.name} — Choisir une variante
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {variantPickerProduct?.variants
+              ?.filter((v) => v.isActive)
+              .map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  onClick={() => {
+                    if (variantPickerProduct) {
+                      addProductToOrder(variantPickerProduct, variant);
+                      setVariantPickerProduct(null);
+                    }
+                  }}
+                  className="flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="font-medium">{variant.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatCurrency(variant.price)}
+                  </span>
+                </button>
+              ))}
           </div>
         </DialogContent>
       </Dialog>
