@@ -5,6 +5,8 @@ import {
   createClientSchema,
   createOrderSchema,
   formatQtyLabel,
+  type ProductVariant,
+  type ProductWithVariants,
   parseQty,
   roundQty,
   UNIT_CONFIG,
@@ -42,6 +44,12 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -78,7 +86,6 @@ import {
   fetchProducts,
   fetchStaff,
   formatCurrency,
-  type Product,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +97,8 @@ type OrderItem = {
   notes?: string;
   menuId?: string;
   unit: Unit;
+  variantId?: string;
+  variantName?: string;
 };
 
 type TimeInterval = {
@@ -134,6 +143,8 @@ export default function NewOrderPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedInterval, setSelectedInterval] = useState<string | null>(null);
+  const [variantPickerProduct, setVariantPickerProduct] =
+    useState<ProductWithVariants | null>(null);
 
   // Client selection state
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -254,18 +265,41 @@ export default function NewOrderPage() {
     }
   };
 
-  const addProductToOrder = (product: Product) => {
+  const addProductToOrder = (
+    product: ProductWithVariants,
+    variant?: ProductVariant,
+  ) => {
+    // If product has variants and no variant specified, handle picker logic
+    if (product.hasVariants && product.variants?.length && !variant) {
+      const activeVariants = product.variants.filter((v) => v.isActive);
+      if (activeVariants.length === 1) {
+        // Auto-select the only active variant
+        variant = activeVariants[0];
+      } else if (activeVariants.length > 1) {
+        // Open variant picker
+        setVariantPickerProduct(product);
+        return;
+      }
+    }
+
     const unitType = product.unitType || "piece";
     const increment = product.defaultQty
       ? parseQty(product.defaultQty)
       : UNIT_CONFIG[unitType].defaultQty;
+    const price = variant ? variant.price : product.price;
+
     const existingItem = orderItems.find(
-      (item) => item.productId === product.id && !item.menuId,
+      (item) =>
+        item.productId === product.id &&
+        !item.menuId &&
+        item.variantId === (variant?.id ?? undefined),
     );
     if (existingItem) {
       setOrderItems(
         orderItems.map((item) =>
-          item.productId === product.id && !item.menuId
+          item.productId === product.id &&
+          !item.menuId &&
+          item.variantId === (variant?.id ?? undefined)
             ? {
                 ...item,
                 quantity: roundQty(item.quantity + increment, item.unit),
@@ -280,8 +314,10 @@ export default function NewOrderPage() {
           productId: product.id,
           productName: product.name,
           quantity: increment,
-          unitPrice: product.price,
+          unitPrice: price,
           unit: unitType,
+          variantId: variant?.id,
+          variantName: variant?.name,
         },
       ]);
     }
@@ -324,7 +360,11 @@ export default function NewOrderPage() {
   };
 
   const getItemKey = (item: OrderItem) =>
-    item.menuId ? `menu-${item.menuId}` : item.productId;
+    item.menuId
+      ? `menu-${item.menuId}`
+      : item.variantId
+        ? `${item.productId}-${item.variantId}`
+        : item.productId;
 
   const updateItemQuantity = (key: string, delta: number) => {
     setOrderItems(
@@ -588,23 +628,38 @@ export default function NewOrderPage() {
                                     ? UNIT_CONFIG[product.unitType].priceSuffix
                                     : ""}
                                 </span>
-                                {hasStock && (
-                                  <span
-                                    className={cn(
-                                      "text-xs",
-                                      remaining !== null &&
-                                        remaining <= 0 &&
-                                        "text-destructive font-medium",
-                                      remaining !== null &&
-                                        remaining > 0 &&
-                                        remaining <= 3 &&
-                                        "text-amber-600 font-medium",
-                                    )}
-                                  >
-                                    {remaining !== null && remaining <= 0
-                                      ? "Rupture"
-                                      : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                {product.hasVariants &&
+                                product.variants?.length ? (
+                                  <span className="text-xs">
+                                    {
+                                      product.variants.filter((v) => v.isActive)
+                                        .length
+                                    }{" "}
+                                    variante
+                                    {product.variants.filter((v) => v.isActive)
+                                      .length > 1
+                                      ? "s"
+                                      : ""}
                                   </span>
+                                ) : (
+                                  hasStock && (
+                                    <span
+                                      className={cn(
+                                        "text-xs",
+                                        remaining !== null &&
+                                          remaining <= 0 &&
+                                          "text-destructive font-medium",
+                                        remaining !== null &&
+                                          remaining > 0 &&
+                                          remaining <= 3 &&
+                                          "text-amber-600 font-medium",
+                                      )}
+                                    >
+                                      {remaining !== null && remaining <= 0
+                                        ? "Rupture"
+                                        : `Stock: ${remaining}${UNIT_CONFIG[product.unitType].suffix ? ` ${UNIT_CONFIG[product.unitType].suffix}` : ""}`}
+                                    </span>
+                                  )
                                 )}
                               </div>
                             </div>
@@ -660,15 +715,22 @@ export default function NewOrderPage() {
                             className="rounded-lg border bg-muted/30 p-3 space-y-2"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="font-medium truncate flex-1 min-w-0 flex items-center gap-2">
-                                {item.productName}
-                                {item.menuId && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs shrink-0"
-                                  >
-                                    Menu
-                                  </Badge>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate flex items-center gap-2">
+                                  {item.productName}
+                                  {item.menuId && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs shrink-0"
+                                    >
+                                      Menu
+                                    </Badge>
+                                  )}
+                                </div>
+                                {item.variantName && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {item.variantName}
+                                  </div>
                                 )}
                               </div>
                               <Button
@@ -1361,6 +1423,44 @@ export default function NewOrderPage() {
           </div>
         </div>
       </div>
+
+      {/* Variant Picker Dialog */}
+      <Dialog
+        open={!!variantPickerProduct}
+        onOpenChange={(open) => {
+          if (!open) setVariantPickerProduct(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {variantPickerProduct?.name} — Choisir une variante
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2">
+            {variantPickerProduct?.variants
+              ?.filter((v) => v.isActive)
+              .map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  onClick={() => {
+                    if (variantPickerProduct) {
+                      addProductToOrder(variantPickerProduct, variant);
+                      setVariantPickerProduct(null);
+                    }
+                  }}
+                  className="flex items-center justify-between rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
+                >
+                  <span className="font-medium">{variant.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatCurrency(variant.price)}
+                  </span>
+                </button>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
