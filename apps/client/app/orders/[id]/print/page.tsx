@@ -273,6 +273,7 @@ function OrderPdf({
             <View style={s.colArticle}>
               <Text style={item.isMenu ? s.menuLabel : undefined}>
                 {item.productName}
+                {item.variantName ? ` — ${item.variantName}` : ""}
               </Text>
               {item.notes && <Text style={s.itemNotes}>{item.notes}</Text>}
               {item.isMenu &&
