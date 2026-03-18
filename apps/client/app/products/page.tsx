@@ -33,14 +33,14 @@ import {
   fetchCategories,
   fetchProducts,
   formatCurrency,
-  type Product,
+  type ProductWithVariants,
 } from "@/lib/api";
 
 function ProductsTable({
   products,
   categories,
 }: {
-  products: Product[];
+  products: ProductWithVariants[];
   categories: Category[];
 }) {
   const categoryMap = useMemo(
@@ -63,10 +63,9 @@ function ProductsTable({
           <TableHead className="w-15">Image</TableHead>
           <TableHead>Nom</TableHead>
           <TableHead>Catégorie</TableHead>
-          <TableHead>Description</TableHead>
+          <TableHead>Variantes</TableHead>
           <TableHead>Stock</TableHead>
           <TableHead>Prix</TableHead>
-          <TableHead>Statut</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -135,9 +134,23 @@ function ProductsTable({
                   )}
                 </Link>
               </TableCell>
-              <TableCell className="max-w-[250px] truncate text-muted-foreground">
+              <TableCell>
                 <Link href={`/products/${product.id}`} className="block w-full">
-                  {product.description || "-"}
+                  {product.hasVariants && product.variants?.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {product.variants.map((v) => (
+                        <Badge
+                          key={v.id}
+                          variant="outline"
+                          className="text-xs font-normal"
+                        >
+                          {v.name} · {formatCurrency(v.price)}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
                 </Link>
               </TableCell>
               <TableCell>
@@ -169,13 +182,6 @@ function ProductsTable({
                   <span className="text-muted-foreground text-xs">
                     {UNIT_CONFIG[product.unitType].priceSuffix}
                   </span>
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link href={`/products/${product.id}`} className="block w-full">
-                  <Badge variant={product.isActive ? "active" : "inactive"}>
-                    {product.isActive ? "Actif" : "Inactif"}
-                  </Badge>
                 </Link>
               </TableCell>
             </TableRow>
