@@ -150,7 +150,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateProduct) => updateProduct(initialData?.id, data),
+    mutationFn: (data: UpdateProduct) => {
+      if (!initialData) throw new Error("No product to update");
+      return updateProduct(initialData.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["product", initialData?.id] });
@@ -159,7 +162,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteProduct(initialData?.id),
+    mutationFn: () => {
+      if (!initialData) throw new Error("No product to delete");
+      return deleteProduct(initialData.id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       router.push("/products");
