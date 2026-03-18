@@ -8,6 +8,7 @@ import {
   orders,
   pointsOfSale,
   products,
+  productVariants,
   tenants,
   ticketCounters,
   users,
@@ -169,6 +170,13 @@ const PRODUCTS: Array<{
   stock: string | null;
   imageUrl: string;
   unitType?: "piece" | "kg";
+  hasVariants?: boolean;
+  variants?: Array<{
+    name: string;
+    price: string;
+    stock: string | null;
+    sortOrder: number;
+  }>;
 }> = [
   // Glaces classiques (index 0)
   {
@@ -178,8 +186,14 @@ const PRODUCTS: Array<{
     price: "3.50",
     categoryIndex: 0,
     sortOrder: 1,
-    stock: "25",
+    stock: null,
     imageUrl: "https://picsum.photos/seed/vanille/400/300",
+    hasVariants: true,
+    variants: [
+      { name: "Petit pot (120ml)", price: "3.50", stock: "25", sortOrder: 1 },
+      { name: "Moyen pot (250ml)", price: "5.90", stock: "15", sortOrder: 2 },
+      { name: "Grand pot (500ml)", price: "9.50", stock: "8", sortOrder: 3 },
+    ],
   },
   {
     name: "Chocolat noir 70%",
@@ -188,8 +202,14 @@ const PRODUCTS: Array<{
     price: "3.50",
     categoryIndex: 0,
     sortOrder: 2,
-    stock: "20",
+    stock: null,
     imageUrl: "https://picsum.photos/seed/chocolat/400/300",
+    hasVariants: true,
+    variants: [
+      { name: "Petit pot (120ml)", price: "3.50", stock: "20", sortOrder: 1 },
+      { name: "Moyen pot (250ml)", price: "5.90", stock: "12", sortOrder: 2 },
+      { name: "Grand pot (500ml)", price: "9.50", stock: "6", sortOrder: 3 },
+    ],
   },
   {
     name: "Pistache de Sicile",
@@ -198,8 +218,14 @@ const PRODUCTS: Array<{
     price: "4.20",
     categoryIndex: 0,
     sortOrder: 3,
-    stock: "12",
+    stock: null,
     imageUrl: "https://picsum.photos/seed/pistache/400/300",
+    hasVariants: true,
+    variants: [
+      { name: "Petit pot (120ml)", price: "4.20", stock: "12", sortOrder: 1 },
+      { name: "Moyen pot (250ml)", price: "6.90", stock: "8", sortOrder: 2 },
+      { name: "Grand pot (500ml)", price: "11.00", stock: "4", sortOrder: 3 },
+    ],
   },
   {
     name: "Caramel beurre salé",
@@ -463,6 +489,11 @@ const PRODUCTS: Array<{
     sortOrder: 1,
     stock: null,
     imageUrl: "https://picsum.photos/seed/milkshake-v/400/300",
+    hasVariants: true,
+    variants: [
+      { name: "Regular (33cl)", price: "5.50", stock: null, sortOrder: 1 },
+      { name: "Large (50cl)", price: "7.50", stock: null, sortOrder: 2 },
+    ],
   },
   {
     name: "Milkshake Chocolat",
@@ -472,6 +503,11 @@ const PRODUCTS: Array<{
     sortOrder: 2,
     stock: null,
     imageUrl: "https://picsum.photos/seed/milkshake-c/400/300",
+    hasVariants: true,
+    variants: [
+      { name: "Regular (33cl)", price: "5.50", stock: null, sortOrder: 1 },
+      { name: "Large (50cl)", price: "7.50", stock: null, sortOrder: 2 },
+    ],
   },
   {
     name: "Smoothie Fruits Rouges",
@@ -1109,6 +1145,9 @@ async function clearTenantData(tenantId: string) {
     await db.delete(menuProducts).where(eq(menuProducts.menuId, menu.id));
   }
   await db.delete(menus).where(eq(menus.tenantId, tenantId));
+  await db
+    .delete(productVariants)
+    .where(eq(productVariants.tenantId, tenantId));
   await db.delete(products).where(eq(products.tenantId, tenantId));
   await db.delete(categories).where(eq(categories.tenantId, tenantId));
   await db.delete(pointsOfSale).where(eq(pointsOfSale.tenantId, tenantId));
@@ -1171,6 +1210,7 @@ async function seedProducts(
     stock: p.stock,
     imageUrl: p.imageUrl,
     unitType: p.unitType ?? ("piece" as const),
+    hasVariants: p.hasVariants ?? false,
     isActive: true,
     tenantId,
   }));
@@ -1180,6 +1220,30 @@ async function seedProducts(
     .values(productsToInsert)
     .returning();
   console.log(`  Created ${inserted.length} products`);
+
+  // Insert variants for products that have them
+  let variantCount = 0;
+  for (let i = 0; i < PRODUCTS.length; i++) {
+    const productData = PRODUCTS[i];
+    if (productData.variants && productData.variants.length > 0) {
+      const productId = inserted[i].id;
+      await db.insert(productVariants).values(
+        productData.variants.map((v) => ({
+          productId,
+          name: v.name,
+          price: v.price,
+          stock: v.stock,
+          sortOrder: v.sortOrder,
+          tenantId,
+        })),
+      );
+      variantCount += productData.variants.length;
+    }
+  }
+  if (variantCount > 0) {
+    console.log(`  Created ${variantCount} product variants`);
+  }
+
   return inserted;
 }
 
@@ -1260,7 +1324,11 @@ async function seedOrders(
 
   let orderCount = 0;
 
-  async function createSeedOrder(orderData: SeedOrder, clientId?: string, posId?: string) {
+  async function createSeedOrder(
+    orderData: SeedOrder,
+    clientId?: string,
+    posId?: string,
+  ) {
     const dateKey = getDateKey();
     const ticketResult = await db
       .insert(ticketCounters)
@@ -1413,7 +1481,10 @@ async function seedOrders(
 
   for (let i = 0; i < MENU_ORDERS.length; i++) {
     const cl = clientList[(SAMPLE_ORDERS.length + i) % clientList.length];
-    const pos = posList.length > 0 ? posList[(SAMPLE_ORDERS.length + i) % posList.length] : undefined;
+    const pos =
+      posList.length > 0
+        ? posList[(SAMPLE_ORDERS.length + i) % posList.length]
+        : undefined;
     await createSeedOrder(MENU_ORDERS[i], cl?.id, pos?.id);
   }
 
