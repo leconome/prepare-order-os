@@ -1,14 +1,22 @@
-import { eq, and, ilike, sql, asc, lte, isNotNull } from "drizzle-orm";
-import { db } from "../db/index.js";
 import {
-  products,
   type CreateProduct,
-  type UpdateProduct,
   type ProductFilters,
+  products,
+  productVariants,
+  type UpdateProduct,
 } from "@prepareos/data";
+import { and, asc, eq, ilike, isNotNull, lte, sql } from "drizzle-orm";
+import { db } from "../db/index.js";
 
 export async function listProducts(tenantId: string, filters: ProductFilters) {
-  const { categoryId, isActive, search, maxStock, page = 1, limit = 20 } = filters;
+  const {
+    categoryId,
+    isActive,
+    search,
+    maxStock,
+    page = 1,
+    limit = 20,
+  } = filters;
   const offset = (page - 1) * limit;
 
   const conditions = [eq(products.tenantId, tenantId)];
@@ -45,6 +53,9 @@ export async function listProducts(tenantId: string, filters: ProductFilters) {
             name: true,
           },
         },
+        variants: {
+          orderBy: [asc(productVariants.sortOrder), asc(productVariants.name)],
+        },
       },
     }),
     db
@@ -76,6 +87,9 @@ export async function getProductById(tenantId: string, id: string) {
           name: true,
         },
       },
+      variants: {
+        orderBy: [asc(productVariants.sortOrder), asc(productVariants.name)],
+      },
     },
   });
 }
@@ -92,6 +106,7 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
       stock: data.stock != null ? String(data.stock) : null,
       unitType: data.unitType ?? "piece",
       defaultQty: data.defaultQty != null ? String(data.defaultQty) : null,
+      hasVariants: data.hasVariants ?? false,
       isActive: data.isActive ?? true,
       sortOrder: data.sortOrder ?? 0,
       tenantId,
@@ -101,7 +116,11 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
   return getProductById(tenantId, product.id);
 }
 
-export async function updateProduct(tenantId: string, id: string, data: UpdateProduct) {
+export async function updateProduct(
+  tenantId: string,
+  id: string,
+  data: UpdateProduct,
+) {
   const updateData: Partial<typeof products.$inferInsert> = {
     updatedAt: new Date(),
   };
@@ -111,9 +130,13 @@ export async function updateProduct(tenantId: string, id: string, data: UpdatePr
   if (data.price !== undefined) updateData.price = data.price;
   if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
-  if (data.stock !== undefined) updateData.stock = data.stock != null ? String(data.stock) : null;
+  if (data.stock !== undefined)
+    updateData.stock = data.stock != null ? String(data.stock) : null;
   if (data.unitType !== undefined) updateData.unitType = data.unitType;
-  if (data.defaultQty !== undefined) updateData.defaultQty = data.defaultQty != null ? String(data.defaultQty) : null;
+  if (data.defaultQty !== undefined)
+    updateData.defaultQty =
+      data.defaultQty != null ? String(data.defaultQty) : null;
+  if (data.hasVariants !== undefined) updateData.hasVariants = data.hasVariants;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
   if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
 

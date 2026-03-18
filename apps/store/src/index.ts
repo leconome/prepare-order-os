@@ -21,6 +21,7 @@ import smsRoutes from "./routes/sms.js";
 import tenantsRoutes from "./routes/tenants.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
+import variantRoutes from "./routes/variants.js";
 
 const app = new Hono();
 
@@ -74,6 +75,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api/*", tenantMiddleware);
 app.route("/api/orders", orders);
 app.route("/api/products", products);
+app.route("/api/products", variantRoutes);
 app.route("/api/categories", categories);
 app.route("/api/menus", menus);
 app.route("/api/users", usersRoutes);
