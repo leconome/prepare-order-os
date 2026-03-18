@@ -8,7 +8,7 @@ import {
 import { users } from "@prepareos/data/schema";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { setSignedCookie } from "hono/cookie";
+import { deleteCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../db/index.js";
@@ -163,12 +163,47 @@ usersRoutes.post(
       },
     );
 
-    // Set signed cookie (must match Better Auth's format — it reads with getSignedCookie)
+    // Build the Set-Cookie header for the session token using the same HMAC-SHA256
+    // signing that better-call uses internally (better-auth's getSession reads this).
+    // We avoid Hono's setSignedCookie to guarantee format compatibility.
     const cookieName = authCtx.authCookies.sessionToken.name;
     const cookieAttrs = authCtx.authCookies.sessionToken.attributes;
-    await setSignedCookie(c, cookieName, session.token, authCtx.secret, {
-      ...cookieAttrs,
-      maxAge: authCtx.sessionConfig.expiresIn,
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(authCtx.secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const sig = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(session.token),
+    );
+    const signedValue = `${session.token}.${btoa(String.fromCharCode(...new Uint8Array(sig)))}`;
+    const encodedValue = encodeURIComponent(signedValue);
+
+    const maxAge = authCtx.sessionConfig.expiresIn;
+    let cookie = `${cookieName}=${encodedValue}`;
+    cookie += `; Max-Age=${maxAge}`;
+    if (cookieAttrs.domain) cookie += `; Domain=${cookieAttrs.domain}`;
+    if (cookieAttrs.path) cookie += `; Path=${cookieAttrs.path}`;
+    if (cookieAttrs.httpOnly) cookie += "; HttpOnly";
+    if (cookieAttrs.secure) cookie += "; Secure";
+    if (cookieAttrs.sameSite) {
+      const ss = cookieAttrs.sameSite as string;
+      cookie += `; SameSite=${ss.charAt(0).toUpperCase() + ss.slice(1)}`;
+    }
+    c.header("set-cookie", cookie, { append: true });
+
+    // Expire stale session_data cache cookie so getSession falls through to DB lookup
+    // instead of rejecting on an outdated HMAC from a previous session.
+    const dataName = authCtx.authCookies.sessionData.name;
+    const dataAttrs = authCtx.authCookies.sessionData.attributes;
+    deleteCookie(c, dataName, {
+      path: dataAttrs.path,
+      domain: dataAttrs.domain,
+      secure: dataAttrs.secure,
     });
 
     return c.json({
