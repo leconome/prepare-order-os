@@ -5,6 +5,7 @@ export * from "./emails.js";
 export * from "./menus.js";
 export * from "./orders.js";
 export * from "./points-of-sale.js";
+export * from "./product-variants.js";
 export * from "./products.js";
 export * from "./sms.js";
 export * from "./tenants.js";
