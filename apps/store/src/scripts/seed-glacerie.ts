@@ -627,6 +627,7 @@ type ProductOrderItem = {
   price: string;
   quantity: number;
   unit?: "piece" | "kg";
+  variantName?: string;
 };
 type SampleOrderItem = ProductOrderItem | MenuOrderItem;
 function isMenuOrderItem(item: SampleOrderItem): item is MenuOrderItem {
@@ -656,7 +657,12 @@ const MENU_ORDERS: SeedOrder[] = [
   {
     items: [
       { menuName: "Menu Enfant", quantity: 3 },
-      { productName: "Milkshake Vanille", price: "5.50", quantity: 2 },
+      {
+        productName: "Milkshake Vanille",
+        price: "7.50",
+        quantity: 2,
+        variantName: "Large (50cl)",
+      },
     ],
     paymentStatus: "paid",
     preparationStatus: "in_preparation",
@@ -731,8 +737,18 @@ const MENU_ORDERS: SeedOrder[] = [
 const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
-      { productName: "Vanille de Madagascar", price: "3.50", quantity: 2 },
-      { productName: "Chocolat noir 70%", price: "3.50", quantity: 1 },
+      {
+        productName: "Vanille de Madagascar",
+        price: "3.50",
+        quantity: 2,
+        variantName: "Petit pot (120ml)",
+      },
+      {
+        productName: "Chocolat noir 70%",
+        price: "3.50",
+        quantity: 1,
+        variantName: "Petit pot (120ml)",
+      },
       { productName: "Cornet classique", price: "0.50", quantity: 3 },
     ],
     paymentStatus: "paid",
@@ -744,7 +760,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Pistache de Sicile", price: "4.20", quantity: 2 },
+      {
+        productName: "Pistache de Sicile",
+        price: "6.90",
+        quantity: 2,
+        variantName: "Moyen pot (250ml)",
+      },
       { productName: "Noisette du Piémont", price: "4.20", quantity: 2 },
       { productName: "Coupelle gaufrette", price: "0.60", quantity: 4 },
     ],
@@ -796,8 +817,18 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Milkshake Vanille", price: "5.50", quantity: 2 },
-      { productName: "Milkshake Chocolat", price: "5.50", quantity: 2 },
+      {
+        productName: "Milkshake Vanille",
+        price: "5.50",
+        quantity: 2,
+        variantName: "Regular (33cl)",
+      },
+      {
+        productName: "Milkshake Chocolat",
+        price: "7.50",
+        quantity: 2,
+        variantName: "Large (50cl)",
+      },
       { productName: "Smoothie Fruits Rouges", price: "6.00", quantity: 1 },
     ],
     paymentStatus: "paid",
@@ -810,7 +841,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Gaufre liégeoise", price: "2.50", quantity: 4 },
-      { productName: "Vanille de Madagascar", price: "3.50", quantity: 4 },
+      {
+        productName: "Vanille de Madagascar",
+        price: "9.50",
+        quantity: 4,
+        variantName: "Grand pot (500ml)",
+      },
       { productName: "Sauce chocolat chaud", price: "1.50", quantity: 4 },
     ],
     paymentStatus: "pending",
@@ -865,7 +901,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Chocolat noir 70%", price: "3.50", quantity: 4 },
+      {
+        productName: "Chocolat noir 70%",
+        price: "5.90",
+        quantity: 4,
+        variantName: "Moyen pot (250ml)",
+      },
       { productName: "Caramel coulant", price: "1.20", quantity: 4 },
     ],
     paymentStatus: "paid",
@@ -874,7 +915,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Pistache de Sicile", price: "4.20", quantity: 1 },
+      {
+        productName: "Pistache de Sicile",
+        price: "4.20",
+        quantity: 1,
+        variantName: "Petit pot (120ml)",
+      },
       { productName: "Noisette du Piémont", price: "4.20", quantity: 1 },
       { productName: "Praliné Feuilleté", price: "4.50", quantity: 1 },
     ],
@@ -906,7 +952,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Stracciatella", price: "3.80", quantity: 2 },
-      { productName: "Vanille de Madagascar", price: "3.50", quantity: 2 },
+      {
+        productName: "Vanille de Madagascar",
+        price: "5.90",
+        quantity: 2,
+        variantName: "Moyen pot (250ml)",
+      },
       { productName: "Chantilly maison", price: "1.00", quantity: 2 },
     ],
     paymentStatus: "paid",
@@ -944,8 +995,18 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Chocolat noir 70%", price: "3.50", quantity: 3 },
-      { productName: "Pistache de Sicile", price: "4.20", quantity: 2 },
+      {
+        productName: "Chocolat noir 70%",
+        price: "9.50",
+        quantity: 3,
+        variantName: "Grand pot (500ml)",
+      },
+      {
+        productName: "Pistache de Sicile",
+        price: "11.00",
+        quantity: 2,
+        variantName: "Grand pot (500ml)",
+      },
       { productName: "Éclats de noisettes", price: "1.00", quantity: 2 },
       { productName: "Sauce chocolat chaud", price: "1.50", quantity: 2 },
     ],
@@ -978,8 +1039,18 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Vanille de Madagascar", price: "3.50", quantity: 5 },
-      { productName: "Chocolat noir 70%", price: "3.50", quantity: 5 },
+      {
+        productName: "Vanille de Madagascar",
+        price: "3.50",
+        quantity: 5,
+        variantName: "Petit pot (120ml)",
+      },
+      {
+        productName: "Chocolat noir 70%",
+        price: "5.90",
+        quantity: 5,
+        variantName: "Moyen pot (250ml)",
+      },
       { productName: "Sorbet Citron", price: "3.50", quantity: 5 },
     ],
     paymentStatus: "paid",
@@ -998,8 +1069,18 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Milkshake Chocolat", price: "5.50", quantity: 3 },
-      { productName: "Milkshake Vanille", price: "5.50", quantity: 3 },
+      {
+        productName: "Milkshake Chocolat",
+        price: "7.50",
+        quantity: 3,
+        variantName: "Large (50cl)",
+      },
+      {
+        productName: "Milkshake Vanille",
+        price: "5.50",
+        quantity: 3,
+        variantName: "Regular (33cl)",
+      },
     ],
     paymentStatus: "paid",
     preparationStatus: "in_preparation",
@@ -1011,7 +1092,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Gaufre liégeoise", price: "2.50", quantity: 2 },
-      { productName: "Chocolat noir 70%", price: "3.50", quantity: 2 },
+      {
+        productName: "Chocolat noir 70%",
+        price: "3.50",
+        quantity: 2,
+        variantName: "Petit pot (120ml)",
+      },
       { productName: "Chantilly maison", price: "1.00", quantity: 2 },
     ],
     paymentStatus: "pending",
@@ -1042,7 +1128,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
         quantity: 0.5,
         unit: "kg" as const,
       },
-      { productName: "Vanille de Madagascar", price: "3.50", quantity: 4 },
+      {
+        productName: "Vanille de Madagascar",
+        price: "9.50",
+        quantity: 4,
+        variantName: "Grand pot (500ml)",
+      },
     ],
     paymentStatus: "paid",
     preparationStatus: "pending",
@@ -1308,6 +1399,18 @@ async function seedOrders(
   console.log("🧾 Seeding orders...");
 
   const productMap = new Map(productList.map((p) => [p.name, p]));
+
+  // Build variant map for resolving variantName → variantId
+  const allVariants = await db.query.productVariants.findMany({
+    where: eq(productVariants.tenantId, tenantId),
+  });
+  const variantMap = new Map(
+    allVariants.map((v) => {
+      const product = productList.find((p) => p.id === v.productId);
+      return [`${product?.name}|${v.name}`, v];
+    }),
+  );
+
   const menuMap = new Map<
     string,
     { menu: typeof menus.$inferSelect; products: typeof productList }
@@ -1356,11 +1459,16 @@ async function seedOrders(
 
     const regularItemsToInsert = regularItems.map((item) => {
       const product = productMap.get(item.productName);
+      const variant = item.variantName
+        ? variantMap.get(`${item.productName}|${item.variantName}`)
+        : undefined;
       const totalPrice = Number(item.price) * item.quantity;
       subtotal += totalPrice;
       return {
         productId: product?.id ?? crypto.randomUUID(),
         productName: item.productName,
+        variantId: variant?.id ?? null,
+        variantName: item.variantName ?? null,
         quantity: item.quantity,
         unitPrice: item.price,
         totalPrice: totalPrice.toFixed(2),

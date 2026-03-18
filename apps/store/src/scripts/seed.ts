@@ -601,6 +601,7 @@ type ProductOrderItem = {
   price: string;
   quantity: number;
   unit?: "piece" | "kg";
+  variantName?: string;
 };
 type SampleOrderItem = ProductOrderItem | MenuOrderItem;
 function isMenuOrderItem(item: SampleOrderItem): item is MenuOrderItem {
@@ -706,7 +707,12 @@ const MENU_ORDERS: SeedOrder[] = [
 const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
-      { productName: "Comté AOP", price: "24.90", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "24.90",
+        quantity: 1,
+        variantName: "18 mois",
+      },
       { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 2 },
       { productName: "Pain aux noix artisanal", price: "4.50", quantity: 1 },
     ],
@@ -721,7 +727,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     items: [
       { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
       { productName: "Fourme d'Ambert AOP", price: "16.90", quantity: 1 },
-      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+      {
+        productName: "Confiture de figues",
+        price: "4.50",
+        quantity: 1,
+        variantName: "Petit pot (110g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
@@ -751,7 +762,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
         price: "8.90",
         quantity: 2,
       },
-      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+      {
+        productName: "Miel de montagne",
+        price: "8.50",
+        quantity: 1,
+        variantName: "Petit pot (250g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
@@ -762,7 +778,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Comté AOP", price: "38.50", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 1,
+        variantName: "36 mois",
+      },
       { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
       { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
       { productName: "Fruits secs assortis", price: "7.50", quantity: 2 },
@@ -815,7 +836,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
-      { productName: "Comté AOP", price: "24.90", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 1,
+        variantName: "36 mois",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
@@ -846,7 +872,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     items: [
       { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
       { productName: "Cantal Entre-Deux AOP", price: "14.90", quantity: 1 },
-      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+      {
+        productName: "Miel de montagne",
+        price: "14.90",
+        quantity: 1,
+        variantName: "Grand pot (500g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
@@ -886,7 +917,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     items: [
       { productName: "Fourme d'Ambert AOP", price: "16.90", quantity: 1 },
       { productName: "Bleu de Gex AOP", price: "19.50", quantity: 1 },
-      { productName: "Confiture de figues", price: "6.50", quantity: 2 },
+      {
+        productName: "Confiture de figues",
+        price: "6.90",
+        quantity: 2,
+        variantName: "Grand pot (220g)",
+      },
     ],
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
@@ -908,7 +944,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Comté AOP", price: "38.50", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 1,
+        variantName: "36 mois",
+      },
       { productName: "Fruits secs assortis", price: "7.50", quantity: 1 },
     ],
     paymentStatus: "paid" as const,
@@ -922,7 +963,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     items: [
       { productName: "Faisselle fermière", price: "4.50", quantity: 3 },
       { productName: "Fontainebleau", price: "5.50", quantity: 3 },
-      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+      {
+        productName: "Miel de montagne",
+        price: "14.90",
+        quantity: 1,
+        variantName: "Grand pot (500g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
@@ -953,7 +999,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Comté AOP", price: "24.90", quantity: 2 },
+      {
+        productName: "Comté AOP",
+        price: "24.90",
+        quantity: 2,
+        variantName: "18 mois",
+      },
       { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
     ],
     paymentStatus: "paid" as const,
@@ -1051,7 +1102,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Fontainebleau", price: "5.50", quantity: 4 },
-      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+      {
+        productName: "Confiture de figues",
+        price: "4.50",
+        quantity: 1,
+        variantName: "Petit pot (110g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
@@ -1059,7 +1115,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Comté AOP", price: "38.50", quantity: 2 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 2,
+        variantName: "36 mois",
+      },
       { productName: "Beaufort d'été AOP", price: "32.00", quantity: 1 },
       { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
     ],
@@ -1070,7 +1131,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Rocamadour AOP", price: "3.90", quantity: 10 },
-      { productName: "Miel de montagne", price: "8.90", quantity: 2 },
+      {
+        productName: "Miel de montagne",
+        price: "8.50",
+        quantity: 2,
+        variantName: "Petit pot (250g)",
+      },
     ],
     paymentStatus: "pending" as const,
     preparationStatus: "pending" as const,
@@ -1129,7 +1195,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Reblochon de Savoie AOP", price: "9.80", quantity: 6 },
-      { productName: "Comté AOP", price: "24.90", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "24.90",
+        quantity: 1,
+        variantName: "18 mois",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "pending" as const,
@@ -1175,7 +1246,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Beaufort d'été AOP", price: "32.00", quantity: 2 },
-      { productName: "Comté AOP", price: "38.50", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 1,
+        variantName: "36 mois",
+      },
       { productName: "Ossau-Iraty AOP", price: "22.50", quantity: 1 },
       { productName: "Fruits secs assortis", price: "7.50", quantity: 3 },
     ],
@@ -1187,7 +1263,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
     items: [
       { productName: "Fontainebleau", price: "5.50", quantity: 2 },
       { productName: "Brousse du Rove", price: "6.90", quantity: 2 },
-      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+      {
+        productName: "Miel de montagne",
+        price: "14.90",
+        quantity: 1,
+        variantName: "Grand pot (500g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
@@ -1210,7 +1291,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Bleu de Gex AOP", price: "19.50", quantity: 2 },
-      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+      {
+        productName: "Confiture de figues",
+        price: "6.90",
+        quantity: 1,
+        variantName: "Grand pot (220g)",
+      },
       { productName: "Pain aux noix artisanal", price: "4.50", quantity: 1 },
     ],
     paymentStatus: "paid" as const,
@@ -1225,7 +1311,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   },
   {
     items: [
-      { productName: "Comté AOP", price: "24.90", quantity: 3 },
+      {
+        productName: "Comté AOP",
+        price: "24.90",
+        quantity: 3,
+        variantName: "18 mois",
+      },
       { productName: "Tomme de Savoie IGP", price: "16.50", quantity: 2 },
     ],
     paymentStatus: "paid" as const,
@@ -1235,7 +1326,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 6 },
-      { productName: "Miel de montagne", price: "8.90", quantity: 1 },
+      {
+        productName: "Miel de montagne",
+        price: "8.50",
+        quantity: 1,
+        variantName: "Petit pot (250g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "picked_up" as const,
@@ -1271,11 +1367,21 @@ const SAMPLE_ORDERS: SeedOrder[] = [
   {
     items: [
       { productName: "Roquefort AOP", price: "26.90", quantity: 1 },
-      { productName: "Comté AOP", price: "24.90", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "32.50",
+        quantity: 1,
+        variantName: "36 mois",
+      },
       { productName: "Brie de Meaux AOP", price: "12.90", quantity: 1 },
       { productName: "Crottin de Chavignol AOP", price: "4.50", quantity: 2 },
       { productName: "Crackers aux graines", price: "3.90", quantity: 1 },
-      { productName: "Confiture de figues", price: "6.50", quantity: 1 },
+      {
+        productName: "Confiture de figues",
+        price: "4.50",
+        quantity: 1,
+        variantName: "Petit pot (110g)",
+      },
     ],
     paymentStatus: "paid" as const,
     preparationStatus: "ready" as const,
@@ -1314,7 +1420,12 @@ const SAMPLE_ORDERS: SeedOrder[] = [
         unit: "kg" as const,
       },
       { productName: "Camembert de Normandie AOP", price: "8.50", quantity: 1 },
-      { productName: "Comté AOP", price: "24.90", quantity: 1 },
+      {
+        productName: "Comté AOP",
+        price: "24.90",
+        quantity: 1,
+        variantName: "18 mois",
+      },
     ],
     paymentStatus: "pending" as const,
     preparationStatus: "in_preparation" as const,
@@ -1531,6 +1642,18 @@ async function seedOrders(
   console.log("🧾 Seeding orders...");
 
   const productMap = new Map(productList.map((p) => [p.name, p]));
+
+  // Build variant map: "productName|variantName" → variant row
+  const allVariants = await db.query.productVariants.findMany({
+    where: eq(productVariants.tenantId, tenantId),
+  });
+  const variantMap = new Map(
+    allVariants.map((v) => {
+      const product = productList.find((p) => p.id === v.productId);
+      return [`${product?.name}|${v.name}`, v];
+    }),
+  );
+
   // Build menu map: name → { menu, products }
   const menuMap = new Map<
     string,
@@ -1583,11 +1706,16 @@ async function seedOrders(
     // Regular items
     const regularItemsToInsert = regularItems.map((item) => {
       const product = productMap.get(item.productName);
+      const variant = item.variantName
+        ? variantMap.get(`${item.productName}|${item.variantName}`)
+        : undefined;
       const totalPrice = Number(item.price) * item.quantity;
       subtotal += totalPrice;
       return {
         productId: product?.id ?? crypto.randomUUID(),
         productName: item.productName,
+        variantId: variant?.id ?? null,
+        variantName: item.variantName ?? null,
         quantity: item.quantity,
         unitPrice: item.price,
         totalPrice: totalPrice.toFixed(2),
