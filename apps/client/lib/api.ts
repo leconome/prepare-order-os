@@ -11,6 +11,9 @@ import type {
   CreatePointOfSale,
   CreateProduct,
   CreateStaff,
+  EmailBroadcast,
+  EmailFilters,
+  EmailMessage,
   GrantCredits,
   Menu,
   MenuFilters,
@@ -25,6 +28,8 @@ import type {
   Product,
   ProductFilters,
   RevokeCredits,
+  SendBroadcastEmail,
+  SendEmail,
   SendSms,
   SmsCreditFilters,
   SmsCreditTransaction,
@@ -739,6 +744,68 @@ export async function refreshSmsStatus(messageId: string): Promise<SmsMessage> {
   });
 }
 
+// ============ TENANT EMAIL ============
+
+export async function fetchEmailMessages(
+  params?: Partial<EmailFilters>,
+): Promise<PaginatedResponse<EmailMessage>> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/email/messages${query ? `?${query}` : ""}`);
+}
+
+export async function fetchBroadcasts(
+  params?: Partial<EmailFilters>,
+): Promise<PaginatedResponse<EmailBroadcast>> {
+  const searchParams = new URLSearchParams();
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  const query = searchParams.toString();
+  return fetchApi(`/email/broadcasts${query ? `?${query}` : ""}`);
+}
+
+export async function sendEmail(data: SendEmail): Promise<EmailMessage> {
+  return fetchApi("/email/send", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function renderOrderReadyEmail(data: {
+  clientName: string;
+  ticketNumber: string;
+  shopName: string;
+  pickupTime?: string;
+  items: { name: string; quantity: number }[];
+  total: string;
+}): Promise<{ html: string }> {
+  return fetchApi("/email/render/order-ready", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function renderBroadcastEmail(data: {
+  shopName: string;
+  content: string;
+}): Promise<{ html: string }> {
+  return fetchApi("/email/render/broadcast", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function sendBroadcastEmail(
+  data: SendBroadcastEmail,
+): Promise<{ total: number; sent: number; failed: number }> {
+  return fetchApi("/email/broadcast", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 // ============ POINTS OF SALE ============
 
 export type PointsOfSaleResponse = PaginatedResponse<PointOfSale>;
@@ -872,6 +939,10 @@ export type {
   GrantCredits,
   RevokeCredits,
   SendSms,
+  EmailBroadcast,
+  EmailMessage,
+  SendEmail,
+  SendBroadcastEmail,
   PointOfSale,
   CreatePointOfSale,
   UpdatePointOfSale,

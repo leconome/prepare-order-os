@@ -141,6 +141,20 @@
       "when": 1773406392510,
       "tag": "0019_illegal_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773764341644,
+      "tag": "0020_orange_cammi",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1773766690312,
+      "tag": "0021_melted_loa",
+      "breakpoints": true
     }
   ]
 }

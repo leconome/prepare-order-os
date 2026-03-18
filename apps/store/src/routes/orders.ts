@@ -1,15 +1,17 @@
-import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import {
   createOrderSchema,
-  updateOrderSchema,
-  updateOrderStatusSchema,
-  updateOrderItemsSchema,
   orderFiltersSchema,
   toggleItemPreparedSchema,
+  updateOrderItemsSchema,
+  updateOrderSchema,
+  updateOrderStatusSchema,
 } from "@prepareos/data";
-import * as orderService from "../services/order.service.js";
+import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
+import { ownerOrAdmin } from "../middleware/role-guard.js";
+import * as exportService from "../services/export.service.js";
+import * as orderService from "../services/order.service.js";
 import type { AppEnv } from "../types.js";
 
 const orders = new Hono<AppEnv>();
@@ -21,6 +23,43 @@ orders.get("/", zValidator("query", orderFiltersSchema), async (c) => {
   const filters = c.req.valid("query");
   const result = await orderService.listOrders(tenantId, filters);
   return c.json(result);
+});
+
+// GET /orders/export — download CSV or XLSX
+orders.get("/export", ownerOrAdmin, async (c) => {
+  const tenantId = c.get("tenantId") as string;
+  const format = c.req.query("format") || "csv";
+
+  if (format !== "csv" && format !== "xlsx") {
+    return c.json({ error: "Format must be csv or xlsx" }, 400);
+  }
+
+  const result = await orderService.listOrders(tenantId, {
+    limit: 10000,
+    page: 1,
+  });
+  const rows = exportService.flattenOrders(result.data);
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `commandes-${date}`;
+
+  if (format === "csv") {
+    const csv = exportService.generateCsv(rows);
+    return new Response(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}.csv"`,
+      },
+    });
+  }
+
+  const buffer = await exportService.generateXlsx(rows);
+  return new Response(buffer, {
+    headers: {
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${filename}.xlsx"`,
+    },
+  });
 });
 
 orders.get("/:id", async (c) => {
@@ -71,10 +110,7 @@ orders.patch("/:id", zValidator("json", updateOrderSchema), async (c) => {
     data.items &&
     ["ready", "picked_up"].includes(existing.preparationStatus)
   ) {
-    return c.json(
-      { error: "Cannot modify items on a completed order" },
-      409,
-    );
+    return c.json({ error: "Cannot modify items on a completed order" }, 409);
   }
 
   try {
