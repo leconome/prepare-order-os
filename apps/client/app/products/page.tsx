@@ -12,6 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -229,102 +236,63 @@ export default function ProductsPage() {
       description="Gérez votre catalogue de produits"
     >
       <div className="space-y-4">
-        {/* Search bar */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un produit..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9 pr-9"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Category filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground mr-2">
-            Filtrer par catégorie:
-          </span>
-          <button
-            onClick={() => {
-              setSelectedCategoryId(null);
-              setPage(1);
-            }}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
-              selectedCategoryId === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted hover:bg-muted/80"
-            }`}
-          >
-            Toutes
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => {
-                setSelectedCategoryId(
-                  selectedCategoryId === category.id ? null : category.id,
-                );
+        {/* Search + Category filter */}
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un produit..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
                 setPage(1);
               }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors ${
-                selectedCategoryId === category.id
-                  ? "ring-2 ring-offset-1"
-                  : "hover:opacity-80"
-              }`}
-              style={
-                category.color
-                  ? {
-                      backgroundColor: `${category.color}20`,
-                      color: category.color,
-                      ...(selectedCategoryId === category.id
-                        ? { ringColor: category.color }
-                        : {}),
-                    }
-                  : undefined
-              }
-            >
-              {category.color && (
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: category.color }}
-                />
-              )}
-              {category.name}
-            </button>
-          ))}
-          {selectedCategoryId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedCategoryId(null)}
-              className="h-7 px-2"
-            >
-              <X className="h-3 w-3 mr-1" />
-              Effacer
-            </Button>
-          )}
+              className="pl-9 pr-9"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Select
+            value={selectedCategoryId ?? "all"}
+            onValueChange={(value) => {
+              setSelectedCategoryId(value === "all" ? null : value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Catégorie" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les catégories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  <span className="flex items-center gap-2">
+                    {category.color && (
+                      <span
+                        className="h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: category.color }}
+                      />
+                    )}
+                    {category.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {data?.pagination.total ?? 0} produits
-              {selectedCategoryId &&
-                categories.find((c) => c.id === selectedCategoryId) &&
-                ` dans "${categories.find((c) => c.id === selectedCategoryId)?.name}"`}
+              {data?.pagination.total ?? 0} produit
+              {(data?.pagination.total ?? 0) > 1 ? "s" : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
