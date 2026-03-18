@@ -27,9 +27,11 @@ import {
   Mail,
   MessageSquare,
   Minus,
+  MoreVertical,
   Package,
   Pencil,
   Plus,
+  Printer,
   Save,
   Search,
   ShoppingCart,
@@ -60,6 +62,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -832,45 +841,57 @@ export default function OrderDetailPage() {
               </>
             ) : (
               <>
-                {order.client?.phone && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={openSmsDialog}
-                    disabled={
-                      order.preparationStatus !== "ready" ||
-                      !!order.smsNotifiedAt ||
-                      smsMutation.isPending
-                    }
-                  >
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    {order.smsNotifiedAt ? "SMS envoyé" : "SMS"}
-                  </Button>
-                )}
-                {order.client?.email && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={openEmailDialog}
-                    disabled={
-                      order.preparationStatus !== "ready" ||
-                      !!order.emailNotifiedAt ||
-                      emailMutation.isPending
-                    }
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    {order.emailNotifiedAt ? "Email envoyé" : "Email"}
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Supprimer
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {order.client?.phone && (
+                      <DropdownMenuItem
+                        onClick={openSmsDialog}
+                        disabled={
+                          order.preparationStatus !== "ready" ||
+                          !!order.smsNotifiedAt ||
+                          smsMutation.isPending
+                        }
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        {order.smsNotifiedAt ? "SMS envoyé" : "Envoyer SMS"}
+                      </DropdownMenuItem>
+                    )}
+                    {order.client?.email && (
+                      <DropdownMenuItem
+                        onClick={openEmailDialog}
+                        disabled={
+                          order.preparationStatus !== "ready" ||
+                          !!order.emailNotifiedAt ||
+                          emailMutation.isPending
+                        }
+                      >
+                        <Mail className="mr-2 h-4 w-4" />
+                        {order.emailNotifiedAt
+                          ? "Email envoyé"
+                          : "Envoyer email"}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem asChild>
+                      <Link href={`/orders/${orderId}/print`} target="_blank">
+                        <Printer className="mr-2 h-4 w-4" />
+                        Bon de commande
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Select
                   value={order.preparationStatus}
                   onValueChange={(value) =>
