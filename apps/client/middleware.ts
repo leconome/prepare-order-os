@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "localhost";
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "localhost";
 
 export function middleware(request: NextRequest) {
   const hostWithPort = request.headers.get("host") ?? "";
