@@ -1,4 +1,4 @@
-const BASE_DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "localhost";
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN || "localhost";
 const IS_LOCALHOST = BASE_DOMAIN === "localhost";
 const PROTOCOL = IS_LOCALHOST ? "http" : "https";
 const PORT_SUFFIX = IS_LOCALHOST ? ":3000" : "";
