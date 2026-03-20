@@ -8,7 +8,7 @@ import {
 import { users } from "@prepareos/data/schema";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { setCookie } from "hono/cookie";
+import { deleteCookie, setCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../db/index.js";
@@ -169,6 +169,15 @@ usersRoutes.post(
     setCookie(c, cookieName, session.token, {
       ...cookieAttrs,
       maxAge: authCtx.sessionConfig.expiresIn,
+    });
+
+    // Expire stale session_data cache cookie so getSession falls through to DB lookup
+    const dataName = authCtx.authCookies.sessionData.name;
+    const dataAttrs = authCtx.authCookies.sessionData.attributes;
+    deleteCookie(c, dataName, {
+      path: dataAttrs.path,
+      domain: dataAttrs.domain,
+      secure: dataAttrs.secure,
     });
 
     return c.json({
