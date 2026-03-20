@@ -26,7 +26,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-const IS_DEV = process.env.NODE_ENV === "development";
+const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
 
 const DEFAULT_OWNER_CREDENTIALS = {
   email: "owner@owner.com",
