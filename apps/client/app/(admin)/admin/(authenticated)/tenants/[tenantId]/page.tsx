@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ExternalLink,
   Loader2,
+  MessageCircle,
   MessageSquare,
   Minus,
   Plus,
@@ -18,6 +19,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { ChatPanel } from "@/components/chat/chat-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -726,6 +728,10 @@ export default function TenantDetailPage() {
             <Users className="h-4 w-4" />
             Propriétaires
           </TabsTrigger>
+          <TabsTrigger value="assistant" className="gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Assistant
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="info" className="mt-4">
           <InformationsTab tenant={tenant} />
@@ -735,6 +741,11 @@ export default function TenantDetailPage() {
         </TabsContent>
         <TabsContent value="owners" className="mt-4">
           <OwnersTab tenantId={tenantId} />
+        </TabsContent>
+        <TabsContent value="assistant" className="mt-4">
+          <Card className="h-[calc(100vh-16rem)] flex flex-col overflow-hidden">
+            <ChatPanel tenantId={tenantId} />
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
