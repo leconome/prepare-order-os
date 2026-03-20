@@ -8,7 +8,8 @@ import {
 import { users } from "@prepareos/data/schema";
 import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { deleteCookie, setCookie } from "hono/cookie";
+import { serializeSignedCookie } from "better-call";
+import { deleteCookie } from "hono/cookie";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { db } from "../db/index.js";
@@ -163,13 +164,17 @@ usersRoutes.post(
       },
     );
 
-    // Set session cookie (raw token — Better Auth doesn't use Hono's HMAC signing)
+    // Use better-call's serializeSignedCookie — the same signing that Better Auth
+    // uses internally (HMAC-SHA256). Hono's setSignedCookie uses a different format.
     const cookieName = authCtx.authCookies.sessionToken.name;
     const cookieAttrs = authCtx.authCookies.sessionToken.attributes;
-    setCookie(c, cookieName, session.token, {
-      ...cookieAttrs,
-      maxAge: authCtx.sessionConfig.expiresIn,
-    });
+    const cookie = await serializeSignedCookie(
+      cookieName,
+      session.token,
+      authCtx.secret,
+      { ...cookieAttrs, maxAge: authCtx.sessionConfig.expiresIn },
+    );
+    c.header("set-cookie", cookie, { append: true });
 
     // Expire stale session_data cache cookie so getSession falls through to DB lookup
     const dataName = authCtx.authCookies.sessionData.name;
