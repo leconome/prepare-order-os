@@ -36,6 +36,10 @@ Field types:
 const chatRoutes = new Hono<AppEnv>();
 
 chatRoutes.post("/", authMiddleware, ownerOrAdmin, async (c) => {
+  if (process.env.STAGE !== "dev") {
+    return c.json({ error: "Chat is only available in dev stage" }, 403);
+  }
+
   const body = await c.req.json();
   const messages = body.messages;
   const requestTenantId = body.tenantId;
