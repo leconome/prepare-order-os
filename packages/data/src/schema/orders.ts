@@ -17,6 +17,7 @@ import { z } from "zod";
 import { type UserRef, users } from "./auth.js";
 import { type Client, clients } from "./clients.js";
 import { type PointOfSale, pointsOfSale } from "./points-of-sale.js";
+import { productVariants } from "./product-variants.js";
 import { unitTypeEnum, unitTypeSchema } from "./products.js";
 import { tenants } from "./tenants.js";
 
@@ -117,6 +118,10 @@ export const orderItems = pgTable("order_items", {
     .references(() => orders.id, { onDelete: "cascade" }),
   productId: uuid("product_id").notNull(),
   productName: varchar("product_name", { length: 200 }).notNull(),
+  variantId: uuid("variant_id").references(() => productVariants.id, {
+    onDelete: "set null",
+  }),
+  variantName: varchar("variant_name", { length: 200 }),
   quantity: decimal("quantity", { precision: 10, scale: 3 })
     .notNull()
     .default("1"),
@@ -215,6 +220,8 @@ export const preparationStatusSchema = z.enum([
 export const createOrderItemSchema = z.object({
   productId: z.string().uuid(),
   productName: z.string(),
+  variantId: z.string().uuid().optional(),
+  variantName: z.string().optional(),
   quantity: z.number().positive(),
   unitPrice: z.string(),
   unit: unitTypeSchema.default("piece"),

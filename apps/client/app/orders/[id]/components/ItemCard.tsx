@@ -69,7 +69,14 @@ function ItemCard({
           <span className="text-sm font-semibold shrink-0">
             {formatQtyLabel(item.quantity, item.unit)}
           </span>
-          <span className="text-sm truncate">{item.productName}</span>
+          <span className="text-sm truncate">
+            {item.productName}
+            {item.variantName && (
+              <span className="text-muted-foreground ml-1">
+                — {item.variantName}
+              </span>
+            )}
+          </span>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <span className="text-xs text-muted-foreground">

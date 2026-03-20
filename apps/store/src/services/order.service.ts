@@ -1,14 +1,15 @@
 import {
-  clients,
   type CreateOrder,
   type CreateOrderItem,
+  clients,
   type OrderFilters,
-  type Unit,
   orderItems,
   orderMenuItems,
   orders,
   products,
+  productVariants,
   stockDeduction,
+  type Unit,
   type UpdateOrder,
   type UpdateOrderItems,
   type UpdateOrderStatus,
@@ -26,7 +27,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { db, type Database } from "../db/index.js";
+import { type Database, db } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
 
@@ -61,6 +62,7 @@ async function restoreStockForItems(
   tenantId: string,
   items: {
     productId: string;
+    variantId?: string | null;
     quantity: string | number;
     unit?: Unit;
     isMenu: boolean;
@@ -86,6 +88,21 @@ async function restoreStockForItems(
             ),
           );
       }
+    } else if (item.variantId) {
+      const unit = item.unit ?? "piece";
+      await tx
+        .update(productVariants)
+        .set({
+          stock: sql`${productVariants.stock} + ${stockDeduction(item.quantity, unit)}`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(productVariants.id, item.variantId),
+            eq(productVariants.tenantId, tenantId),
+            isNotNull(productVariants.stock),
+          ),
+        );
     } else {
       const unit = item.unit ?? "piece";
       await tx
@@ -128,10 +145,12 @@ async function insertItemsAndDeductStock(
     return {
       productId: item.productId,
       productName: item.productName,
+      variantId: item.variantId ?? null,
+      variantName: item.variantName ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
-      unit: item.unit ?? "piece" as const,
+      unit: item.unit ?? ("piece" as const),
       isMenu: false,
       notes: item.notes ?? null,
     };
@@ -193,41 +212,78 @@ async function insertItemsAndDeductStock(
 
     for (const item of regularItemsToInsert) {
       const itemQty = stockDeduction(item.quantity, item.unit);
-      const result = await tx
-        .update(products)
-        .set({
-          stock: sql`${products.stock} - ${itemQty}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-            eq(products.unitType, item.unit),
-            gte(products.stock, String(itemQty)),
-          ),
-        )
-        .returning({ id: products.id });
 
-      // If stock is tracked and units match but insufficient, the update matched 0 rows
-      if (result.length === 0) {
-        const hasStock = await tx
-          .select({ stock: products.stock, unitType: products.unitType })
-          .from(products)
+      if (item.variantId) {
+        // Deduct from variant stock
+        const result = await tx
+          .update(productVariants)
+          .set({
+            stock: sql`${productVariants.stock} - ${itemQty}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(productVariants.id, item.variantId),
+              eq(productVariants.tenantId, tenantId),
+              isNotNull(productVariants.stock),
+              gte(productVariants.stock, String(itemQty)),
+            ),
+          )
+          .returning({ id: productVariants.id });
+
+        if (result.length === 0) {
+          const hasStock = await tx
+            .select({ stock: productVariants.stock })
+            .from(productVariants)
+            .where(
+              and(
+                eq(productVariants.id, item.variantId),
+                eq(productVariants.tenantId, tenantId),
+                isNotNull(productVariants.stock),
+              ),
+            );
+          if (hasStock.length > 0) {
+            throw new Error(
+              `Stock insuffisant pour "${item.productName}${item.variantName ? ` — ${item.variantName}` : ""}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+            );
+          }
+        }
+      } else {
+        // Deduct from product stock (existing logic)
+        const result = await tx
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${itemQty}`,
+            updatedAt: new Date(),
+          })
           .where(
             and(
               eq(products.id, item.productId),
               eq(products.tenantId, tenantId),
               isNotNull(products.stock),
               eq(products.unitType, item.unit),
+              gte(products.stock, String(itemQty)),
             ),
-          );
-        // Only throw if units match but stock is insufficient (unit mismatch → skip silently)
-        if (hasStock.length > 0) {
-          throw new Error(
-            `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
-          );
+          )
+          .returning({ id: products.id });
+
+        if (result.length === 0) {
+          const hasStock = await tx
+            .select({ stock: products.stock, unitType: products.unitType })
+            .from(products)
+            .where(
+              and(
+                eq(products.id, item.productId),
+                eq(products.tenantId, tenantId),
+                isNotNull(products.stock),
+                eq(products.unitType, item.unit),
+              ),
+            );
+          if (hasStock.length > 0) {
+            throw new Error(
+              `Stock insuffisant pour "${item.productName}" (stock: ${hasStock[0].stock}, demandé: ${item.quantity})`,
+            );
+          }
         }
       }
     }
@@ -570,8 +626,7 @@ export async function updateOrder(
   if (data.clientNote !== undefined) updateData.clientNote = data.clientNote;
   if (data.internalNote !== undefined)
     updateData.internalNote = data.internalNote;
-  if (data.createdById !== undefined)
-    updateData.createdById = data.createdById;
+  if (data.createdById !== undefined) updateData.createdById = data.createdById;
   if (data.assignedToId !== undefined)
     updateData.assignedToId = data.assignedToId;
   if (data.posId !== undefined) updateData.posId = data.posId;
@@ -638,16 +693,29 @@ export async function updateOrder(
         .set(updateData)
         .where(and(eq(orders.id, id), eq(orders.tenantId, tenantId)));
     });
-  } else if (data.discountType !== undefined || data.discountValue !== undefined) {
+  } else if (
+    data.discountType !== undefined ||
+    data.discountValue !== undefined
+  ) {
     // Discount changed without item changes — recalculate totals from existing subtotal
     const existingOrder = await db.query.orders.findFirst({
       where: and(eq(orders.id, id), eq(orders.tenantId, tenantId)),
     });
     if (existingOrder) {
       const subtotal = parseFloat(existingOrder.subtotal);
-      const discType = data.discountType !== undefined ? data.discountType : existingOrder.discountType;
-      const discValue = data.discountValue !== undefined ? data.discountValue : existingOrder.discountValue;
-      const { discountAmount, taxTotal, total } = calculateTotals(subtotal, discType, discValue);
+      const discType =
+        data.discountType !== undefined
+          ? data.discountType
+          : existingOrder.discountType;
+      const discValue =
+        data.discountValue !== undefined
+          ? data.discountValue
+          : existingOrder.discountValue;
+      const { discountAmount, taxTotal, total } = calculateTotals(
+        subtotal,
+        discType,
+        discValue,
+      );
       updateData.discountAmount = discountAmount.toFixed(2);
       updateData.taxTotal = taxTotal.toFixed(2);
       updateData.total = total.toFixed(2);
@@ -696,10 +764,12 @@ export async function updateOrderItems(
     return {
       productId: item.productId,
       productName: item.productName,
+      variantId: item.variantId ?? null,
+      variantName: item.variantName ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       totalPrice: totalPrice.toFixed(2),
-      unit: item.unit ?? "piece" as const,
+      unit: item.unit ?? ("piece" as const),
       isMenu: false,
       notes: item.notes ?? null,
     };
@@ -758,20 +828,36 @@ export async function updateOrderItems(
     );
 
     for (const item of regularItemsToInsert) {
-      await db
-        .update(products)
-        .set({
-          stock: sql`${products.stock} - ${stockDeduction(item.quantity, item.unit)}`,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(products.id, item.productId),
-            eq(products.tenantId, tenantId),
-            isNotNull(products.stock),
-            eq(products.unitType, item.unit),
-          ),
-        );
+      if (item.variantId) {
+        await db
+          .update(productVariants)
+          .set({
+            stock: sql`${productVariants.stock} - ${stockDeduction(item.quantity, item.unit)}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(productVariants.id, item.variantId),
+              eq(productVariants.tenantId, tenantId),
+              isNotNull(productVariants.stock),
+            ),
+          );
+      } else {
+        await db
+          .update(products)
+          .set({
+            stock: sql`${products.stock} - ${stockDeduction(item.quantity, item.unit)}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(products.id, item.productId),
+              eq(products.tenantId, tenantId),
+              isNotNull(products.stock),
+              eq(products.unitType, item.unit),
+            ),
+          );
+      }
     }
   }
 
@@ -849,8 +935,7 @@ export async function updateOrderStatus(
     updateData.paymentStatus = data.paymentStatus;
   if (data.preparationStatus !== undefined)
     updateData.preparationStatus = data.preparationStatus;
-  if (data.paidAmount !== undefined)
-    updateData.paidAmount = data.paidAmount;
+  if (data.paidAmount !== undefined) updateData.paidAmount = data.paidAmount;
 
   await db
     .update(orders)
@@ -883,9 +968,14 @@ export async function toggleItemPrepared(
   const allItems = await db.query.orderItems.findMany({
     where: eq(orderItems.orderId, orderId),
   });
-  const allItemsPrepared = allItems.length > 0 && allItems.every((i) => i.isPrepared);
+  const allItemsPrepared =
+    allItems.length > 0 && allItems.every((i) => i.isPrepared);
 
-  if (allItemsPrepared && order.preparationStatus !== "ready" && order.preparationStatus !== "picked_up") {
+  if (
+    allItemsPrepared &&
+    order.preparationStatus !== "ready" &&
+    order.preparationStatus !== "picked_up"
+  ) {
     await db
       .update(orders)
       .set({ preparationStatus: "ready", updatedAt: new Date() })
@@ -940,9 +1030,14 @@ export async function toggleMenuItemPrepared(
   const allItems = await db.query.orderItems.findMany({
     where: eq(orderItems.orderId, orderId),
   });
-  const allItemsPrepared = allItems.length > 0 && allItems.every((i) => i.isPrepared);
+  const allItemsPrepared =
+    allItems.length > 0 && allItems.every((i) => i.isPrepared);
 
-  if (allItemsPrepared && order.preparationStatus !== "ready" && order.preparationStatus !== "picked_up") {
+  if (
+    allItemsPrepared &&
+    order.preparationStatus !== "ready" &&
+    order.preparationStatus !== "picked_up"
+  ) {
     await db
       .update(orders)
       .set({ preparationStatus: "ready", updatedAt: new Date() })
