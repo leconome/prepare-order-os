@@ -24,7 +24,7 @@ const DEFAULT_CREDENTIALS = {
   password: "admin123",
 };
 
-const IS_DEV = process.env.NODE_ENV === "development";
+const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
 
 export default function AdminLoginPage() {
   const router = useRouter();
