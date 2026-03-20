@@ -728,10 +728,12 @@ export default function TenantDetailPage() {
             <Users className="h-4 w-4" />
             Propriétaires
           </TabsTrigger>
-          <TabsTrigger value="assistant" className="gap-2">
-            <MessageCircle className="h-4 w-4" />
-            Assistant
-          </TabsTrigger>
+          {process.env.NEXT_PUBLIC_STAGE === "dev" && (
+            <TabsTrigger value="assistant" className="gap-2">
+              <MessageCircle className="h-4 w-4" />
+              Assistant
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="info" className="mt-4">
           <InformationsTab tenant={tenant} />
@@ -742,11 +744,13 @@ export default function TenantDetailPage() {
         <TabsContent value="owners" className="mt-4">
           <OwnersTab tenantId={tenantId} />
         </TabsContent>
-        <TabsContent value="assistant" className="mt-4">
-          <Card className="h-[calc(100vh-16rem)] flex flex-col overflow-hidden">
-            <ChatPanel tenantId={tenantId} />
-          </Card>
-        </TabsContent>
+        {process.env.NEXT_PUBLIC_STAGE === "dev" && (
+          <TabsContent value="assistant" className="mt-4">
+            <Card className="h-[calc(100vh-16rem)] flex flex-col overflow-hidden">
+              <ChatPanel tenantId={tenantId} />
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
