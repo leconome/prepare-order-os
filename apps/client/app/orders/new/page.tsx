@@ -598,12 +598,9 @@ export default function NewOrderPage() {
                             key={product.id}
                             type="button"
                             onClick={() => addProductToOrder(product)}
-                            disabled={isOutOfStock}
                             className={cn(
                               "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50",
                               inCart && "border-primary bg-primary/5",
-                              isOutOfStock &&
-                                "opacity-50 cursor-not-allowed hover:bg-transparent",
                             )}
                           >
                             {product.imageUrl && (
