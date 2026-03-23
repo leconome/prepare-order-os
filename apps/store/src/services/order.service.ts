@@ -191,11 +191,13 @@ async function insertItemsAndDeductStock(
         unit: "piece" as const,
         isMenu: true,
         notes: menuReq.notes ?? null,
-        menuProducts: menu.products.map((mp) => ({
-          productId: mp.product.id,
-          productName: mp.product.name,
-          quantity: mp.quantity,
-        })),
+        menuProducts: menuReq.menuProducts && menuReq.menuProducts.length > 0
+          ? menuReq.menuProducts
+          : menu.products.map((mp) => ({
+              productId: mp.product.id,
+              productName: mp.product.name,
+              quantity: mp.quantity,
+            })),
       });
     }
   }
@@ -570,6 +572,7 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       assignedToId: data.assignedToId ?? null,
       posId: data.posId ?? null,
       source: data.source ?? "comptoir",
+      paymentStatus: data.paymentStatus ?? "pending",
       subtotal: "0.00",
       taxTotal: "0.00",
       total: "0.00",
@@ -808,11 +811,13 @@ export async function updateOrderItems(
         unit: "piece" as const,
         isMenu: true,
         notes: menuReq.notes ?? null,
-        menuProducts: menu.products.map((mp) => ({
-          productId: mp.product.id,
-          productName: mp.product.name,
-          quantity: mp.quantity,
-        })),
+        menuProducts: menuReq.menuProducts && menuReq.menuProducts.length > 0
+          ? menuReq.menuProducts
+          : menu.products.map((mp) => ({
+              productId: mp.product.id,
+              productName: mp.product.name,
+              quantity: mp.quantity,
+            })),
       });
     }
   }

@@ -28,6 +28,7 @@ import {
   Sun,
   Sunset,
   Trash2,
+  Undo2,
   UserPlus,
   UserRound,
   X,
@@ -89,6 +90,13 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+type MenuProductItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+};
+
 type OrderItem = {
   productId: string;
   productName: string;
@@ -96,6 +104,8 @@ type OrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
+  menuProducts?: MenuProductItem[];
+  priceOverridden?: boolean;
   unit: Unit;
   variantId?: string;
   variantName?: string;
@@ -240,6 +250,7 @@ export default function NewOrderPage() {
       assignedToId: "",
       posId: undefined,
       source: "comptoir",
+      paymentStatus: "pending",
     },
   });
 
@@ -327,12 +338,17 @@ export default function NewOrderPage() {
     id: string;
     name: string;
     price: string | null;
-    products: { product: { price: string }; quantity: number }[];
+    products: { product: { id: string; name: string; price: string }; quantity: number }[];
   }) => {
     const existingItem = orderItems.find((item) => item.menuId === menu.id);
-    // Calculate menu price: use explicit price, or sum of product prices * quantities
-    const productsTotal = menu.products.reduce(
-      (sum, mp) => sum + parseFloat(mp.product.price) * mp.quantity,
+    const menuProducts: MenuProductItem[] = menu.products.map((mp) => ({
+      productId: mp.product.id,
+      productName: mp.product.name,
+      quantity: mp.quantity,
+      unitPrice: parseFloat(mp.product.price),
+    }));
+    const productsTotal = menuProducts.reduce(
+      (sum, mp) => sum + mp.unitPrice * mp.quantity,
       0,
     );
     const menuPrice = menu.price || productsTotal.toFixed(2);
@@ -354,6 +370,8 @@ export default function NewOrderPage() {
           unitPrice: menuPrice,
           menuId: menu.id,
           unit: "piece" as const,
+          menuProducts,
+          priceOverridden: !!menu.price,
         },
       ]);
     }
@@ -398,8 +416,48 @@ export default function NewOrderPage() {
   const updateItemPrice = (key: string, price: string) => {
     setOrderItems(
       orderItems.map((item) =>
-        getItemKey(item) === key ? { ...item, unitPrice: price } : item,
+        getItemKey(item) === key
+          ? { ...item, unitPrice: price, priceOverridden: !!item.menuId }
+          : item,
       ),
+    );
+  };
+
+  const recalcMenuPrice = (item: OrderItem): OrderItem => {
+    if (!item.menuProducts || item.priceOverridden) return item;
+    const total = item.menuProducts
+      .filter((mp) => mp.quantity > 0)
+      .reduce((sum, mp) => sum + mp.unitPrice * mp.quantity, 0);
+    return { ...item, unitPrice: total.toFixed(2) };
+  };
+
+  const updateMenuProductQty = (
+    key: string,
+    productId: string,
+    delta: number,
+  ) => {
+    setOrderItems(
+      orderItems.map((item) => {
+        if (getItemKey(item) !== key || !item.menuProducts) return item;
+        const updated = item.menuProducts.map((mp) =>
+          mp.productId === productId
+            ? { ...mp, quantity: Math.max(0, mp.quantity + delta) }
+            : mp,
+        );
+        return recalcMenuPrice({ ...item, menuProducts: updated });
+      }),
+    );
+  };
+
+  const removeMenuProduct = (key: string, productId: string) => {
+    setOrderItems(
+      orderItems.map((item) => {
+        if (getItemKey(item) !== key || !item.menuProducts) return item;
+        const updated = item.menuProducts.map((mp) =>
+          mp.productId === productId ? { ...mp, quantity: 0 } : mp,
+        );
+        return recalcMenuPrice({ ...item, menuProducts: updated });
+      }),
     );
   };
 
@@ -435,7 +493,24 @@ export default function NewOrderPage() {
     }
 
     const orderData: CreateOrder = {
-      items: orderItems,
+      items: orderItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unit: item.unit,
+        notes: item.notes,
+        menuId: item.menuId,
+        variantId: item.variantId,
+        variantName: item.variantName,
+        menuProducts: item.menuProducts
+          ?.filter((mp) => mp.quantity > 0)
+          .map(({ productId, productName, quantity }) => ({
+            productId,
+            productName,
+            quantity,
+          })),
+      })),
       clientId: selectedClient?.id || undefined,
       pickupDate: data.pickupDate,
       pickupTimeStart: data.pickupTimeStart || undefined,
@@ -446,6 +521,7 @@ export default function NewOrderPage() {
       assignedToId: data.assignedToId || undefined,
       posId: data.posId || undefined,
       source: data.source || "comptoir",
+      paymentStatus: data.paymentStatus || "pending",
       discountType:
         discountValue && parseFloat(discountValue) > 0 ? discountType : null,
       discountValue:
@@ -743,6 +819,79 @@ export default function NewOrderPage() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
+                            {item.menuId && item.menuProducts && item.menuProducts.length > 0 && (
+                              <div className="ml-2 space-y-1 border-l-2 border-muted pl-3">
+                                {item.menuProducts.map((mp) => (
+                                  <div
+                                    key={mp.productId}
+                                    className={cn(
+                                      "flex items-center justify-between text-sm",
+                                      mp.quantity === 0 && "opacity-40",
+                                    )}
+                                  >
+                                    <span className={cn(
+                                      "truncate flex-1",
+                                      mp.quantity === 0 ? "line-through text-muted-foreground" : "text-muted-foreground",
+                                    )}>
+                                      {mp.productName}
+                                    </span>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        disabled={mp.quantity === 0}
+                                        onClick={() =>
+                                          updateMenuProductQty(key, mp.productId, -1)
+                                        }
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="w-5 text-center text-xs font-medium">
+                                        {mp.quantity}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() =>
+                                          updateMenuProductQty(key, mp.productId, 1)
+                                        }
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                      {mp.quantity > 0 ? (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-destructive hover:text-destructive"
+                                          onClick={() =>
+                                            removeMenuProduct(key, mp.productId)
+                                          }
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6"
+                                          onClick={() =>
+                                            updateMenuProductQty(key, mp.productId, 1)
+                                          }
+                                        >
+                                          <Undo2 className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-1.5">
                                 <Button
@@ -1389,6 +1538,32 @@ export default function NewOrderPage() {
                               {...field}
                             />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="paymentStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Paiement</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="pending">En attente</SelectItem>
+                              <SelectItem value="paid">Payé</SelectItem>
+                              <SelectItem value="partially_paid">Partiellement payé</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
