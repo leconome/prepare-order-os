@@ -45,10 +45,10 @@ function calculateTotals(
       discountAmount = Math.min(discountAmount, subtotal);
     }
   }
-  const subtotalAfterDiscount = subtotal - discountAmount;
+  // Prices are TTC (tax included) — extract VAT instead of adding it on top
+  const total = subtotal - discountAmount;
   const taxRate = 0.2;
-  const taxTotal = subtotalAfterDiscount * taxRate;
-  const total = subtotalAfterDiscount + taxTotal;
+  const taxTotal = total - total / (1 + taxRate);
   return { discountAmount, taxTotal, total };
 }
 
