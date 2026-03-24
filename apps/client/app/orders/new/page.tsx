@@ -391,7 +391,8 @@ export default function NewOrderPage() {
           if (getItemKey(item) !== key) return item;
           const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
           const newQty = Math.round((item.quantity + step) * 100) / 100;
-          return { ...item, quantity: Math.max(0, newQty) };
+          const minQty = item.menuId ? 1 : 0;
+          return { ...item, quantity: Math.max(minQty, newQty) };
         })
         .filter((item) => item.quantity > 0),
     );
