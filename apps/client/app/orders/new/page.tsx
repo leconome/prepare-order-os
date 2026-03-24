@@ -164,6 +164,7 @@ export default function NewOrderPage() {
     "percentage",
   );
   const [discountValue, setDiscountValue] = useState("");
+  const [paidAmountValue, setPaidAmountValue] = useState("");
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products", searchQuery],
@@ -253,6 +254,8 @@ export default function NewOrderPage() {
       paymentStatus: "pending",
     },
   });
+
+  const watchedPaymentStatus = form.watch("paymentStatus");
 
   const createOrderMutation = useMutation({
     mutationFn: (data: CreateOrder) => createOrder(data),
@@ -523,6 +526,7 @@ export default function NewOrderPage() {
       posId: data.posId || undefined,
       source: data.source || "comptoir",
       paymentStatus: data.paymentStatus || "pending",
+      paidAmount: data.paymentStatus === "partially_paid" && paidAmountValue ? paidAmountValue : undefined,
       discountType:
         discountValue && parseFloat(discountValue) > 0 ? discountType : null,
       discountValue:
@@ -1566,6 +1570,19 @@ export default function NewOrderPage() {
                         </FormItem>
                       )}
                     />
+                    {watchedPaymentStatus === "partially_paid" && (
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium">Montant encaissé (€)</label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          className="text-sm"
+                          value={paidAmountValue}
+                          onChange={(e) => setPaidAmountValue(e.target.value)}
+                        />
+                      </div>
+                    )}
                   </form>
                 </Form>
               </CardContent>

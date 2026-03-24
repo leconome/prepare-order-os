@@ -255,6 +255,7 @@ export const createOrderSchema = z.object({
   paymentStatus: paymentStatusSchema.optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().optional(),
+  paidAmount: z.string().nullable().optional(),
   items: z.array(createOrderItemSchema).min(1),
 });
 
