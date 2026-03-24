@@ -216,6 +216,7 @@ export default function NewOrderPage() {
       name: "",
       phone: "",
       email: "",
+      type: "particulier" as "particulier" | "professionnel",
     },
   });
 
@@ -1187,6 +1188,26 @@ export default function NewOrderPage() {
                             {clientForm.formState.errors.name.message}
                           </p>
                         )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium">Type</label>
+                        <Select
+                          value={clientForm.watch("type")}
+                          onValueChange={(v) =>
+                            clientForm.setValue(
+                              "type",
+                              v as "particulier" | "professionnel",
+                            )
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="particulier">Particulier</SelectItem>
+                            <SelectItem value="professionnel">Professionnel</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <label className="text-xs font-medium">Téléphone</label>
