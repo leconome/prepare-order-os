@@ -601,6 +601,7 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
       discountAmount: discountAmount.toFixed(2),
       taxTotal: taxTotal.toFixed(2),
       total: total.toFixed(2),
+      paidAmount: data.paidAmount ?? "0.00",
     })
     .where(eq(orders.id, order.id));
 
