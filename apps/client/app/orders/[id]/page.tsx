@@ -132,6 +132,13 @@ const editOrderSchema = updateOrderSchema.omit({
   items: true,
 });
 
+type MenuProductItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+};
+
 type EditOrderItem = {
   productId: string;
   productName: string;
@@ -139,6 +146,8 @@ type EditOrderItem = {
   unitPrice: string;
   notes?: string;
   menuId?: string;
+  menuProducts?: MenuProductItem[];
+  priceOverridden?: boolean;
   unit: Unit;
   variantId?: string;
   variantName?: string;
@@ -434,11 +443,17 @@ export default function OrderDetailPage() {
     id: string;
     name: string;
     price: string | null;
-    products: { product: { price: string }; quantity: number }[];
+    products: { product: { id: string; name: string; price: string }; quantity: number }[];
   }) => {
     const existing = editableItems.find((item) => item.menuId === menu.id);
-    const productsTotal = menu.products.reduce(
-      (sum, mp) => sum + parseFloat(mp.product.price) * mp.quantity,
+    const menuProducts: MenuProductItem[] = menu.products.map((mp) => ({
+      productId: mp.product.id,
+      productName: mp.product.name,
+      quantity: mp.quantity,
+      unitPrice: parseFloat(mp.product.price),
+    }));
+    const productsTotal = menuProducts.reduce(
+      (sum, mp) => sum + mp.unitPrice * mp.quantity,
       0,
     );
     const menuPrice = menu.price || productsTotal.toFixed(2);
@@ -460,6 +475,8 @@ export default function OrderDetailPage() {
           unitPrice: menuPrice,
           menuId: menu.id,
           unit: "piece",
+          menuProducts,
+          priceOverridden: !!menu.price,
         },
       ]);
     }
@@ -472,7 +489,8 @@ export default function OrderDetailPage() {
           if (getItemKey(item) !== key) return item;
           const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
           const newQty = roundQty(item.quantity + step, item.unit);
-          return { ...item, quantity: Math.max(0, newQty) };
+          const minQty = item.menuId ? 1 : 0;
+          return { ...item, quantity: Math.max(minQty, newQty) };
         })
         .filter((item) => item.quantity > 0),
     );
@@ -499,8 +517,48 @@ export default function OrderDetailPage() {
   const updateItemPrice = (key: string, price: string) => {
     setEditableItems(
       editableItems.map((item) =>
-        getItemKey(item) === key ? { ...item, unitPrice: price } : item,
+        getItemKey(item) === key
+          ? { ...item, unitPrice: price, priceOverridden: !!item.menuId }
+          : item,
       ),
+    );
+  };
+
+  const recalcMenuPrice = (item: EditOrderItem): EditOrderItem => {
+    if (!item.menuProducts || item.priceOverridden) return item;
+    const total = item.menuProducts
+      .filter((mp) => mp.quantity > 0)
+      .reduce((sum, mp) => sum + mp.unitPrice * mp.quantity, 0);
+    return { ...item, unitPrice: total.toFixed(2) };
+  };
+
+  const updateMenuProductQty = (
+    key: string,
+    productId: string,
+    delta: number,
+  ) => {
+    setEditableItems(
+      editableItems.map((item) => {
+        if (getItemKey(item) !== key || !item.menuProducts) return item;
+        const updated = item.menuProducts.map((mp) =>
+          mp.productId === productId
+            ? { ...mp, quantity: Math.max(0, mp.quantity + delta) }
+            : mp,
+        );
+        return recalcMenuPrice({ ...item, menuProducts: updated });
+      }),
+    );
+  };
+
+  const removeMenuProduct = (key: string, productId: string) => {
+    setEditableItems(
+      editableItems.map((item) => {
+        if (getItemKey(item) !== key || !item.menuProducts) return item;
+        const updated = item.menuProducts.map((mp) =>
+          mp.productId === productId ? { ...mp, quantity: 0 } : mp,
+        );
+        return recalcMenuPrice({ ...item, menuProducts: updated });
+      }),
     );
   };
 
@@ -549,6 +607,15 @@ export default function OrderDetailPage() {
         if (existing) {
           existing.quantity += qty;
         } else {
+          const menuProductItems: MenuProductItem[] = (item.menuItems ?? []).map((mi) => {
+            const prod = productsList.find((p: any) => p.id === mi.productId);
+            return {
+              productId: mi.productId,
+              productName: mi.productName,
+              quantity: mi.quantity,
+              unitPrice: prod ? parseFloat(prod.price) : 0,
+            };
+          });
           menuGroups.set(item.productId, {
             productId: item.productId,
             productName: item.productName,
@@ -557,6 +624,8 @@ export default function OrderDetailPage() {
             notes: item.notes ?? undefined,
             menuId: item.productId,
             unit: unitType,
+            menuProducts: menuProductItems.length > 0 ? menuProductItems : undefined,
+            priceOverridden: true,
           });
         }
       } else {
@@ -739,7 +808,24 @@ export default function OrderDetailPage() {
   const onSubmit = form.handleSubmit((data) => {
     const payload: UpdateOrder = { ...data };
     if (isEditingItems) {
-      payload.items = editableItems;
+      payload.items = editableItems.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unit: item.unit,
+        notes: item.notes,
+        menuId: item.menuId,
+        variantId: item.variantId,
+        variantName: item.variantName,
+        menuProducts: item.menuProducts
+          ?.filter((mp) => mp.quantity > 0)
+          .map(({ productId, productName, quantity }) => ({
+            productId,
+            productName,
+            quantity,
+          })),
+      }));
       payload.discountType =
         editDiscountValue && parseFloat(editDiscountValue) > 0
           ? editDiscountType
@@ -848,6 +934,25 @@ export default function OrderDetailPage() {
             </Link>
           </Button>
           <div className="flex items-center gap-2">
+            <Select
+              value={order.paymentStatus}
+              onValueChange={(value) =>
+                updateStatusMutation.mutate({ paymentStatus: value })
+              }
+              disabled={updateStatusMutation.isPending}
+            >
+              <SelectTrigger className="w-[160px] h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="paid">Payé</SelectItem>
+                <SelectItem value="partially_paid">
+                  Partiellement payé
+                </SelectItem>
+                <SelectItem value="refunded">Remboursé</SelectItem>
+              </SelectContent>
+            </Select>
             {isModified ? (
               <>
                 <Button
@@ -945,25 +1050,6 @@ export default function OrderDetailPage() {
                     </SelectItem>
                     <SelectItem value="ready">Prêt</SelectItem>
                     <SelectItem value="picked_up">Récupéré</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={order.paymentStatus}
-                  onValueChange={(value) =>
-                    updateStatusMutation.mutate({ paymentStatus: value })
-                  }
-                  disabled={updateStatusMutation.isPending}
-                >
-                  <SelectTrigger className="w-[160px] h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="paid">Payé</SelectItem>
-                    <SelectItem value="partially_paid">
-                      Partiellement payé
-                    </SelectItem>
-                    <SelectItem value="refunded">Remboursé</SelectItem>
                   </SelectContent>
                 </Select>
                 {updateStatusMutation.isPending && (
@@ -1420,6 +1506,79 @@ export default function OrderDetailPage() {
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
+                                  {item.menuId && item.menuProducts && item.menuProducts.length > 0 && (
+                                    <div className="ml-2 space-y-1 border-l-2 border-muted pl-3">
+                                      {item.menuProducts.map((mp) => (
+                                        <div
+                                          key={mp.productId}
+                                          className={cn(
+                                            "flex items-center justify-between text-sm",
+                                            mp.quantity === 0 && "opacity-40",
+                                          )}
+                                        >
+                                          <span className={cn(
+                                            "truncate flex-1",
+                                            mp.quantity === 0 ? "line-through text-muted-foreground" : "text-muted-foreground",
+                                          )}>
+                                            {mp.productName}
+                                          </span>
+                                          <div className="flex items-center gap-0.5 shrink-0">
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6"
+                                              disabled={mp.quantity === 0}
+                                              onClick={() =>
+                                                updateMenuProductQty(key, mp.productId, -1)
+                                              }
+                                            >
+                                              <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <span className="w-5 text-center text-xs font-medium">
+                                              {mp.quantity}
+                                            </span>
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6"
+                                              onClick={() =>
+                                                updateMenuProductQty(key, mp.productId, 1)
+                                              }
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                            {mp.quantity > 0 ? (
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                                onClick={() =>
+                                                  removeMenuProduct(key, mp.productId)
+                                                }
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </Button>
+                                            ) : (
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6"
+                                                onClick={() =>
+                                                  updateMenuProductQty(key, mp.productId, 1)
+                                                }
+                                              >
+                                                <Undo2 className="h-3 w-3" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   <div className="flex items-center justify-between gap-2">
                                     <div className="flex items-center gap-1.5">
                                       <Button

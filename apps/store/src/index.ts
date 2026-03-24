@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import { tenantMiddleware } from "./middleware/tenant.js";
 import adminRoutes from "./routes/admin.js";
 import authRoutes from "./routes/auth.js";
+import chatRoutes from "./routes/chat.js";
 import categories from "./routes/categories.js";
 import clientsRoutes from "./routes/clients.js";
 import devRoutes from "./routes/dev.js";
@@ -65,6 +66,9 @@ app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
+
+// Chat routes — no tenant middleware (tenantId from body or subdomain)
+app.route("/api/chat", chatRoutes);
 
 // Dev routes — only in development (no tenant middleware, no auth)
 if (process.env.NODE_ENV !== "production") {

@@ -194,8 +194,11 @@ export function MenuForm({ initialData }: MenuFormProps) {
     );
   };
 
+  const normalize = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
   const filteredProducts = productsData?.data.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    normalize(p.name).includes(normalize(searchQuery)),
   );
 
   return (
