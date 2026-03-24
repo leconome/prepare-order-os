@@ -90,7 +90,7 @@ export const menuProductEntrySchema = z.object({
 export const createMenuSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  price: z.string().optional(),
+  price: z.string().transform((v) => v === "" ? null : v).nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
   products: z.array(menuProductEntrySchema).optional(),
@@ -99,7 +99,7 @@ export const createMenuSchema = z.object({
 export const updateMenuSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).nullable().optional(),
-  price: z.string().nullable().optional(),
+  price: z.string().transform((v) => v === "" ? null : v).nullable().optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
   products: z.array(menuProductEntrySchema).optional(),
