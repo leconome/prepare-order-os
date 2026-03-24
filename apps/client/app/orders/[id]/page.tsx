@@ -489,7 +489,8 @@ export default function OrderDetailPage() {
           if (getItemKey(item) !== key) return item;
           const step = UNIT_CONFIG[item.unit].step * Math.sign(delta);
           const newQty = roundQty(item.quantity + step, item.unit);
-          return { ...item, quantity: Math.max(0, newQty) };
+          const minQty = item.menuId ? 1 : 0;
+          return { ...item, quantity: Math.max(minQty, newQty) };
         })
         .filter((item) => item.quantity > 0),
     );
@@ -933,6 +934,25 @@ export default function OrderDetailPage() {
             </Link>
           </Button>
           <div className="flex items-center gap-2">
+            <Select
+              value={order.paymentStatus}
+              onValueChange={(value) =>
+                updateStatusMutation.mutate({ paymentStatus: value })
+              }
+              disabled={updateStatusMutation.isPending}
+            >
+              <SelectTrigger className="w-[160px] h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="paid">Payé</SelectItem>
+                <SelectItem value="partially_paid">
+                  Partiellement payé
+                </SelectItem>
+                <SelectItem value="refunded">Remboursé</SelectItem>
+              </SelectContent>
+            </Select>
             {isModified ? (
               <>
                 <Button
@@ -1030,25 +1050,6 @@ export default function OrderDetailPage() {
                     </SelectItem>
                     <SelectItem value="ready">Prêt</SelectItem>
                     <SelectItem value="picked_up">Récupéré</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={order.paymentStatus}
-                  onValueChange={(value) =>
-                    updateStatusMutation.mutate({ paymentStatus: value })
-                  }
-                  disabled={updateStatusMutation.isPending}
-                >
-                  <SelectTrigger className="w-[160px] h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">En attente</SelectItem>
-                    <SelectItem value="paid">Payé</SelectItem>
-                    <SelectItem value="partially_paid">
-                      Partiellement payé
-                    </SelectItem>
-                    <SelectItem value="refunded">Remboursé</SelectItem>
                   </SelectContent>
                 </Select>
                 {updateStatusMutation.isPending && (
