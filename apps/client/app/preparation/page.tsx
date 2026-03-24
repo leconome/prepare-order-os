@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchOrders, fetchPointsOfSale } from "@/lib/api";
+import { fetchOrders, fetchPointsOfSale, fetchTenantSettings } from "@/lib/api";
 import { OrderRow } from "./components/OrderRow";
 import { type PreparationStatus, TABS } from "./constants";
 
@@ -44,6 +44,13 @@ function PreparationPageContent() {
     queryFn: () => fetchPointsOfSale({ limit: 100 }),
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ["tenant-settings"],
+    queryFn: fetchTenantSettings,
+  });
+
+  const filterDays = settings?.preparationFilterDays ?? 0;
+
   const trimmedSearch = search.trim();
   const posId = posFilter !== "all" ? posFilter : undefined;
 
@@ -62,13 +69,18 @@ function PreparationPageContent() {
   const allOrders = data?.data ?? [];
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+  const rangeStart = new Date(todayStart);
+  rangeStart.setDate(rangeStart.getDate() - filterDays);
+  const rangeEnd = new Date(todayStart);
+  rangeEnd.setDate(rangeEnd.getDate() + filterDays + 1); // +1 to include the full last day
 
-  // Show future orders + past orders unless already picked up
+  // Filter orders by pickup date within the configured range
   const orders = allOrders.filter((o) => {
     const pickup = o.pickupDate ? new Date(o.pickupDate) : null;
     if (!pickup) return o.preparationStatus !== "picked_up";
-    if (pickup >= todayStart) return true;
-    return o.preparationStatus !== "picked_up";
+    // Show orders within the ± filterDays range, or past non-picked-up orders
+    if (pickup >= rangeStart && pickup < rangeEnd) return true;
+    return pickup < todayStart && o.preparationStatus !== "picked_up";
   });
 
   const tabData = TABS.map((tab) => ({

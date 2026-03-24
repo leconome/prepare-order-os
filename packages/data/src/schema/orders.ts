@@ -217,6 +217,12 @@ export const preparationStatusSchema = z.enum([
 ]);
 
 // Custom schemas for API
+export const menuProductItemSchema = z.object({
+  productId: z.string().uuid(),
+  productName: z.string(),
+  quantity: z.number().positive(),
+});
+
 export const createOrderItemSchema = z.object({
   productId: z.string().uuid(),
   productName: z.string(),
@@ -227,6 +233,7 @@ export const createOrderItemSchema = z.object({
   unit: unitTypeSchema.default("piece"),
   notes: z.string().optional(),
   menuId: z.string().uuid().optional(),
+  menuProducts: z.array(menuProductItemSchema).optional(),
 });
 
 export const orderSourceSchema = z.enum(["comptoir", "telephone", "site_web"]);
@@ -245,6 +252,7 @@ export const createOrderSchema = z.object({
   assignedToId: z.string().optional(),
   posId: z.string().uuid().nullable().optional(),
   source: orderSourceSchema.optional(),
+  paymentStatus: paymentStatusSchema.optional(),
   discountType: discountTypeSchema.nullable().optional(),
   discountValue: z.string().optional(),
   items: z.array(createOrderItemSchema).min(1),
