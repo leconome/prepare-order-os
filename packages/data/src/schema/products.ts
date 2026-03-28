@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
   pgEnum,
+  json,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -28,6 +29,8 @@ export const products = pgTable(
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     categoryId: uuid("category_id").references(() => categories.id),
     imageUrl: text("image_url"),
+    galleryUrls: json("gallery_urls").$type<string[]>().default([]),
+    videoUrl: text("video_url"),
     stock: decimal("stock", { precision: 10, scale: 3 }),
     unitType: unitTypeEnum("unit_type").notNull().default("piece"),
     defaultQty: decimal("default_qty", { precision: 10, scale: 3 }),
@@ -75,6 +78,8 @@ export const createProductSchema = z.object({
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
+  galleryUrls: z.array(z.string().url()).optional(),
+  videoUrl: z.string().url().nullish().or(z.literal("")),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.default("piece"),
   defaultQty: z.number().positive().nullable().optional(),
@@ -92,6 +97,8 @@ export const updateProductSchema = z.object({
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
+  galleryUrls: z.array(z.string().url()).nullable().optional(),
+  videoUrl: z.string().url().nullish().or(z.literal("")),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.optional(),
   defaultQty: z.number().positive().nullable().optional(),

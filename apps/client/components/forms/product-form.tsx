@@ -12,7 +12,9 @@ import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { GalleryUpload } from "@/components/gallery-upload";
 import { ImageUpload } from "@/components/image-upload";
+import { VideoUpload } from "@/components/video-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -94,6 +96,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
+      galleryUrls: initialData?.galleryUrls ?? [],
+      videoUrl: initialData?.videoUrl ?? "",
       stock:
         initialData?.stock != null ? parseQty(initialData.stock) : undefined,
       unitType: initialData?.unitType ?? "piece",
@@ -115,6 +119,8 @@ export function ProductForm({ initialData }: ProductFormProps) {
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
+        galleryUrls: initialData.galleryUrls ?? [],
+        videoUrl: initialData.videoUrl ?? "",
         stock:
           initialData.stock != null ? parseQty(initialData.stock) : undefined,
         unitType: initialData.unitType ?? "piece",
@@ -528,9 +534,45 @@ export function ProductForm({ initialData }: ProductFormProps) {
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Image du produit (optionnel)</FormLabel>
+                  <FormLabel>Image principale (optionnel)</FormLabel>
                   <FormControl>
                     <ImageUpload
+                      value={field.value || null}
+                      onChange={(url) => field.onChange(url || "")}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="galleryUrls"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Galerie photos (optionnel)</FormLabel>
+                  <FormControl>
+                    <GalleryUpload
+                      value={field.value ?? []}
+                      onChange={field.onChange}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="videoUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vidéo du produit (optionnel)</FormLabel>
+                  <FormControl>
+                    <VideoUpload
                       value={field.value || null}
                       onChange={(url) => field.onChange(url || "")}
                       disabled={isPending}

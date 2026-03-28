@@ -22,19 +22,11 @@ export const authMiddleware: MiddlewareHandler = async (
   c: Context,
   next: Next,
 ) => {
-  const cookieHeader = c.req.header("cookie");
-  console.log("[auth] Request:", c.req.method, c.req.path);
-  console.log("[auth] Origin:", c.req.header("origin") || "none");
-  console.log("[auth] Cookie header:", cookieHeader ? `${cookieHeader.slice(0, 150)}` : "NONE");
-
   const session = await auth.api.getSession({
     headers: c.req.raw.headers,
   });
 
-  console.log("[auth] Session result:", session ? { userId: session.user?.id, sessionId: session.session?.id } : "NULL");
-
   if (!session) {
-    console.log("[auth] REJECTED - no valid session found");
     return c.json({ error: "Unauthorized" }, 401);
   }
 
