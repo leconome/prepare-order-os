@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PrepareOS",
   description: "Géstion de commande",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({
