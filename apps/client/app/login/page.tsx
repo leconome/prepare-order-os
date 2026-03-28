@@ -28,10 +28,11 @@ import { useAuth } from "@/lib/auth";
 
 const IS_DEV = process.env.NEXT_PUBLIC_STAGE === "dev";
 
-const DEFAULT_OWNER_CREDENTIALS = {
-  email: "owner@owner.com",
-  password: "owner123",
-};
+const DEFAULT_OWNER_PASSWORD = "owner123";
+
+function getDefaultOwnerEmail(tenantSlug?: string) {
+  return tenantSlug ? `owner@${tenantSlug}.com` : "owner@owner.com";
+}
 
 type LoginMode = "staff" | "admin";
 
@@ -221,9 +222,11 @@ function AdminLoginForm() {
       ? window.location.hostname.split(".")[0]
       : undefined;
 
+  const defaultOwnerEmail = getDefaultOwnerEmail(tenantSlug);
+
   const { data: userCheck, isLoading: checkingUser } = useQuery({
-    queryKey: ["devUserCheck", DEFAULT_OWNER_CREDENTIALS.email, tenantSlug],
-    queryFn: () => checkUserExists(DEFAULT_OWNER_CREDENTIALS.email, tenantSlug),
+    queryKey: ["devUserCheck", defaultOwnerEmail, tenantSlug],
+    queryFn: () => checkUserExists(defaultOwnerEmail, tenantSlug),
     enabled: IS_DEV,
   });
 
@@ -240,8 +243,8 @@ function AdminLoginForm() {
   const createDevUserMutation = useMutation({
     mutationFn: () =>
       signUpDevUser({
-        email: DEFAULT_OWNER_CREDENTIALS.email,
-        password: DEFAULT_OWNER_CREDENTIALS.password,
+        email: defaultOwnerEmail,
+        password: DEFAULT_OWNER_PASSWORD,
         name: "Owner",
         role: "owner",
         tenantSlug,
@@ -264,8 +267,8 @@ function AdminLoginForm() {
   };
 
   const fillDefaultCredentials = () => {
-    setEmail(DEFAULT_OWNER_CREDENTIALS.email);
-    setPassword(DEFAULT_OWNER_CREDENTIALS.password);
+    setEmail(defaultOwnerEmail);
+    setPassword(DEFAULT_OWNER_PASSWORD);
   };
 
   const userExists = userCheck?.exists ?? null;
@@ -297,13 +300,13 @@ function AdminLoginForm() {
             <p>
               <span className="text-muted-foreground">Email:</span>{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                {DEFAULT_OWNER_CREDENTIALS.email}
+                {defaultOwnerEmail}
               </code>
             </p>
             <p>
               <span className="text-muted-foreground">Mot de passe:</span>{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                {DEFAULT_OWNER_CREDENTIALS.password}
+                {DEFAULT_OWNER_PASSWORD}
               </code>
             </p>
           </div>
