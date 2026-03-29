@@ -9,6 +9,7 @@ import {
   timestamp,
   index,
   pgEnum,
+  json,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
@@ -24,10 +25,12 @@ export const products = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 200 }).notNull(),
+    shortDescription: varchar("short_description", { length: 160 }),
     description: text("description"),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     categoryId: uuid("category_id").references(() => categories.id),
     imageUrl: text("image_url"),
+    galleryUrls: json("gallery_urls").$type<string[]>().default([]),
     stock: decimal("stock", { precision: 10, scale: 3 }),
     unitType: unitTypeEnum("unit_type").notNull().default("piece"),
     defaultQty: decimal("default_qty", { precision: 10, scale: 3 }),
@@ -71,10 +74,12 @@ export const unitTypeSchema = z.enum(UNITS);
 // Custom schemas for API
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
-  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  shortDescription: z.string().max(160).optional(),
+  description: z.string().max(10000).optional(),
+  price: z.string().regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", ".")),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
+  galleryUrls: z.array(z.string().url()).optional(),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.default("piece"),
   defaultQty: z.number().positive().nullable().optional(),
@@ -85,13 +90,15 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).nullable().optional(),
+  shortDescription: z.string().max(160).nullable().optional(),
+  description: z.string().max(10000).nullable().optional(),
   price: z
     .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Invalid price format")
+    .regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", "."))
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
+  galleryUrls: z.array(z.string().url()).nullable().optional(),
   stock: z.number().min(0).nullable().optional(),
   unitType: unitTypeSchema.optional(),
   defaultQty: z.number().positive().nullable().optional(),
