@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { GalleryUpload } from "@/components/gallery-upload";
 import { ImageUpload } from "@/components/image-upload";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -33,7 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   type CreateProduct,
   createProduct,
@@ -291,10 +291,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Description du produit..."
-                      {...field}
-                      value={field.value || ""}
+                    <RichTextEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormMessage />

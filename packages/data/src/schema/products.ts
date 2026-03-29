@@ -75,7 +75,7 @@ export const unitTypeSchema = z.enum(UNITS);
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   shortDescription: z.string().max(160).optional(),
-  description: z.string().max(1000).optional(),
+  description: z.string().max(10000).optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
@@ -91,7 +91,7 @@ export const createProductSchema = z.object({
 export const updateProductSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   shortDescription: z.string().max(160).nullable().optional(),
-  description: z.string().max(1000).nullable().optional(),
+  description: z.string().max(10000).nullable().optional(),
   price: z
     .string()
     .regex(/^\d+(\.\d{1,2})?$/, "Invalid price format")
