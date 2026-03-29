@@ -21,7 +21,6 @@ import products from "./routes/products.js";
 import smsRoutes from "./routes/sms.js";
 import tenantsRoutes from "./routes/tenants.js";
 import uploads from "./routes/uploads.js";
-import videos from "./routes/videos.js";
 import usersRoutes from "./routes/users.js";
 import variantRoutes from "./routes/variants.js";
 
@@ -60,7 +59,6 @@ app.use(
 // Public routes — no tenant middleware needed
 app.route("/api/health", health);
 app.route("/api/images", images);
-app.route("/api/videos", videos);
 app.route("/api/docs", docsRoutes);
 
 // Auth routes — no tenant needed (Better Auth handles email/password globally)
@@ -123,7 +121,6 @@ console.log(`Server starting on port ${port}`);
 serve({
   fetch: app.fetch,
   port,
-  maxRequestBodySize: 250 * 1024 * 1024, // 250MB for video uploads
 });
 
 export default app;

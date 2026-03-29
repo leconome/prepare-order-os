@@ -21,18 +21,8 @@ const STORE_URL =
   process.env.BETTER_AUTH_URL || "http://localhost:9000";
 
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const ALLOWED_VIDEO_TYPES = new Set([
-  "video/mp4",
-  "video/webm",
-  "video/quicktime", // .mov standard
-  "video/mov",
-  "video/x-quicktime",
-  "video/x-m4v",
-  "application/octet-stream", // fallback quand le browser ne détecte pas le type
-]);
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_VIDEO_SIZE = 200 * 1024 * 1024; // 200MB
 
 function extFromMime(mime: string): string {
   const map: Record<string, string> = {
@@ -85,39 +75,6 @@ export async function uploadProductImage(
   return { key, url };
 }
 
-export async function uploadProductVideo(
-  tenantId: string,
-  file: File,
-): Promise<UploadResult> {
-  if (!ALLOWED_VIDEO_TYPES.has(file.type) && !file.type.startsWith("video/")) {
-    throw new Error(
-      `Invalid file type: ${file.type}. Allowed: MP4, WebM, MOV`,
-    );
-  }
-
-  if (file.size > MAX_VIDEO_SIZE) {
-    throw new Error(
-      `File too large: ${(file.size / 1024 / 1024).toFixed(0)}MB. Max: 200MB`,
-    );
-  }
-
-  const ext = extFromMime(file.type);
-  const key = `${tenantId}/products/videos/${randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: buffer,
-      ContentType: file.type,
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
-
-  const url = `${STORE_URL}/api/videos/${key}`;
-  return { key, url };
-}
 
 export async function getImage(key: string) {
   return s3.send(

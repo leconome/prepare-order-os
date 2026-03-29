@@ -303,29 +303,6 @@ export async function uploadProductImage(
   return response.json();
 }
 
-export async function uploadProductVideo(
-  file: File,
-): Promise<{ url: string; key: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const url = `${API_URL}/api/uploads/product-video`;
-  const response = await fetch(url, {
-    method: "POST",
-    body: formData,
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ error: "Upload failed" }));
-    throw new Error(error.error || `Upload failed: HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
-
 // ============ CATEGORIES ============
 
 export type CategoriesResponse = PaginatedResponse<Category>;

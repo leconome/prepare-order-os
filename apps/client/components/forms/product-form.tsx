@@ -14,7 +14,6 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { GalleryUpload } from "@/components/gallery-upload";
 import { ImageUpload } from "@/components/image-upload";
-import { VideoUpload } from "@/components/video-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -98,7 +97,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
       galleryUrls: initialData?.galleryUrls ?? [],
-      videoUrl: initialData?.videoUrl ?? "",
       stock:
         initialData?.stock != null ? parseQty(initialData.stock) : undefined,
       unitType: initialData?.unitType ?? "piece",
@@ -122,7 +120,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
         galleryUrls: initialData.galleryUrls ?? [],
-        videoUrl: initialData.videoUrl ?? "",
         stock:
           initialData.stock != null ? parseQty(initialData.stock) : undefined,
         unitType: initialData.unitType ?? "piece",
@@ -581,24 +578,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     <GalleryUpload
                       value={field.value ?? []}
                       onChange={field.onChange}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="videoUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Vidéo du produit (optionnel)</FormLabel>
-                  <FormControl>
-                    <VideoUpload
-                      value={field.value || null}
-                      onChange={(url) => field.onChange(url || "")}
                       disabled={isPending}
                     />
                   </FormControl>
