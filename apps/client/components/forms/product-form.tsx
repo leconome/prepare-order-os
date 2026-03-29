@@ -148,21 +148,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateProduct) => createProduct(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      router.push("/products");
-    },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProduct) => {
       if (!initialData) throw new Error("No product to update");
       return updateProduct(initialData.id, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product", initialData?.id] });
-      router.push("/products");
     },
   });
 
@@ -212,13 +203,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const onSubmit = form.handleSubmit(async (data) => {
     try {
-      if (isEditMode) {
+      if (isEditMode && initialData) {
         await updateMutation.mutateAsync(data as UpdateProduct);
         if (hasVariants && variantRows.length > 0) {
-          await upsertVariants(initialData?.id, variantRows);
+          await upsertVariants(initialData.id, variantRows);
         } else if (!hasVariants) {
           // Clear all variants when toggle is off
-          await upsertVariants(initialData?.id, []);
+          await upsertVariants(initialData.id, []);
         }
         queryClient.invalidateQueries({ queryKey: ["products"] });
         queryClient.invalidateQueries({
@@ -314,8 +305,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 checked={hasVariants}
                 onCheckedChange={(checked) => {
                   setHasVariants(checked);
-                  if (checked && variantRows.length === 0) {
-                    addVariantRow();
+                  form.setValue("hasVariants", checked);
+                  if (checked) {
+                    form.setValue("price", "0.00");
+                    if (variantRows.length === 0) addVariantRow();
                   }
                 }}
               />
@@ -421,7 +414,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     <FormItem>
                       <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
                       <FormControl>
-                        <Input placeholder="10.00" {...field} />
+                        <Input
+                          placeholder="10.00"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(e.target.value.replace(",", "."))
+                          }
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -502,7 +501,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         placeholder="0.00"
                         value={row.price}
                         onChange={(e) =>
-                          updateVariantRow(index, "price", e.target.value)
+                          updateVariantRow(index, "price", e.target.value.replace(",", "."))
                         }
                       />
                     </div>

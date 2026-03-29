@@ -76,7 +76,7 @@ export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   shortDescription: z.string().max(160).optional(),
   description: z.string().max(10000).optional(),
-  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  price: z.string().regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", ".")),
   categoryId: z.string().uuid().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),
   galleryUrls: z.array(z.string().url()).optional(),
@@ -94,7 +94,7 @@ export const updateProductSchema = z.object({
   description: z.string().max(10000).nullable().optional(),
   price: z
     .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Invalid price format")
+    .regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", "."))
     .optional(),
   categoryId: z.string().uuid().nullable().optional(),
   imageUrl: z.string().url().nullish().or(z.literal("")),

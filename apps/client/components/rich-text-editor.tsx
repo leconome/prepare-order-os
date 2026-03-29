@@ -12,7 +12,7 @@ import {
   Link as LinkIcon,
   Unlink,
 } from "lucide-react";
-import { Toggle } from "@/components/ui/toggle";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,34 @@ interface RichTextEditorProps {
   className?: string;
 }
 
+function ToolbarButton({
+  onClick,
+  active,
+  label,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  active?: boolean;
+  label: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "secondary" : "ghost"}
+      size="icon"
+      className="h-7 w-7"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+    >
+      {children}
+    </Button>
+  );
+}
+
 export function RichTextEditor({
   value,
   onChange,
@@ -32,6 +60,7 @@ export function RichTextEditor({
   className,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder }),
@@ -41,28 +70,9 @@ export function RichTextEditor({
     editable: !disabled,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
-      // Treat empty editor as empty string
       onChange(html === "<p></p>" ? "" : html);
     },
-    // Sync external value changes
-    onCreate: ({ editor }) => {
-      if (value && editor.getHTML() !== value) {
-        editor.commands.setContent(value, false);
-      }
-    },
   });
-
-  if (!editor) return null;
-
-  const setLink = () => {
-    const url = window.prompt("URL du lien :", editor.getAttributes("link").href);
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().unsetLink().run();
-      return;
-    }
-    editor.chain().focus().setLink({ href: url }).run();
-  };
 
   return (
     <div
@@ -74,74 +84,73 @@ export function RichTextEditor({
     >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-1 border-b p-1">
-        <Toggle
-          size="sm"
-          pressed={editor.isActive("bold")}
-          onPressedChange={() => editor.chain().focus().toggleBold().run()}
-          disabled={disabled}
-          aria-label="Gras"
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleBold().run()}
+          active={editor?.isActive("bold")}
+          disabled={disabled || !editor}
+          label="Gras"
         >
-          <Bold className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive("italic")}
-          onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-          disabled={disabled}
-          aria-label="Italique"
+          <Bold className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleItalic().run()}
+          active={editor?.isActive("italic")}
+          disabled={disabled || !editor}
+          label="Italique"
         >
-          <Italic className="h-4 w-4" />
-        </Toggle>
+          <Italic className="h-3.5 w-3.5" />
+        </ToolbarButton>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
-        <Toggle
-          size="sm"
-          pressed={editor.isActive("bulletList")}
-          onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
-          disabled={disabled}
-          aria-label="Liste à puces"
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleBulletList().run()}
+          active={editor?.isActive("bulletList")}
+          disabled={disabled || !editor}
+          label="Liste à puces"
         >
-          <List className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive("orderedList")}
-          onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
-          disabled={disabled}
-          aria-label="Liste numérotée"
+          <List className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+          active={editor?.isActive("orderedList")}
+          disabled={disabled || !editor}
+          label="Liste numérotée"
         >
-          <ListOrdered className="h-4 w-4" />
-        </Toggle>
+          <ListOrdered className="h-3.5 w-3.5" />
+        </ToolbarButton>
 
         <Separator orientation="vertical" className="mx-1 h-6" />
 
-        <Toggle
-          size="sm"
-          pressed={editor.isActive("link")}
-          onPressedChange={setLink}
-          disabled={disabled}
-          aria-label="Lien"
+        <ToolbarButton
+          onClick={() => {
+            if (!editor) return;
+            const url = window.prompt("URL du lien :", editor.getAttributes("link").href);
+            if (url === null) return;
+            if (url === "") { editor.chain().focus().unsetLink().run(); return; }
+            editor.chain().focus().setLink({ href: url }).run();
+          }}
+          active={editor?.isActive("link")}
+          disabled={disabled || !editor}
+          label="Lien"
         >
-          <LinkIcon className="h-4 w-4" />
-        </Toggle>
-        {editor.isActive("link") && (
-          <Toggle
-            size="sm"
-            pressed={false}
-            onPressedChange={() => editor.chain().focus().unsetLink().run()}
+          <LinkIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        {editor?.isActive("link") && (
+          <ToolbarButton
+            onClick={() => editor.chain().focus().unsetLink().run()}
             disabled={disabled}
-            aria-label="Supprimer le lien"
+            label="Supprimer le lien"
           >
-            <Unlink className="h-4 w-4" />
-          </Toggle>
+            <Unlink className="h-3.5 w-3.5" />
+          </ToolbarButton>
         )}
       </div>
 
       {/* Editor area */}
       <EditorContent
         editor={editor}
-        className="prose prose-sm max-w-none px-3 py-2 text-sm focus-within:outline-none [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]"
+        className="prose prose-sm max-w-none px-3 py-2 text-sm [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]"
       />
     </div>
   );
