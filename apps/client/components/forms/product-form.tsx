@@ -12,7 +12,9 @@ import { Loader2, Plus, Save, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { GalleryUpload } from "@/components/gallery-upload";
 import { ImageUpload } from "@/components/image-upload";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,7 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   type CreateProduct,
   createProduct,
@@ -90,10 +91,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
     ),
     defaultValues: {
       name: initialData?.name ?? "",
+      shortDescription: initialData?.shortDescription ?? "",
       description: initialData?.description ?? "",
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
       imageUrl: initialData?.imageUrl ?? "",
+      galleryUrls: initialData?.galleryUrls ?? [],
       stock:
         initialData?.stock != null ? parseQty(initialData.stock) : undefined,
       unitType: initialData?.unitType ?? "piece",
@@ -111,10 +114,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
     if (initialData) {
       form.reset({
         name: initialData.name,
+        shortDescription: initialData.shortDescription ?? "",
         description: initialData.description ?? "",
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
         imageUrl: initialData.imageUrl ?? "",
+        galleryUrls: initialData.galleryUrls ?? [],
         stock:
           initialData.stock != null ? parseQty(initialData.stock) : undefined,
         unitType: initialData.unitType ?? "piece",
@@ -143,21 +148,12 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateProduct) => createProduct(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      router.push("/products");
-    },
   });
 
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProduct) => {
       if (!initialData) throw new Error("No product to update");
       return updateProduct(initialData.id, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product", initialData?.id] });
-      router.push("/products");
     },
   });
 
@@ -207,13 +203,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
   const onSubmit = form.handleSubmit(async (data) => {
     try {
-      if (isEditMode) {
+      if (isEditMode && initialData) {
         await updateMutation.mutateAsync(data as UpdateProduct);
         if (hasVariants && variantRows.length > 0) {
-          await upsertVariants(initialData?.id, variantRows);
+          await upsertVariants(initialData.id, variantRows);
         } else if (!hasVariants) {
           // Clear all variants when toggle is off
-          await upsertVariants(initialData?.id, []);
+          await upsertVariants(initialData.id, []);
         }
         queryClient.invalidateQueries({ queryKey: ["products"] });
         queryClient.invalidateQueries({
@@ -259,15 +255,37 @@ export function ProductForm({ initialData }: ProductFormProps) {
 
             <FormField
               control={form.control}
+              name="shortDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description courte</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Accroche courte (max 160 caractères)"
+                      {...field}
+                      value={field.value || ""}
+                      maxLength={160}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground text-right">
+                    {(field.value || "").length}/160
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="description"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Description du produit..."
-                      {...field}
-                      value={field.value || ""}
+                    <RichTextEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormMessage />
@@ -287,8 +305,10 @@ export function ProductForm({ initialData }: ProductFormProps) {
                 checked={hasVariants}
                 onCheckedChange={(checked) => {
                   setHasVariants(checked);
-                  if (checked && variantRows.length === 0) {
-                    addVariantRow();
+                  form.setValue("hasVariants", checked);
+                  if (checked) {
+                    form.setValue("price", "0.00");
+                    if (variantRows.length === 0) addVariantRow();
                   }
                 }}
               />
@@ -394,7 +414,13 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     <FormItem>
                       <FormLabel>Prix (€{unitConfig.priceSuffix})</FormLabel>
                       <FormControl>
-                        <Input placeholder="10.00" {...field} />
+                        <Input
+                          placeholder="10.00"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(e.target.value.replace(",", "."))
+                          }
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -475,7 +501,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
                         placeholder="0.00"
                         value={row.price}
                         onChange={(e) =>
-                          updateVariantRow(index, "price", e.target.value)
+                          updateVariantRow(index, "price", e.target.value.replace(",", "."))
                         }
                       />
                     </div>
@@ -528,11 +554,29 @@ export function ProductForm({ initialData }: ProductFormProps) {
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Image du produit (optionnel)</FormLabel>
+                  <FormLabel>Image principale (optionnel)</FormLabel>
                   <FormControl>
                     <ImageUpload
                       value={field.value || null}
                       onChange={(url) => field.onChange(url || "")}
+                      disabled={isPending}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="galleryUrls"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Galerie photos (optionnel)</FormLabel>
+                  <FormControl>
+                    <GalleryUpload
+                      value={field.value ?? []}
+                      onChange={field.onChange}
                       disabled={isPending}
                     />
                   </FormControl>

@@ -1600,7 +1600,7 @@ export default function NewOrderPage() {
                           placeholder="0.00"
                           className="text-sm"
                           value={paidAmountValue}
-                          onChange={(e) => setPaidAmountValue(e.target.value)}
+                          onChange={(e) => setPaidAmountValue(e.target.value.replace(",", "."))}
                         />
                       </div>
                     )}

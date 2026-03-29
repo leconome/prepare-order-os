@@ -58,7 +58,7 @@ export type NewProductVariant = typeof productVariants.$inferInsert;
 // Zod schemas
 export const createVariantSchema = z.object({
   name: z.string().min(1).max(200),
-  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+  price: z.string().regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", ".")),
   stock: z.number().min(0).nullable().optional(),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().default(0),
@@ -68,7 +68,7 @@ export const updateVariantSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   price: z
     .string()
-    .regex(/^\d+(\.\d{1,2})?$/, "Invalid price format")
+    .regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", "."))
     .optional(),
   stock: z.number().min(0).nullable().optional(),
   isActive: z.boolean().optional(),
@@ -80,7 +80,7 @@ export const upsertVariantsSchema = z.array(
   z.object({
     id: z.string().uuid().optional(), // present = update, absent = create
     name: z.string().min(1).max(200),
-    price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
+    price: z.string().regex(/^\d+([.,]\d{1,2})?$/, "Invalid price format").transform((v) => v.replace(",", ".")),
     stock: z.number().min(0).nullable().optional(),
     isActive: z.boolean().default(true),
     sortOrder: z.number().int().default(0),
