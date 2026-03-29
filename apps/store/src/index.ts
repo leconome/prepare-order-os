@@ -123,6 +123,7 @@ console.log(`Server starting on port ${port}`);
 serve({
   fetch: app.fetch,
   port,
+  maxRequestBodySize: 250 * 1024 * 1024, // 250MB for video uploads
 });
 
 export default app;

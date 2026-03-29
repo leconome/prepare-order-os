@@ -25,6 +25,7 @@ export const products = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 200 }).notNull(),
+    shortDescription: varchar("short_description", { length: 160 }),
     description: text("description"),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     categoryId: uuid("category_id").references(() => categories.id),
@@ -74,6 +75,7 @@ export const unitTypeSchema = z.enum(UNITS);
 // Custom schemas for API
 export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
+  shortDescription: z.string().max(160).optional(),
   description: z.string().max(1000).optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format"),
   categoryId: z.string().uuid().optional(),
@@ -90,6 +92,7 @@ export const createProductSchema = z.object({
 
 export const updateProductSchema = z.object({
   name: z.string().min(1).max(200).optional(),
+  shortDescription: z.string().max(160).nullable().optional(),
   description: z.string().max(1000).nullable().optional(),
   price: z
     .string()

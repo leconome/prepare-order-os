@@ -92,6 +92,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
     ),
     defaultValues: {
       name: initialData?.name ?? "",
+      shortDescription: initialData?.shortDescription ?? "",
       description: initialData?.description ?? "",
       price: initialData?.price ?? "",
       categoryId: initialData?.categoryId ?? undefined,
@@ -115,6 +116,7 @@ export function ProductForm({ initialData }: ProductFormProps) {
     if (initialData) {
       form.reset({
         name: initialData.name,
+        shortDescription: initialData.shortDescription ?? "",
         description: initialData.description ?? "",
         price: initialData.price,
         categoryId: initialData.categoryId ?? undefined,
@@ -258,6 +260,28 @@ export function ProductForm({ initialData }: ProductFormProps) {
                   <FormControl>
                     <Input placeholder="Nom du produit" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="shortDescription"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description courte</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Accroche courte (max 160 caractères)"
+                      {...field}
+                      value={field.value || ""}
+                      maxLength={160}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground text-right">
+                    {(field.value || "").length}/160
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

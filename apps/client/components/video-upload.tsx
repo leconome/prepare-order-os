@@ -12,7 +12,7 @@ interface VideoUploadProps {
   disabled?: boolean;
 }
 
-const ACCEPTED_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+const ACCEPTED_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/mov", "video/x-m4v"];
 const MAX_SIZE_MB = 200;
 
 export function VideoUpload({ value, onChange, disabled }: VideoUploadProps) {
@@ -25,7 +25,7 @@ export function VideoUpload({ value, onChange, disabled }: VideoUploadProps) {
 
   const handleFile = useCallback(
     (file: File) => {
-      if (!ACCEPTED_TYPES.includes(file.type)) {
+      if (!file.type.startsWith("video/") && !ACCEPTED_TYPES.includes(file.type)) {
         alert("Format non supporté. Utilisez MP4, WebM ou MOV.");
         return;
       }
@@ -109,7 +109,7 @@ export function VideoUpload({ value, onChange, disabled }: VideoUploadProps) {
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPTED_TYPES.join(",")}
+        accept="video/*,.mov"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
