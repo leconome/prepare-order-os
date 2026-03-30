@@ -99,10 +99,12 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
     .insert(products)
     .values({
       name: data.name,
+      shortDescription: data.shortDescription ?? null,
       description: data.description ?? null,
       price: data.price,
       categoryId: data.categoryId ?? null,
       imageUrl: data.imageUrl ?? null,
+      galleryUrls: data.galleryUrls ?? [],
       stock: data.stock != null ? String(data.stock) : null,
       unitType: data.unitType ?? "piece",
       defaultQty: data.defaultQty != null ? String(data.defaultQty) : null,
@@ -126,10 +128,12 @@ export async function updateProduct(
   };
 
   if (data.name !== undefined) updateData.name = data.name;
+  if (data.shortDescription !== undefined) updateData.shortDescription = data.shortDescription;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.price !== undefined) updateData.price = data.price;
   if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
   if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
+  if (data.galleryUrls !== undefined) updateData.galleryUrls = data.galleryUrls;
   if (data.stock !== undefined)
     updateData.stock = data.stock != null ? String(data.stock) : null;
   if (data.unitType !== undefined) updateData.unitType = data.unitType;
