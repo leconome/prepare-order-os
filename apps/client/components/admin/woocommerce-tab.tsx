@@ -202,10 +202,16 @@ function WooCommerceStatusCard({
               WooCommerce
               <span className="flex items-center gap-1.5">
                 {health ? (
-                  health.healthy ? (
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  health.connected ? (
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500"
+                      title="Connexion au store WooCommerce active"
+                    />
                   ) : (
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full bg-red-500"
+                      title={`Impossible de joindre le store WooCommerce${health.error ? ` : ${health.error}` : ""}`}
+                    />
                   )
                 ) : null}
               </span>
@@ -362,11 +368,10 @@ function WooCommerceActions({ tenantId }: { tenantId: string }) {
         queryKey: ["admin-wc-logs", tenantId],
       });
       const d = res.data;
-      setSyncResult(
-        `Synchronisé : ${d.categories} catégories, ${d.products} produits, ${d.variants} variantes`,
-      );
+      const msg = `Synchronisé : ${d.categories} catégories, ${d.products} produits, ${d.variants} variantes`;
+      setSyncResult(d.errors?.length ? `${msg} (${d.errors.length} erreur(s))` : msg);
     },
-    onError: () => setSyncResult(null),
+    onError: (e) => setSyncResult(`Erreur : ${e instanceof Error ? e.message : "Sync échouée"}`),
   });
 
   const backfillMutation = useMutation({
@@ -380,11 +385,10 @@ function WooCommerceActions({ tenantId }: { tenantId: string }) {
       });
       setBackfillOpen(false);
       const d = res.data;
-      setBackfillResult(
-        `Backfill terminé : ${d.categories} catégories, ${d.products} produits, ${d.variants} variantes`,
-      );
+      const msg = `Backfill terminé : ${d.categories} catégories, ${d.products} produits, ${d.variants} variantes`;
+      setBackfillResult(d.errors?.length ? `${msg} (${d.errors.length} erreur(s) — voir le journal)` : msg);
     },
-    onError: () => setBackfillResult(null),
+    onError: (e) => setBackfillResult(`Erreur : ${e instanceof Error ? e.message : "Backfill échoué"}`),
   });
 
   return (

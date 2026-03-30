@@ -209,11 +209,15 @@ export async function getHealth(tenantId: string) {
   );
 
   try {
+    console.log(`[WC Health] Checking ${conn.storeUrl} for tenant ${tenantId}`);
     const status = await client.getSystemStatus();
+    console.log(`[WC Health] System status OK — WC ${status.environment.version}`);
+
     const webhooks = await client.listWebhooks();
     const tenantWebhooks = webhooks.filter((wh) =>
       wh.delivery_url.includes(tenantId),
     );
+    console.log(`[WC Health] Found ${tenantWebhooks.length} webhook(s) for tenant`);
 
     await db
       .update(wooCommerceConnections)
@@ -231,6 +235,7 @@ export async function getHealth(tenantId: string) {
       })),
     };
   } catch (error) {
+    console.error(`[WC Health] Failed for tenant ${tenantId}:`, error);
     return {
       connected: false,
       error: error instanceof Error ? error.message : "Unknown error",
@@ -245,18 +250,7 @@ function mapProductToWc(
   product: typeof products.$inferSelect,
   tenantId: string,
 ) {
-  const images: { src: string }[] = [];
-  if (product.imageUrl) {
-    images.push({ src: product.imageUrl });
-  }
-  const galleryUrls = product.galleryUrls as string[] | null;
-  if (galleryUrls?.length) {
-    for (const url of galleryUrls) {
-      images.push({ src: url });
-    }
-  }
-
-  return {
+  const data: Record<string, unknown> = {
     name: product.name,
     short_description: product.shortDescription ?? "",
     description: product.description ?? "",
@@ -265,11 +259,29 @@ function mapProductToWc(
     status: product.isActive ? "publish" : "draft",
     manage_stock: !product.hasVariants,
     stock_quantity: product.stock ? Number(product.stock) : null,
-    images,
     meta_data: [
       { key: "_prepareos_unit_type", value: product.unitType },
     ],
   };
+
+  // Only include images in production — in dev, WooCommerce can't reach local S3 URLs
+  if (process.env.NODE_ENV === "production") {
+    const images: { src: string }[] = [];
+    if (product.imageUrl) {
+      images.push({ src: product.imageUrl });
+    }
+    const galleryUrls = product.galleryUrls as string[] | null;
+    if (galleryUrls?.length) {
+      for (const url of galleryUrls) {
+        images.push({ src: url });
+      }
+    }
+    if (images.length > 0) {
+      data.images = images;
+    }
+  }
+
+  return data;
 }
 
 function mapCategoryToWc(category: typeof categories.$inferSelect, _tenantId: string) {
@@ -606,7 +618,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 export async function backfill(tenantId: string) {
   const conn = await getEnabledConnection(tenantId);
-  if (!conn) return;
+  if (!conn) throw new Error("No enabled WooCommerce connection");
 
   const client = createClient(
     conn.storeUrl,
@@ -614,73 +626,100 @@ export async function backfill(tenantId: string) {
     conn.consumerSecret,
   );
 
+  const errors: string[] = [];
+  console.log(`[WC Backfill] Starting backfill for tenant ${tenantId} → ${conn.storeUrl}`);
+
+  // 1. Push categories (roots first, then children)
+  const allCategories = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.tenantId, tenantId));
+
+  const rootCategories = allCategories.filter((c) => !c.parentId);
+  const childCategories = allCategories.filter((c) => c.parentId);
+
+  console.log(`[WC Backfill] Found ${allCategories.length} categories (${rootCategories.length} root, ${childCategories.length} children)`);
   try {
-    // 1. Push categories (roots first, then children)
-    const allCategories = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.tenantId, tenantId));
-
-    const rootCategories = allCategories.filter((c) => !c.parentId);
-    const childCategories = allCategories.filter((c) => c.parentId);
-
-    // Process root categories
     await backfillCategories(client, tenantId, rootCategories);
-    // Process child categories (parents already have mappings)
     await backfillCategories(client, tenantId, childCategories);
+  } catch (e) {
+    const msg = `Categories failed: ${e instanceof Error ? e.message : String(e)}`;
+    console.error("[WC Backfill]", msg);
+    errors.push(msg);
+  }
 
-    // 2. Push products
-    const allProducts = await db
-      .select()
-      .from(products)
-      .where(eq(products.tenantId, tenantId));
+  // 2. Push products
+  const allProducts = await db
+    .select()
+    .from(products)
+    .where(eq(products.tenantId, tenantId));
 
+  console.log(`[WC Backfill] Found ${allProducts.length} products`);
+  try {
     await backfillProducts(client, tenantId, allProducts);
+  } catch (e) {
+    const msg = `Products failed: ${e instanceof Error ? e.message : String(e)}`;
+    console.error("[WC Backfill]", msg);
+    errors.push(msg);
+  }
 
-    // 3. Push variants grouped by parent product
-    const allVariants = await db
-      .select()
-      .from(productVariants)
-      .where(eq(productVariants.tenantId, tenantId));
+  // 3. Push variants grouped by parent product
+  const allVariants = await db
+    .select()
+    .from(productVariants)
+    .where(eq(productVariants.tenantId, tenantId));
 
-    // Group variants by productId
-    const variantsByProduct = new Map<
-      string,
-      (typeof productVariants.$inferSelect)[]
-    >();
-    for (const v of allVariants) {
-      const group = variantsByProduct.get(v.productId) ?? [];
-      group.push(v);
-      variantsByProduct.set(v.productId, group);
+  const variantsByProduct = new Map<
+    string,
+    (typeof productVariants.$inferSelect)[]
+  >();
+  for (const v of allVariants) {
+    const group = variantsByProduct.get(v.productId) ?? [];
+    group.push(v);
+    variantsByProduct.set(v.productId, group);
+  }
+
+  console.log(`[WC Backfill] Found ${allVariants.length} variants across ${variantsByProduct.size} products`);
+
+  for (const [productId, variants] of variantsByProduct) {
+    const productMapping = await getMapping(tenantId, "product", productId);
+    if (!productMapping) continue;
+    try {
+      await backfillVariants(client, tenantId, productMapping.remoteId, variants);
+    } catch (e) {
+      const msg = `Variants for product ${productId} failed: ${e instanceof Error ? e.message : String(e)}`;
+      console.error("[WC Backfill]", msg);
+      errors.push(msg);
     }
+  }
 
-    for (const [productId, variants] of variantsByProduct) {
-      const productMapping = await getMapping(tenantId, "product", productId);
-      if (!productMapping) continue;
-      await backfillVariants(
-        client,
-        tenantId,
-        productMapping.remoteId,
-        variants,
-      );
-    }
+  await updateLastSyncAt(tenantId);
 
-    await updateLastSyncAt(tenantId);
-    await logSyncEvent(
-      tenantId,
-      "backfill",
-      "success",
-      `Backfill complete: ${allCategories.length} categories, ${allProducts.length} products, ${allVariants.length} variants`,
-    );
-  } catch (error) {
+  const counts = {
+    categories: allCategories.length,
+    products: allProducts.length,
+    variants: allVariants.length,
+    errors,
+  };
+
+  if (errors.length > 0) {
     await logSyncEvent(
       tenantId,
       "backfill",
       "failure",
-      "Backfill failed",
-      error instanceof Error ? error.message : String(error),
+      `Backfill partial: ${counts.categories} categories, ${counts.products} products, ${counts.variants} variants — ${errors.length} error(s)`,
+      errors.join("\n"),
+    );
+  } else {
+    await logSyncEvent(
+      tenantId,
+      "backfill",
+      "success",
+      `Backfill complete: ${counts.categories} categories, ${counts.products} products, ${counts.variants} variants`,
     );
   }
+
+  return counts;
 }
 
 async function backfillCategories(
@@ -688,9 +727,11 @@ async function backfillCategories(
   tenantId: string,
   cats: (typeof categories.$inferSelect)[],
 ) {
-  if (cats.length === 0) return;
+  if (cats.length === 0) {
+    console.log("[WC Backfill] No categories to process");
+    return;
+  }
 
-  // Split into create vs update based on existing mappings
   const toCreate: { local: typeof categories.$inferSelect; wc: Record<string, unknown> }[] = [];
   const toUpdate: { local: typeof categories.$inferSelect; wc: Record<string, unknown>; remoteId: number }[] = [];
 
@@ -700,6 +741,8 @@ async function backfillCategories(
       const parentMapping = await getMapping(tenantId, "category", cat.parentId);
       if (parentMapping) {
         wcData.parent = parentMapping.remoteId;
+      } else {
+        console.warn(`[WC Backfill] Category '${cat.name}' has parentId ${cat.parentId} but no mapping found`);
       }
     }
     const existing = await getMapping(tenantId, "category", cat.id);
@@ -710,27 +753,32 @@ async function backfillCategories(
     }
   }
 
-  // Process in chunks of BATCH_SIZE
+  console.log(`[WC Backfill] Categories: ${toCreate.length} to create, ${toUpdate.length} to update`);
+
   for (const createChunk of chunk(toCreate, BATCH_SIZE)) {
+    console.log(`[WC Backfill] Batch creating ${createChunk.length} categories...`);
     const result = await client.batchCategories({
       create: createChunk.map((c) => c.wc),
     });
+    console.log("[WC Backfill] Batch categories create response:", JSON.stringify(result, null, 2));
     if (result.create) {
       for (let i = 0; i < result.create.length; i++) {
-        await upsertMapping(
-          tenantId,
-          "category",
-          createChunk[i].local.id,
-          result.create[i].id,
-        );
+        const item = result.create[i] as Record<string, unknown>;
+        if (item.error) {
+          console.error(`[WC Backfill] Category '${createChunk[i].local.name}' error:`, item.error);
+          continue;
+        }
+        await upsertMapping(tenantId, "category", createChunk[i].local.id, item.id as number);
       }
     }
   }
 
   for (const updateChunk of chunk(toUpdate, BATCH_SIZE)) {
-    await client.batchCategories({
+    console.log(`[WC Backfill] Batch updating ${updateChunk.length} categories...`);
+    const result = await client.batchCategories({
       update: updateChunk.map((u) => u.wc),
     });
+    console.log("[WC Backfill] Batch categories update response:", JSON.stringify(result, null, 2));
     for (const u of updateChunk) {
       await upsertMapping(tenantId, "category", u.local.id, u.remoteId);
     }
@@ -742,7 +790,10 @@ async function backfillProducts(
   tenantId: string,
   prods: (typeof products.$inferSelect)[],
 ) {
-  if (prods.length === 0) return;
+  if (prods.length === 0) {
+    console.log("[WC Backfill] No products to process");
+    return;
+  }
 
   const toCreate: { local: typeof products.$inferSelect; wc: Record<string, unknown> }[] = [];
   const toUpdate: { local: typeof products.$inferSelect; wc: Record<string, unknown>; remoteId: number }[] = [];
@@ -753,6 +804,8 @@ async function backfillProducts(
       const catMapping = await getMapping(tenantId, "category", prod.categoryId);
       if (catMapping) {
         wcData.categories = [{ id: catMapping.remoteId }];
+      } else {
+        console.warn(`[WC Backfill] Product '${prod.name}' has categoryId ${prod.categoryId} but no mapping found`);
       }
     }
     const existing = await getMapping(tenantId, "product", prod.id);
@@ -763,26 +816,36 @@ async function backfillProducts(
     }
   }
 
+  console.log(`[WC Backfill] Products: ${toCreate.length} to create, ${toUpdate.length} to update`);
+
   for (const createChunk of chunk(toCreate, BATCH_SIZE)) {
+    console.log(`[WC Backfill] Batch creating ${createChunk.length} products...`);
+    console.log("[WC Backfill] Product payload sample:", JSON.stringify(createChunk[0]?.wc, null, 2));
     const result = await client.batchProducts({
       create: createChunk.map((c) => c.wc),
     });
+    console.log("[WC Backfill] Batch products create response:", JSON.stringify(result, null, 2));
     if (result.create) {
       for (let i = 0; i < result.create.length; i++) {
-        await upsertMapping(
-          tenantId,
-          "product",
-          createChunk[i].local.id,
-          result.create[i].id,
-        );
+        const item = result.create[i] as Record<string, unknown>;
+        if (item.error) {
+          console.error(`[WC Backfill] Product '${createChunk[i].local.name}' error:`, JSON.stringify(item.error));
+          continue;
+        }
+        await upsertMapping(tenantId, "product", createChunk[i].local.id, item.id as number);
+        console.log(`[WC Backfill] Product '${createChunk[i].local.name}' → WC #${item.id}`);
       }
+    } else {
+      console.error("[WC Backfill] No 'create' key in batch products response");
     }
   }
 
   for (const updateChunk of chunk(toUpdate, BATCH_SIZE)) {
-    await client.batchProducts({
+    console.log(`[WC Backfill] Batch updating ${updateChunk.length} products...`);
+    const result = await client.batchProducts({
       update: updateChunk.map((u) => u.wc),
     });
+    console.log("[WC Backfill] Batch products update response:", JSON.stringify(result, null, 2));
     for (const u of updateChunk) {
       await upsertMapping(tenantId, "product", u.local.id, u.remoteId);
     }
@@ -795,7 +858,10 @@ async function backfillVariants(
   wcProductId: number,
   variants: (typeof productVariants.$inferSelect)[],
 ) {
-  if (variants.length === 0) return;
+  if (variants.length === 0) {
+    console.log(`[WC Backfill] No variants for WC product #${wcProductId}`);
+    return;
+  }
 
   const toCreate: { local: typeof productVariants.$inferSelect; wc: Record<string, unknown> }[] = [];
   const toUpdate: { local: typeof productVariants.$inferSelect; wc: Record<string, unknown>; remoteId: number }[] = [];
@@ -810,26 +876,33 @@ async function backfillVariants(
     }
   }
 
+  console.log(`[WC Backfill] Variants for WC #${wcProductId}: ${toCreate.length} to create, ${toUpdate.length} to update`);
+
   for (const createChunk of chunk(toCreate, BATCH_SIZE)) {
+    console.log(`[WC Backfill] Batch creating ${createChunk.length} variants for WC product #${wcProductId}...`);
     const result = await client.batchVariations(wcProductId, {
       create: createChunk.map((c) => c.wc),
     });
+    console.log("[WC Backfill] Batch variants create response:", JSON.stringify(result, null, 2));
     if (result.create) {
       for (let i = 0; i < result.create.length; i++) {
-        await upsertMapping(
-          tenantId,
-          "product_variant",
-          createChunk[i].local.id,
-          result.create[i].id,
-        );
+        const item = result.create[i] as Record<string, unknown>;
+        if (item.error) {
+          console.error(`[WC Backfill] Variant '${createChunk[i].local.name}' error:`, JSON.stringify(item.error));
+          continue;
+        }
+        await upsertMapping(tenantId, "product_variant", createChunk[i].local.id, item.id as number);
+        console.log(`[WC Backfill] Variant '${createChunk[i].local.name}' → WC #${item.id}`);
       }
     }
   }
 
   for (const updateChunk of chunk(toUpdate, BATCH_SIZE)) {
-    await client.batchVariations(wcProductId, {
+    console.log(`[WC Backfill] Batch updating ${updateChunk.length} variants for WC product #${wcProductId}...`);
+    const result = await client.batchVariations(wcProductId, {
       update: updateChunk.map((u) => u.wc),
     });
+    console.log("[WC Backfill] Batch variants update response:", JSON.stringify(result, null, 2));
     for (const u of updateChunk) {
       await upsertMapping(tenantId, "product_variant", u.local.id, u.remoteId);
     }
@@ -912,6 +985,10 @@ export async function upsertMapping(
   localId: string,
   remoteId: number,
 ) {
+  if (!remoteId || remoteId <= 0) {
+    console.error(`[WC Mapping] Refusing to save invalid remoteId ${remoteId} for ${resourceType} ${localId}`);
+    return;
+  }
   await db
     .insert(wooCommerceIdMappings)
     .values({

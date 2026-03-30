@@ -39,17 +39,30 @@ export class WooCommerceClient {
       body: body ? JSON.stringify(body) : undefined,
     });
 
+    const contentType = res.headers.get("content-type") ?? "";
+
     if (!res.ok) {
-      const error = (await res.json().catch(() => ({
-        message: `HTTP ${res.status}`,
-      }))) as WcError;
+      if (contentType.includes("application/json")) {
+        const error = (await res.json().catch(() => ({
+          message: `HTTP ${res.status}`,
+        }))) as WcError;
+        throw new Error(
+          `WooCommerce API error (${res.status}): ${error.message || error.code || "Unknown error"}`,
+        );
+      }
       throw new Error(
-        `WooCommerce API error (${res.status}): ${error.message || error.code || "Unknown error"}`,
+        `WooCommerce API error (${res.status}): Expected JSON but got ${contentType || "unknown content type"}. Is the WooCommerce REST API enabled and are permalinks set to "Post name"?`,
       );
     }
 
     if (res.status === 204 || res.headers.get("content-length") === "0") {
       return {} as T;
+    }
+
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        `WooCommerce API returned ${contentType || "non-JSON"} instead of JSON. Check that the store URL is correct and the WooCommerce REST API is accessible.`,
+      );
     }
 
     return res.json() as Promise<T>;

@@ -965,7 +965,7 @@ export async function toggleWooCommerce(
 
 export async function syncWooCommerce(
   tenantId: string,
-): Promise<{ data: { categories: number; products: number; variants: number } }> {
+): Promise<{ data: { categories: number; products: number; variants: number; errors?: string[] } }> {
   return fetchApi(`/admin/tenants/${tenantId}/woocommerce/sync`, {
     method: "POST",
   });
@@ -973,7 +973,7 @@ export async function syncWooCommerce(
 
 export async function backfillWooCommerce(
   tenantId: string,
-): Promise<{ data: { categories: number; products: number; variants: number } }> {
+): Promise<{ data: { categories: number; products: number; variants: number; errors?: string[] } }> {
   return fetchApi(`/admin/tenants/${tenantId}/woocommerce/backfill`, {
     method: "POST",
   });
@@ -983,7 +983,7 @@ export async function fetchWooCommerceHealth(
   tenantId: string,
 ): Promise<{
   data: {
-    healthy: boolean;
+    connected: boolean;
     wcVersion?: string;
     storeName?: string;
     error?: string;

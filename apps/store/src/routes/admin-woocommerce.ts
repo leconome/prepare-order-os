@@ -81,8 +81,8 @@ router.post("/:tenantId/woocommerce/sync", async (c) => {
   const tenantId = c.req.param("tenantId");
 
   try {
-    await wcService.backfill(tenantId);
-    return c.json({ data: { synced: true } });
+    const result = await wcService.backfill(tenantId);
+    return c.json({ data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sync failed";
     console.error("[WC Sync Error]", error);
@@ -95,8 +95,8 @@ router.post("/:tenantId/woocommerce/backfill", async (c) => {
   const tenantId = c.req.param("tenantId");
 
   try {
-    await wcService.backfill(tenantId);
-    return c.json({ data: { backfilled: true } });
+    const result = await wcService.backfill(tenantId);
+    return c.json({ data: result });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Backfill failed";
