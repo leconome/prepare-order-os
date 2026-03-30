@@ -29,7 +29,9 @@ router.post(
     const tenantId = c.req.param("tenantId");
     const data = c.req.valid("json");
 
+    // TUNNEL_URL takes priority for local dev (ngrok/cloudflare tunnel for webhook delivery)
     const apiHost =
+      process.env.TUNNEL_URL ||
       process.env.PUBLIC_API_URL ||
       `${c.req.header("X-Forwarded-Proto") || "https"}://${c.req.header("Host")}`;
 
@@ -59,6 +61,31 @@ router.post("/:tenantId/woocommerce/disconnect", async (c) => {
     return c.json({ error: message }, 500);
   }
 });
+
+// PATCH /api/admin/tenants/:tenantId/woocommerce — update connection (store URL, credentials)
+router.patch(
+  "/:tenantId/woocommerce",
+  zValidator("json", connectWooCommerceSchema),
+  async (c) => {
+    const tenantId = c.req.param("tenantId");
+    const data = c.req.valid("json");
+
+    const apiHost =
+      process.env.TUNNEL_URL ||
+      process.env.PUBLIC_API_URL ||
+      `${c.req.header("X-Forwarded-Proto") || "https"}://${c.req.header("Host")}`;
+
+    try {
+      const updated = await wcService.updateConnection(tenantId, data, apiHost);
+      return c.json({ data: updated });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Update failed";
+      console.error("[WC Update Error]", error);
+      return c.json({ error: message }, 400);
+    }
+  },
+);
 
 // PATCH /api/admin/tenants/:tenantId/woocommerce/toggle — toggle isEnabled
 router.patch(

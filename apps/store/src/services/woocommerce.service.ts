@@ -13,7 +13,7 @@ import { db } from "../db/index.js";
 import { WooCommerceClient } from "../lib/woocommerce.client.js";
 
 const BATCH_SIZE = 100;
-const MAX_SYNC_LOGS = 20;
+const MAX_SYNC_LOGS = 100;
 
 // ── Internal helpers ──────────────────────────────────
 
@@ -113,7 +113,7 @@ export async function connect(
     .returning();
 
   // Register webhooks for order events
-  const webhookUrl = `${apiHost}/api/webhooks/woocommerce/${tenantId}`;
+  const webhookUrl = `${apiHost}/api/woocommerce/webhooks/${tenantId}/orders`;
   const topics = [
     "order.created",
     "order.updated",
@@ -145,6 +145,67 @@ export async function connect(
     ...connection,
     consumerKey: maskSecret(connection.consumerKey),
     consumerSecret: maskSecret(connection.consumerSecret),
+  };
+}
+
+export async function updateConnection(
+  tenantId: string,
+  data: ConnectWooCommerce,
+  apiHost: string,
+) {
+  const conn = await getRawConnection(tenantId);
+  if (!conn) throw new Error("No existing connection");
+
+  // Test new credentials
+  const { wcVersion, storeName } = await testConnection(
+    data.storeUrl,
+    data.consumerKey,
+    data.consumerSecret,
+  );
+
+  // Remove old webhooks from old store (best-effort)
+  try {
+    const oldClient = createClient(conn.storeUrl, conn.consumerKey, conn.consumerSecret);
+    const webhooks = await oldClient.listWebhooks();
+    for (const wh of webhooks) {
+      if (wh.delivery_url.includes(tenantId)) {
+        await oldClient.deleteWebhook(wh.id);
+      }
+    }
+  } catch (_e) {
+    console.warn("[WC Update] Could not clean up old webhooks:", _e);
+  }
+
+  // Update stored credentials
+  const [updated] = await db
+    .update(wooCommerceConnections)
+    .set({
+      storeUrl: data.storeUrl,
+      consumerKey: data.consumerKey,
+      consumerSecret: data.consumerSecret,
+      updatedAt: new Date(),
+    })
+    .where(eq(wooCommerceConnections.tenantId, tenantId))
+    .returning();
+
+  // Register webhooks on new store
+  const newClient = createClient(data.storeUrl, data.consumerKey, data.consumerSecret);
+  const webhookUrl = `${apiHost}/api/woocommerce/webhooks/${tenantId}/orders`;
+
+  try {
+    await newClient.createWebhook("order.created", webhookUrl, conn.webhookSecret);
+    await newClient.createWebhook("order.updated", webhookUrl, conn.webhookSecret);
+    await logSyncEvent(tenantId, "webhook_registered", "success", "Re-registered webhooks after connection update");
+  } catch (e) {
+    await logSyncEvent(tenantId, "webhook_registered", "failure", "Failed to register webhooks after update", String(e));
+  }
+
+  await logSyncEvent(tenantId, "connection_test", "success", `Updated connection to ${storeName} (WC ${wcVersion})`);
+
+  return {
+    ...updated,
+    consumerKey: maskSecret(updated.consumerKey),
+    consumerSecret: maskSecret(updated.consumerSecret),
   };
 }
 

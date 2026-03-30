@@ -963,6 +963,16 @@ export async function toggleWooCommerce(
   });
 }
 
+export async function updateWooCommerce(
+  tenantId: string,
+  data: { storeUrl: string; consumerKey: string; consumerSecret: string },
+): Promise<{ data: unknown }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function syncWooCommerce(
   tenantId: string,
 ): Promise<{ data: { categories: number; products: number; variants: number; errors?: string[] } }> {

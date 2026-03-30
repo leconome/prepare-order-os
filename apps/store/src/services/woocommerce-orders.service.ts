@@ -7,7 +7,6 @@ import {
   getMappingByRemoteId,
   getRawConnection,
   logSyncEvent,
-  pushStock,
 } from "./woocommerce.service.js";
 
 // ── WooCommerce status → PrepareOS status mapping ────────
@@ -246,12 +245,9 @@ async function createOrderFromWc(
     items: mappedItems,
   });
 
-  // 5. Push corrected stock back to WC for affected products
-  for (const pid of affectedProductIds) {
-    await pushStock(tenantId, pid);
-  }
+  // Stock push is handled by order.service.ts after createOrder (no need to duplicate here)
 
-  // 6. Log sync event
+  // 5. Log sync event
   await logSyncEvent(
     tenantId,
     "order_received",
