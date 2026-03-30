@@ -30,6 +30,7 @@ import {
 import { type Database, db } from "../db/index.js";
 import { getMenuById } from "./menu.service.js";
 import { generateTicketNumber } from "./ticket.service.js";
+import * as wcService from "./woocommerce.service.js";
 
 function calculateTotals(
   subtotal: number,
@@ -605,6 +606,12 @@ export async function createOrder(tenantId: string, data: CreateOrder) {
     })
     .where(eq(orders.id, order.id));
 
+  // Push stock updates for affected products
+  const affectedProductIds = new Set(data.items.map((i: { productId: string }) => i.productId));
+  for (const pid of affectedProductIds) {
+    wcService.pushStock(tenantId, pid).catch(() => {});
+  }
+
   return getOrderById(tenantId, order.id);
 }
 
@@ -1073,6 +1080,12 @@ export async function deleteOrder(tenantId: string, id: string) {
   });
 
   await restoreStockForItems(tenantId, items);
+
+  // Push stock updates for affected products
+  const affectedProductIds = new Set(items.map((i) => i.productId));
+  for (const pid of affectedProductIds) {
+    wcService.pushStock(tenantId, pid).catch(() => {});
+  }
 
   const [deleted] = await db
     .delete(orders)

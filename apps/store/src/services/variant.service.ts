@@ -6,6 +6,7 @@ import {
 } from "@prepareos/data";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
+import * as wcService from "./woocommerce.service.js";
 
 export async function listVariants(tenantId: string, productId: string) {
   return db.query.productVariants.findMany({
@@ -40,6 +41,7 @@ export async function createVariant(
       tenantId,
     })
     .returning();
+  wcService.pushVariant(tenantId, variant.id).catch(() => {});
   return variant;
 }
 
@@ -65,6 +67,7 @@ export async function updateVariant(
       and(eq(productVariants.id, id), eq(productVariants.tenantId, tenantId)),
     )
     .returning();
+  wcService.pushVariant(tenantId, id).catch(() => {});
   return variant;
 }
 
@@ -87,7 +90,7 @@ export async function upsertVariants(
   productId: string,
   variants: UpsertVariants,
 ) {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const existing = await tx.query.productVariants.findMany({
       where: and(
         eq(productVariants.tenantId, tenantId),
@@ -151,4 +154,11 @@ export async function upsertVariants(
 
     return results;
   });
+
+  for (const v of result) {
+    if (v?.id) wcService.pushVariant(tenantId, v.id).catch(() => {});
+  }
+
+  return result;
 }
+
