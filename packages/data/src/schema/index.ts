@@ -10,3 +10,4 @@ export * from "./products.js";
 export * from "./sms.js";
 export * from "./tenants.js";
 export * from "./ticket-counter.js";
+export * from "./woocommerce.js";

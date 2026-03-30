@@ -927,6 +927,113 @@ export function formatDateWithAgo(date: string | Date): {
   return { full, ago };
 }
 
+// --- WooCommerce Admin ---
+
+export async function fetchWooCommerceConnection(
+  tenantId: string,
+): Promise<{ data: WooCommerceConnectionResponse | null }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce`);
+}
+
+export async function connectWooCommerce(
+  tenantId: string,
+  data: { storeUrl: string; consumerKey: string; consumerSecret: string },
+): Promise<{ data: unknown }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/connect`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function disconnectWooCommerce(
+  tenantId: string,
+): Promise<{ success: boolean }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/disconnect`, {
+    method: "POST",
+  });
+}
+
+export async function toggleWooCommerce(
+  tenantId: string,
+  isEnabled: boolean,
+): Promise<{ data: unknown }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/toggle`, {
+    method: "PATCH",
+    body: JSON.stringify({ isEnabled }),
+  });
+}
+
+export async function updateWooCommerce(
+  tenantId: string,
+  data: { storeUrl: string; consumerKey: string; consumerSecret: string },
+): Promise<{ data: unknown }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function syncWooCommerce(
+  tenantId: string,
+): Promise<{ data: { categories: number; products: number; variants: number; errors?: string[] } }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/sync`, {
+    method: "POST",
+  });
+}
+
+export async function backfillWooCommerce(
+  tenantId: string,
+): Promise<{ data: { categories: number; products: number; variants: number; errors?: string[] } }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/backfill`, {
+    method: "POST",
+  });
+}
+
+export async function fetchWooCommerceHealth(
+  tenantId: string,
+): Promise<{
+  data: {
+    connected: boolean;
+    wcVersion?: string;
+    storeName?: string;
+    error?: string;
+    webhooks: { id: number; topic: string; status: string }[];
+  };
+}> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/health`);
+}
+
+export async function fetchWooCommerceLogs(
+  tenantId: string,
+): Promise<{ data: WooCommerceSyncLogResponse[] }> {
+  return fetchApi(`/admin/tenants/${tenantId}/woocommerce/logs`);
+}
+
+// Types
+export interface WooCommerceConnectionResponse {
+  id: string;
+  tenantId: string;
+  storeUrl: string;
+  consumerKey: string;
+  consumerSecret: string;
+  webhookSecret: string;
+  isEnabled: boolean;
+  lastSyncAt: string | null;
+  lastHealthCheckAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WooCommerceSyncLogResponse {
+  id: string;
+  tenantId: string;
+  action: string;
+  status: "success" | "failure";
+  summary: string;
+  details: string | null;
+  createdAt: string;
+}
+
 // Re-export types for convenience
 export type {
   Order,

@@ -55,6 +55,19 @@
         "group": "dev",
         "reveal": "always"
       }
+    },
+    {
+      "label": "Ngrok Tunnel",
+      "type": "shell",
+      "command": "ngrok",
+      "args": ["start", "--all", "--config=./ngrok.yml"],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "dev"
+      },
+      "problemMatcher": []
     }
   ]
 }

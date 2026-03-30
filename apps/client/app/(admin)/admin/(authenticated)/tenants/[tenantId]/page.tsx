@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ExternalLink,
+  Globe,
   Loader2,
   MessageCircle,
   MessageSquare,
@@ -19,6 +20,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
+import { WooCommerceTab } from "@/components/admin/woocommerce-tab";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -728,6 +730,10 @@ export default function TenantDetailPage() {
             <Users className="h-4 w-4" />
             Propriétaires
           </TabsTrigger>
+          <TabsTrigger value="woocommerce" className="gap-2">
+            <Globe className="h-4 w-4" />
+            WooCommerce
+          </TabsTrigger>
           {process.env.NEXT_PUBLIC_STAGE === "dev" && (
             <TabsTrigger value="assistant" className="gap-2">
               <MessageCircle className="h-4 w-4" />
@@ -743,6 +749,9 @@ export default function TenantDetailPage() {
         </TabsContent>
         <TabsContent value="owners" className="mt-4">
           <OwnersTab tenantId={tenantId} />
+        </TabsContent>
+        <TabsContent value="woocommerce" className="mt-4">
+          <WooCommerceTab tenantId={tenantId} />
         </TabsContent>
         {process.env.NEXT_PUBLIC_STAGE === "dev" && (
           <TabsContent value="assistant" className="mt-4">

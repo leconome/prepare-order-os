@@ -7,6 +7,7 @@ import {
 } from "@prepareos/data";
 import { and, asc, eq, ilike, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
+import * as wcService from "./woocommerce.service.js";
 
 export async function listProducts(tenantId: string, filters: ProductFilters) {
   const {
@@ -115,7 +116,9 @@ export async function createProduct(tenantId: string, data: CreateProduct) {
     })
     .returning();
 
-  return getProductById(tenantId, product.id);
+  const created = await getProductById(tenantId, product.id);
+  wcService.pushProduct(tenantId, product.id).catch(() => {});
+  return created;
 }
 
 export async function updateProduct(
@@ -149,10 +152,14 @@ export async function updateProduct(
     .set(updateData)
     .where(and(eq(products.id, id), eq(products.tenantId, tenantId)));
 
-  return getProductById(tenantId, id);
+  const updated = await getProductById(tenantId, id);
+  wcService.pushProduct(tenantId, id).catch(() => {});
+  return updated;
 }
 
 export async function deleteProduct(tenantId: string, id: string) {
+  wcService.deleteRemoteProduct(tenantId, id).catch(() => {});
+
   const [deleted] = await db
     .delete(products)
     .where(and(eq(products.id, id), eq(products.tenantId, tenantId)))

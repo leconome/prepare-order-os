@@ -23,6 +23,8 @@ import tenantsRoutes from "./routes/tenants.js";
 import uploads from "./routes/uploads.js";
 import usersRoutes from "./routes/users.js";
 import variantRoutes from "./routes/variants.js";
+import woocommerceWebhooks from "./routes/woocommerce-webhooks.js";
+import adminWoocommerce from "./routes/admin-woocommerce.js";
 
 const app = new Hono();
 
@@ -60,12 +62,14 @@ app.use(
 app.route("/api/health", health);
 app.route("/api/images", images);
 app.route("/api/docs", docsRoutes);
+app.route("/api/woocommerce/webhooks", woocommerceWebhooks);
 
 // Auth routes — no tenant needed (Better Auth handles email/password globally)
 app.route("/api/auth", authRoutes);
 
 // Admin routes — no tenant middleware (cross-tenant)
 app.route("/api/admin", adminRoutes);
+app.route("/api/admin/tenants", adminWoocommerce);
 
 // Chat routes — no tenant middleware (tenantId from body or subdomain)
 app.route("/api/chat", chatRoutes);

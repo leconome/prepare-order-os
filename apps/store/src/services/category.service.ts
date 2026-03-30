@@ -7,6 +7,7 @@ import {
   type UpdateCategory,
   type CategoryFilters,
 } from "@prepareos/data";
+import * as wcService from "./woocommerce.service.js";
 
 export async function listCategories(tenantId: string, filters: CategoryFilters) {
   const { search, parentId, isActive, page = 1, limit = 20 } = filters;
@@ -93,7 +94,9 @@ export async function createCategory(tenantId: string, data: CreateCategory) {
     })
     .returning();
 
-  return getCategoryById(tenantId, category.id);
+  const created = await getCategoryById(tenantId, category.id);
+  wcService.pushCategory(tenantId, category.id).catch(() => {});
+  return created;
 }
 
 export async function updateCategory(tenantId: string, id: string, data: UpdateCategory) {
@@ -114,7 +117,9 @@ export async function updateCategory(tenantId: string, id: string, data: UpdateC
     .set(updateData)
     .where(and(eq(categories.id, id), eq(categories.tenantId, tenantId)));
 
-  return getCategoryById(tenantId, id);
+  const updated = await getCategoryById(tenantId, id);
+  wcService.pushCategory(tenantId, id).catch(() => {});
+  return updated;
 }
 
 export async function countProductsByCategory(tenantId: string, categoryId: string) {
@@ -127,6 +132,8 @@ export async function countProductsByCategory(tenantId: string, categoryId: stri
 }
 
 export async function deleteCategory(tenantId: string, id: string) {
+  wcService.deleteRemoteCategory(tenantId, id).catch(() => {});
+
   // Detach products from this category before deleting
   await db
     .update(products)
