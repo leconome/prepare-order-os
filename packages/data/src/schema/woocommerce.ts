@@ -1,3 +1,4 @@
+import { relations } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -107,6 +108,37 @@ export const wooCommerceSyncLogs = pgTable(
       .defaultNow(),
   },
   (table) => [index("wc_sync_logs_tenant_id_idx").on(table.tenantId)],
+);
+
+// Relations
+export const wooCommerceConnectionsRelations = relations(
+  wooCommerceConnections,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [wooCommerceConnections.tenantId],
+      references: [tenants.id],
+    }),
+  }),
+);
+
+export const wooCommerceIdMappingsRelations = relations(
+  wooCommerceIdMappings,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [wooCommerceIdMappings.tenantId],
+      references: [tenants.id],
+    }),
+  }),
+);
+
+export const wooCommerceSyncLogsRelations = relations(
+  wooCommerceSyncLogs,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [wooCommerceSyncLogs.tenantId],
+      references: [tenants.id],
+    }),
+  }),
 );
 
 // Zod schemas
