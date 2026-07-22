@@ -59,3 +59,9 @@ pnpm db:push
 # Open Drizzle Studio (GUI)
 pnpm db:studio
 ```
+
+## Built by
+
+Made by [L'Économe](https://econome.studio), a web and software studio in
+Toulouse. We build custom web applications and the infrastructure they run on,
+using open technologies and self-hosted deployments.
